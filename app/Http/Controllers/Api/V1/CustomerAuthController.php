@@ -69,7 +69,7 @@ class CustomerAuthController extends Controller
 
             return apiSuccess(
                 new CustomerResource($customer),
-                'Registration successful. Please check your email for OTP verification.',
+                'registration_successful',
                 201
             );
         } catch (\Exception $e) {
@@ -78,7 +78,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Registration failed. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -112,7 +112,7 @@ class CustomerAuthController extends Controller
 
             return apiSuccess(
                 new CustomerResource($customer),
-                'Account verified successfully.'
+                'account_verified'
             );
         } catch (InvalidOtpException $e) {
             return apiError($e->getErrorCode(), $e->getMessage(), $e->getStatusCode());
@@ -124,7 +124,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Verification failed. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -164,7 +164,7 @@ class CustomerAuthController extends Controller
             return apiSuccess([
                 'customer' => new CustomerResource($result['customer']),
                 'token' => $result['token'],
-            ], 'Login successful.');
+            ], 'login_successful');
         } catch (AccountNotVerifiedException $e) {
             return apiError($e->getErrorCode(), $e->getMessage(), $e->getStatusCode());
         } catch (ApiException $e) {
@@ -175,7 +175,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Login failed. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -202,7 +202,7 @@ class CustomerAuthController extends Controller
             // Always return success for security (don't reveal if email exists)
             return apiSuccess(
                 null,
-                'If the email exists, an OTP has been sent to your email address.'
+                'otp_sent'
             );
         } catch (\Exception $e) {
             Log::error('Forgot password failed', [
@@ -210,7 +210,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Failed to send OTP. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -244,7 +244,7 @@ class CustomerAuthController extends Controller
 
             return apiSuccess(
                 null,
-                'Password reset successfully. You can now login with your new password.'
+                'password_reset_successful'
             );
         } catch (InvalidOtpException $e) {
             return apiError($e->getErrorCode(), $e->getMessage(), $e->getStatusCode());
@@ -256,7 +256,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Password reset failed. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -290,14 +290,14 @@ class CustomerAuthController extends Controller
             $customer = auth('api')->user();
             
             if (!$customer) {
-                return apiError('UNAUTHORIZED', 'Unauthorized. Please login first.', 401);
+                return apiError('UNAUTHORIZED', 'unauthorized', 401);
             }
 
             $this->authService->deleteAccount($customer->id);
 
             return apiSuccess(
                 null,
-                'Account deleted successfully.'
+                'account_deleted'
             );
         } catch (ApiException $e) {
             return apiError($e->getErrorCode(), $e->getMessage(), $e->getStatusCode());
@@ -307,7 +307,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Account deletion failed. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -361,7 +361,7 @@ class CustomerAuthController extends Controller
             $customer = auth('api')->user();
             
             if (!$customer) {
-                return apiError('UNAUTHORIZED', 'Unauthorized. Please login first.', 401);
+                return apiError('UNAUTHORIZED', 'unauthorized', 401);
             }
 
             $customerData = $this->authService->getCustomer($customer->id);
@@ -377,7 +377,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Failed to retrieve customer data. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -411,14 +411,14 @@ class CustomerAuthController extends Controller
             $customer = auth('api')->user();
             
             if (!$customer) {
-                return apiError('UNAUTHORIZED', 'Unauthorized. Please login first.', 401);
+                return apiError('UNAUTHORIZED', 'unauthorized', 401);
             }
 
             $this->authService->logout($customer->id);
 
             return apiSuccess(
                 null,
-                'Logged out successfully.'
+                'logout_successful'
             );
         } catch (\Exception $e) {
             Log::error('Logout failed', [
@@ -426,7 +426,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Logout failed. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 
@@ -464,14 +464,14 @@ class CustomerAuthController extends Controller
             $customer = auth('api')->user();
             
             if (!$customer) {
-                return apiError('UNAUTHORIZED', 'Unauthorized. Please login first.', 401);
+                return apiError('UNAUTHORIZED', 'unauthorized', 401);
             }
 
             $newToken = $this->authService->refreshToken($customer->id);
 
             return apiSuccess(
                 ['token' => $newToken],
-                'Token refreshed successfully.'
+                'token_refreshed'
             );
         } catch (\Exception $e) {
             Log::error('Token refresh failed', [
@@ -479,7 +479,7 @@ class CustomerAuthController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return apiError('SERVER_ERROR', 'Token refresh failed. Please try again later.', 500);
+            return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
 }

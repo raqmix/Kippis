@@ -62,11 +62,11 @@ class OtpService
         $otpRecord = $this->otpRepository->findByEmailAndOtp($email, $otp, $type);
 
         if (!$otpRecord) {
-            throw new \App\Http\Exceptions\InvalidOtpException('Invalid OTP code.');
+            throw new \App\Http\Exceptions\InvalidOtpException();
         }
 
         if ($otpRecord->isExpired()) {
-            throw new \App\Http\Exceptions\InvalidOtpException('OTP has expired. Please request a new one.');
+            throw new \App\Http\Exceptions\InvalidOtpException();
         }
 
         return $otpRecord;

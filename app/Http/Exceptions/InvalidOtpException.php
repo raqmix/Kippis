@@ -9,8 +9,9 @@ namespace App\Http\Exceptions;
  */
 class InvalidOtpException extends ApiException
 {
-    public function __construct(string $message = 'Invalid or expired OTP.')
+    public function __construct(string $message = null)
     {
+        $message = $message ?? __('api.otp_invalid');
         parent::__construct('OTP_INVALID', $message, 400);
     }
 }

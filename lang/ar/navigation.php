@@ -17,6 +17,9 @@ return [
     'system_settings' => 'إعدادات النظام',
     'settings' => 'الإعدادات',
     
+    'customers' => 'العملاء',
+    'stores' => 'المتاجر',
+    
     'groups' => [
         'system_management' => 'إدارة النظام',
         'security' => 'الأمان',
@@ -24,5 +27,6 @@ return [
         'support' => 'الدعم',
         'integrations' => 'التكاملات',
         'monitoring' => 'المراقبة',
+        'customer_management' => 'إدارة العملاء',
     ],
 ];

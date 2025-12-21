@@ -13,7 +13,7 @@ if (!function_exists('apiSuccess')) {
      * Return a successful API response.
      *
      * @param mixed $data
-     * @param string|null $message
+     * @param string|null $message Translation key or message
      * @param int $statusCode
      * @return JsonResponse
      */
@@ -28,7 +28,10 @@ if (!function_exists('apiSuccess')) {
         }
 
         if ($message !== null) {
-            $response['message'] = $message;
+            // Try to translate the message, fallback to original if translation not found
+            $response['message'] = __("api.{$message}", [], app()->getLocale()) !== "api.{$message}" 
+                ? __("api.{$message}", [], app()->getLocale())
+                : $message;
         }
 
         return response()->json($response, $statusCode);
@@ -40,17 +43,22 @@ if (!function_exists('apiError')) {
      * Return an error API response.
      *
      * @param string $code
-     * @param string $message
+     * @param string $message Translation key or message
      * @param int $statusCode
      * @return JsonResponse
      */
     function apiError(string $code, string $message, int $statusCode = 400): JsonResponse
     {
+        // Try to translate the message, fallback to original if translation not found
+        $translatedMessage = __("api.{$message}", [], app()->getLocale()) !== "api.{$message}" 
+            ? __("api.{$message}", [], app()->getLocale())
+            : $message;
+
         return response()->json([
             'success' => false,
             'error' => [
                 'code' => $code,
-                'message' => $message,
+                'message' => $translatedMessage,
             ],
         ], $statusCode);
     }

@@ -18,6 +18,7 @@ return [
     'settings' => 'Settings',
     
     'customers' => 'Customers',
+    'stores' => 'Stores',
     
     'groups' => [
         'system_management' => 'System Management',

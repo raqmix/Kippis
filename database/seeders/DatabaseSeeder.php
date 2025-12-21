@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             DefaultPagesSeeder::class,
             NotificationSeeder::class,
+            StoreSeeder::class,
         ]);
     }
 }

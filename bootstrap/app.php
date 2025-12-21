@@ -25,6 +25,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Global security headers
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        
+        // API locale middleware
+        $middleware->alias([
+            'api.locale' => \App\Http\Middleware\SetApiLocale::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Handle API exceptions
@@ -43,11 +48,16 @@ return Application::configure(basePath: dirname(__DIR__))
         // Handle validation errors for API
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
             if ($request->is('api/*')) {
+                // Ensure locale is set for API requests
+                if (!$request->hasHeader('X-Locale') && !$request->hasHeader('Accept-Language')) {
+                    app()->setLocale('en'); // Default to English if no header
+                }
+                
                 return response()->json([
                     'success' => false,
                     'error' => [
                         'code' => 'VALIDATION_ERROR',
-                        'message' => 'Validation failed.',
+                        'message' => __('api.validation_failed'),
                         'errors' => $e->errors(),
                     ],
                 ], 422);

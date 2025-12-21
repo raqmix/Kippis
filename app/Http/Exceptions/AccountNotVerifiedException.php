@@ -9,8 +9,9 @@ namespace App\Http\Exceptions;
  */
 class AccountNotVerifiedException extends ApiException
 {
-    public function __construct(string $message = 'Account is not verified. Please verify your email first.')
+    public function __construct(string $message = null)
     {
+        $message = $message ?? __('api.account_not_verified');
         parent::__construct('ACCOUNT_NOT_VERIFIED', $message, 403);
     }
 }

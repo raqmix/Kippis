@@ -24,6 +24,7 @@ class RolePermissionSeeder extends Seeder
             'manage_payment_methods',
             'manage_settings',
             'manage_customers',
+            'manage_stores',
             'view_logs',
             'view_activities',
         ];
@@ -51,6 +52,7 @@ class RolePermissionSeeder extends Seeder
             'manage_channels',
             'manage_payment_methods',
             'manage_customers',
+            'manage_stores',
             'view_logs',
             'view_activities',
         ]);

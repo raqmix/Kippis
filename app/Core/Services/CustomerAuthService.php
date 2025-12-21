@@ -16,8 +16,7 @@ class CustomerAuthService
     public function __construct(
         private CustomerRepository $customerRepository,
         private OtpService $otpService,
-        private FileHelper $fileHelper,
-        private FoodicsCustomerService $foodicsCustomerService
+        private FileHelper $fileHelper
     ) {
     }
 
@@ -64,9 +63,9 @@ class CustomerAuthService
 
         // Get customer
         $customer = $this->customerRepository->findByEmail($email);
-        
+
         if (!$customer) {
-            throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', 'Customer not found.');
+            throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', __('api.customer_not_found'), 404);
         }
 
         // Mark customer as verified
@@ -75,9 +74,6 @@ class CustomerAuthService
         // Mark OTP as verified and delete it
         $otpRecord->markAsVerified();
         app(CustomerOtpRepository::class)->deleteByEmail($email, 'verification');
-
-        // Prepare hook for Foodics integration (optional, can be called later)
-        // $this->foodicsCustomerService->createCustomer($customer);
 
         return $customer;
     }
@@ -95,11 +91,11 @@ class CustomerAuthService
         $customer = $this->customerRepository->findByEmail($email);
 
         if (!$customer || !Hash::check($password, $customer->password)) {
-            throw new \App\Http\Exceptions\ApiException('INVALID_CREDENTIALS', 'Invalid email or password.');
+            throw new \App\Http\Exceptions\ApiException('INVALID_CREDENTIALS', __('api.invalid_credentials'), 400);
         }
 
         if (!$customer->is_verified) {
-            throw new AccountNotVerifiedException('Account is not verified. Please verify your email first.');
+            throw new AccountNotVerifiedException();
         }
 
         // Generate API token
@@ -147,9 +143,9 @@ class CustomerAuthService
 
         // Get customer
         $customer = $this->customerRepository->findByEmail($email);
-        
+
         if (!$customer) {
-            throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', 'Customer not found.');
+            throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', __('api.customer_not_found'), 404);
         }
 
         // Update password
@@ -170,7 +166,7 @@ class CustomerAuthService
     public function getCustomer(int $customerId): Customer
     {
         $customer = $this->customerRepository->findById($customerId);
-        
+
         if (!$customer) {
             throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', 'Customer not found.', 404);
         }
@@ -221,9 +217,9 @@ class CustomerAuthService
     public function deleteAccount(int $customerId): void
     {
         $customer = $this->customerRepository->findById($customerId);
-        
+
         if (!$customer) {
-            throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', 'Customer not found.');
+            throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', __('api.customer_not_found'), 404);
         }
 
         // Invalidate JWT token (logout)
