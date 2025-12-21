@@ -59,17 +59,17 @@ class StoreResource extends Resource
                             ->label(__('system.name'))
                             ->required()
                             ->maxLength(255),
-                        Forms\Components\Tabs::make('name_localized_tabs')
+                        Components\Tabs::make('name_localized_tabs')
                             ->label(__('system.name_localized'))
                             ->tabs([
-                                Forms\Components\Tabs\Tab::make('en')
+                                Components\Tabs\Tab::make('en')
                                     ->label('English')
                                     ->schema([
                                         Forms\Components\TextInput::make('name_localized.en')
                                             ->label(__('system.name'))
                                             ->maxLength(255),
                                     ]),
-                                Forms\Components\Tabs\Tab::make('ar')
+                                Components\Tabs\Tab::make('ar')
                                     ->label('Arabic')
                                     ->schema([
                                         Forms\Components\TextInput::make('name_localized.ar')
