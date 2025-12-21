@@ -1,0 +1,51 @@
+@import '../../vendor/filament/filament/resources/css/theme.css';
+
+:root {
+    /* Primary Colors */
+    --primary-50: #f5f3ff;
+    --primary-100: #ede9fe;
+    --primary-200: #ddd6fe;
+    --primary-300: #c4b5fd;
+    --primary-400: #a78bfa;
+    --primary-500: #7B6CF6;
+    --primary-600: #6A5AE0;
+    --primary-700: #5b21b6;
+    --primary-800: #4c1d95;
+    --primary-900: #312e81;
+    --primary-950: #1e1b4b;
+
+    /* App Background */
+    --app-background: #F6F7FB;
+    --card-background: #FFFFFF;
+    --soft-section-bg: #F1F2F8;
+
+    /* Text Colors */
+    --text-primary: #1F2937;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+
+    /* Accent Colors */
+    --accent: #4FD1C5;
+    --accent-soft: #E6FFFA;
+
+    /* Status Colors */
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --info: #60A5FA;
+}
+
+[data-theme="light"] {
+    --background: var(--app-background);
+    --card: var(--card-background);
+    --muted: var(--soft-section-bg);
+}
+
+/* RTL Support */
+[dir="rtl"] {
+    direction: rtl;
+}
+
+[dir="rtl"] .fi-sidebar-nav {
+    direction: rtl;
+}

@@ -1,0 +1,2 @@
+<livewire:notification-bell />
+
