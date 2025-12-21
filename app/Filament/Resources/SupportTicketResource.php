@@ -38,8 +38,25 @@ class SupportTicketResource extends Resource
                     ->icon('heroicon-o-user-circle')
                     ->description(__('system.contact_information_description'))
                     ->schema([
-                        Components\Grid::make(2)
+                        Components\Grid::make(3)
                             ->schema([
+                                Forms\Components\Select::make('customer_id')
+                                    ->label(__('system.customer'))
+                                    ->relationship('customer', 'name')
+                                    ->searchable()
+                                    ->preload()
+                                    ->native(false)
+                                    ->columnSpan(1)
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        if ($state) {
+                                            $customer = \App\Core\Models\Customer::find($state);
+                                            if ($customer) {
+                                                $set('name', $customer->name);
+                                                $set('email', $customer->email);
+                                            }
+                                        }
+                                    }),
                                 Forms\Components\TextInput::make('name')
                                     ->label(__('system.name'))
                                     ->placeholder(__('system.enter_name'))
@@ -132,10 +149,18 @@ class SupportTicketResource extends Resource
                 Tables\Columns\TextColumn::make('ticket_number')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('customer.name')
+                    ->label(__('system.customer'))
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->label(__('system.name'))
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge(),
                 Tables\Columns\TextColumn::make('priority')
@@ -153,6 +178,17 @@ class SupportTicketResource extends Resource
                         'in_progress' => __('system.in_progress'),
                         'closed' => __('system.closed'),
                     ]),
+                Tables\Filters\SelectFilter::make('priority')
+                    ->options([
+                        'low' => __('system.low'),
+                        'medium' => __('system.medium'),
+                        'high' => __('system.high'),
+                    ]),
+                Tables\Filters\SelectFilter::make('customer_id')
+                    ->label(__('system.customer'))
+                    ->relationship('customer', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 Actions\ViewAction::make(),

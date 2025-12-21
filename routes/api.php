@@ -37,5 +37,12 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\StoreController::class, 'index']);
         Route::get('/{id}', [\App\Http\Controllers\Api\V1\StoreController::class, 'show']);
     });
+
+    // Support Tickets routes
+    Route::prefix('v1/support-tickets')->group(function () {
+        Route::post('/', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'store']);
+        Route::get('/', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'index']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'show']);
+    });
 });
 

@@ -22,6 +22,7 @@ class SupportTicket extends Model
         'status',
         'assigned_to',
         'priority',
+        'customer_id',
     ];
 
     protected $casts = [
@@ -42,6 +43,11 @@ class SupportTicket extends Model
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(Admin::class, 'assigned_to');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
     }
 
     public function replies(): HasMany
