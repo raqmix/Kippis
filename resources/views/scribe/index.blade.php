@@ -105,6 +105,9 @@
                                                                                 <li class="tocify-item level-2" data-unique="customer-authentication-POSTapi-v1-customers-reset-password">
                                 <a href="#customer-authentication-POSTapi-v1-customers-reset-password">Reset password with OTP.</a>
                             </li>
+                                                                                <li class="tocify-item level-2" data-unique="customer-authentication-POSTapi-v1-customers-resend-otp">
+                                <a href="#customer-authentication-POSTapi-v1-customers-resend-otp">Resend OTP to customer.</a>
+                            </li>
                                                                                 <li class="tocify-item level-2" data-unique="customer-authentication-GETapi-v1-customers-me">
                                 <a href="#customer-authentication-GETapi-v1-customers-me">Get authenticated customer data.</a>
                             </li>
@@ -203,7 +206,7 @@ You can switch the language used with the tabs at the top right (or from the nav
     --form "birthdate=1990-01-01"\
     --form "password=password123"\
     --form "password_confirmation=password123"\
-    --form "avatar=@C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\php2DC.tmp" </code></pre></div>
+    --form "avatar=@C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\phpE000.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -411,7 +414,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>optional Customer avatar image (max 2MB). Example: <code>C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\php2DC.tmp</code></p>
+<p>optional Customer avatar image (max 2MB). Example: <code>C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\phpE000.tmp</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>password_confirmation</code></b>&nbsp;&nbsp;
@@ -1081,6 +1084,162 @@ You can check the Dev Tools console for debugging information.</code></pre>
         </div>
         </form>
 
+                    <h2 id="customer-authentication-POSTapi-v1-customers-resend-otp">Resend OTP to customer.</h2>
+
+<p>
+</p>
+
+<p>Resend an OTP code to the customer's email address. Can be used for verification or password reset.</p>
+
+<span id="example-requests-POSTapi-v1-customers-resend-otp">
+<blockquote>Example request:</blockquote>
+
+
+<div class="bash-example">
+    <pre><code class="language-bash">curl --request POST \
+    "https://kippis.raversys.uk/api/v1/customers/resend-otp" \
+    --header "Content-Type: application/json" \
+    --header "Accept: application/json" \
+    --data "{
+    \"email\": \"john@example.com\",
+    \"type\": \"verification\"
+}"
+</code></pre></div>
+
+
+<div class="javascript-example">
+    <pre><code class="language-javascript">const url = new URL(
+    "https://kippis.raversys.uk/api/v1/customers/resend-otp"
+);
+
+const headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
+
+let body = {
+    "email": "john@example.com",
+    "type": "verification"
+};
+
+fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+}).then(response =&gt; response.json());</code></pre></div>
+
+</span>
+
+<span id="example-responses-POSTapi-v1-customers-resend-otp">
+            <blockquote>
+            <p>Example response (200):</p>
+        </blockquote>
+                <pre>
+
+<code class="language-json" style="max-height: 300px;">{
+    &quot;success&quot;: true,
+    &quot;message&quot;: &quot;If the email exists, an OTP has been sent to your email address.&quot;
+}</code>
+ </pre>
+    </span>
+<span id="execution-results-POSTapi-v1-customers-resend-otp" hidden>
+    <blockquote>Received response<span
+                id="execution-response-status-POSTapi-v1-customers-resend-otp"></span>:
+    </blockquote>
+    <pre class="json"><code id="execution-response-content-POSTapi-v1-customers-resend-otp"
+      data-empty-response-text="<Empty response>" style="max-height: 400px;"></code></pre>
+</span>
+<span id="execution-error-POSTapi-v1-customers-resend-otp" hidden>
+    <blockquote>Request failed with error:</blockquote>
+    <pre><code id="execution-error-message-POSTapi-v1-customers-resend-otp">
+
+Tip: Check that you&#039;re properly connected to the network.
+If you&#039;re a maintainer of ths API, verify that your API is running and you&#039;ve enabled CORS.
+You can check the Dev Tools console for debugging information.</code></pre>
+</span>
+<form id="form-POSTapi-v1-customers-resend-otp" data-method="POST"
+      data-path="api/v1/customers/resend-otp"
+      data-authed="0"
+      data-hasfiles="0"
+      data-isarraybody="0"
+      autocomplete="off"
+      onsubmit="event.preventDefault(); executeTryOut('POSTapi-v1-customers-resend-otp', this);">
+    <h3>
+        Request&nbsp;&nbsp;&nbsp;
+                    <button type="button"
+                    style="background-color: #8fbcd4; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-tryout-POSTapi-v1-customers-resend-otp"
+                    onclick="tryItOut('POSTapi-v1-customers-resend-otp');">Try it out ⚡
+            </button>
+            <button type="button"
+                    style="background-color: #c97a7e; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-canceltryout-POSTapi-v1-customers-resend-otp"
+                    onclick="cancelTryOut('POSTapi-v1-customers-resend-otp');" hidden>Cancel 🛑
+            </button>&nbsp;&nbsp;
+            <button type="submit"
+                    style="background-color: #6ac174; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-executetryout-POSTapi-v1-customers-resend-otp"
+                    data-initial-text="Send Request 💥"
+                    data-loading-text="⏱ Sending..."
+                    hidden>Send Request 💥
+            </button>
+            </h3>
+            <p>
+            <small class="badge badge-black">POST</small>
+            <b><code>api/v1/customers/resend-otp</code></b>
+        </p>
+                <h4 class="fancy-heading-panel"><b>Headers</b></h4>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Content-Type</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Content-Type"                data-endpoint="POSTapi-v1-customers-resend-otp"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Accept</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Accept"                data-endpoint="POSTapi-v1-customers-resend-otp"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <h4 class="fancy-heading-panel"><b>Body Parameters</b></h4>
+        <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>email</code></b>&nbsp;&nbsp;
+<small>string</small>&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="email"                data-endpoint="POSTapi-v1-customers-resend-otp"
+               value="john@example.com"
+               data-component="body">
+    <br>
+<p>The customer's email address. Example: <code>john@example.com</code></p>
+        </div>
+                <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>type</code></b>&nbsp;&nbsp;
+<small>string</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="type"                data-endpoint="POSTapi-v1-customers-resend-otp"
+               value="verification"
+               data-component="body">
+    <br>
+<p>optional The OTP type: 'verification' or 'password_reset'. Default: 'verification'. Example: <code>verification</code></p>
+        </div>
+        </form>
+
                     <h2 id="customer-authentication-GETapi-v1-customers-me">Get authenticated customer data.</h2>
 
 <p>
@@ -1729,7 +1888,7 @@ Only stores that are active and receive online orders are returned. Deleted or i
     --data "{
     \"latitude\": 21,
     \"longitude\": 13,
-    \"sort\": \"nearest\",
+    \"sort\": \"name\",
     \"page\": 56,
     \"per_page\": 5
 }"
@@ -1759,7 +1918,7 @@ const headers = {
 let body = {
     "latitude": 21,
     "longitude": 13,
-    "sort": "nearest",
+    "sort": "name",
     "page": 56,
     "per_page": 5
 };
@@ -2006,10 +2165,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="sort"                data-endpoint="GETapi-v1-stores"
-               value="nearest"
+               value="name"
                data-component="body">
     <br>
-<p>Example: <code>nearest</code></p>
+<p>Example: <code>name</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>nearest</code></li> <li><code>name</code></li></ul>
         </div>
@@ -2823,8 +2982,8 @@ If you are authenticated, you will automatically see only your own tickets. If y
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"status\": \"closed\",
-    \"priority\": \"low\",
+    \"status\": \"open\",
+    \"priority\": \"medium\",
     \"page\": 73,
     \"per_page\": 13
 }"
@@ -2852,8 +3011,8 @@ const headers = {
 };
 
 let body = {
-    "status": "closed",
-    "priority": "low",
+    "status": "open",
+    "priority": "medium",
     "page": 73,
     "per_page": 13
 };
@@ -3068,10 +3227,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="status"                data-endpoint="GETapi-v1-support-tickets"
-               value="closed"
+               value="open"
                data-component="body">
     <br>
-<p>Example: <code>closed</code></p>
+<p>Example: <code>open</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>open</code></li> <li><code>in_progress</code></li> <li><code>closed</code></li></ul>
         </div>
@@ -3082,10 +3241,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="priority"                data-endpoint="GETapi-v1-support-tickets"
-               value="low"
+               value="medium"
                data-component="body">
     <br>
-<p>Example: <code>low</code></p>
+<p>Example: <code>medium</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>low</code></li> <li><code>medium</code></li> <li><code>high</code></li></ul>
         </div>

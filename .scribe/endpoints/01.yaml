@@ -124,7 +124,7 @@ endpoints:
         name: sort
         description: ''
         required: false
-        example: nearest
+        example: name
         type: string
         enumValues:
           - nearest
@@ -157,7 +157,7 @@ endpoints:
     cleanBodyParameters:
       latitude: 21
       longitude: 13
-      sort: nearest
+      sort: name
       page: 56
       per_page: 5
     fileParameters: []

@@ -39,6 +39,7 @@ return [
 
             // Include these routes even if they did not match the rules above.
             'include' => [
+                'POST /api/v1/customers/resend-otp',
                 // 'users.index', 'POST /new', '/auth/*'
             ],
 

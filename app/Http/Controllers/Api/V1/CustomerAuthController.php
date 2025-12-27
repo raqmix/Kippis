@@ -266,6 +266,8 @@ class CustomerAuthController extends Controller
      *
      * Resend an OTP code to the customer's email address. Can be used for verification or password reset.
      *
+     * @group Customer Authentication
+     *
      * @bodyParam email string required The customer's email address. Example: john@example.com
      * @bodyParam type string optional The OTP type: 'verification' or 'password_reset'. Default: 'verification'. Example: verification
      *

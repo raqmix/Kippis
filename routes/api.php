@@ -22,6 +22,7 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/login', [CustomerAuthController::class, 'login']);
         Route::post('/forgot-password', [CustomerAuthController::class, 'forgotPassword']);
         Route::post('/reset-password', [CustomerAuthController::class, 'resetPassword']);
+        Route::post('/resend-otp', [CustomerAuthController::class, 'resendOtp'])->name('resend-otp');
         
         // Authenticated routes
         Route::middleware('auth:api')->group(function () {

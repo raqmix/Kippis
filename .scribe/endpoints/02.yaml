@@ -383,7 +383,7 @@ endpoints:
         name: status
         description: ''
         required: false
-        example: closed
+        example: open
         type: string
         enumValues:
           - open
@@ -397,7 +397,7 @@ endpoints:
         name: priority
         description: ''
         required: false
-        example: low
+        example: medium
         type: string
         enumValues:
           - low
@@ -429,8 +429,8 @@ endpoints:
         nullable: true
         deprecated: false
     cleanBodyParameters:
-      status: closed
-      priority: low
+      status: open
+      priority: medium
       page: 73
       per_page: 13
     fileParameters: []

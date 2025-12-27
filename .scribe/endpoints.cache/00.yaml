@@ -456,6 +456,71 @@ endpoints:
   -
     custom: []
     httpMethods:
+      - POST
+    uri: api/v1/customers/resend-otp
+    metadata:
+      custom: []
+      groupName: 'Customer Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Resend OTP to customer.'
+      description: "Resend an OTP code to the customer's email address. Can be used for verification or password reset."
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      email:
+        custom: []
+        name: email
+        description: "The customer's email address."
+        required: true
+        example: john@example.com
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      type:
+        custom: []
+        name: type
+        description: "optional The OTP type: 'verification' or 'password_reset'. Default: 'verification'."
+        required: false
+        example: verification
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      email: john@example.com
+      type: verification
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "message": "If the email exists, an OTP has been sent to your email address."
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
       - GET
     uri: api/v1/customers/me
     metadata:
