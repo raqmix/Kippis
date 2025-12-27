@@ -157,7 +157,7 @@
     </ul>
 
     <ul class="toc-footer" id="last-updated">
-        <li>Last updated: December 23, 2025</li>
+        <li>Last updated: December 27, 2025</li>
     </ul>
 </div>
 
@@ -203,7 +203,7 @@ You can switch the language used with the tabs at the top right (or from the nav
     --form "birthdate=1990-01-01"\
     --form "password=password123"\
     --form "password_confirmation=password123"\
-    --form "avatar=@C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\phpDA1C.tmp" </code></pre></div>
+    --form "avatar=@C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\php2DC.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -411,7 +411,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>optional Customer avatar image (max 2MB). Example: <code>C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\phpDA1C.tmp</code></p>
+<p>optional Customer avatar image (max 2MB). Example: <code>C:\Users\ahmednour\AppData\Local\Microsoft\WinGet\Packages\Astronomer.Astro_Microsoft.Winget.Source_8wekyb3d8bbwe\php2DC.tmp</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>password_confirmation</code></b>&nbsp;&nbsp;
