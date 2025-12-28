@@ -19,6 +19,13 @@ return [
     
     'customers' => 'العملاء',
     'stores' => 'المتاجر',
+    'categories' => 'الفئات',
+    'products' => 'المنتجات',
+    'modifiers' => 'المعدلات',
+    'promo_codes' => 'رموز الخصم',
+    'orders' => 'الطلبات',
+    'loyalty_wallets' => 'محافظ الولاء',
+    'qr_receipts' => 'إيصالات QR',
     
     'groups' => [
         'system_management' => 'إدارة النظام',

@@ -17,7 +17,7 @@ if (!function_exists('apiSuccess')) {
      * @param int $statusCode
      * @return JsonResponse
      */
-    function apiSuccess($data = null, ?string $message = null, int $statusCode = 200): JsonResponse
+    function apiSuccess($data = null, ?string $message = null, int $statusCode = 200, ?array $meta = null): JsonResponse
     {
         $response = [
             'success' => true,
@@ -29,9 +29,13 @@ if (!function_exists('apiSuccess')) {
 
         if ($message !== null) {
             // Try to translate the message, fallback to original if translation not found
-            $response['message'] = __("api.{$message}", [], app()->getLocale()) !== "api.{$message}" 
+            $response['message'] = __("api.{$message}", [], app()->getLocale()) !== "api.{$message}"
                 ? __("api.{$message}", [], app()->getLocale())
                 : $message;
+        }
+
+        if ($meta !== null) {
+            $response['meta'] = $meta;
         }
 
         return response()->json($response, $statusCode);
@@ -50,7 +54,7 @@ if (!function_exists('apiError')) {
     function apiError(string $code, string $message, int $statusCode = 400): JsonResponse
     {
         // Try to translate the message, fallback to original if translation not found
-        $translatedMessage = __("api.{$message}", [], app()->getLocale()) !== "api.{$message}" 
+        $translatedMessage = __("api.{$message}", [], app()->getLocale()) !== "api.{$message}"
             ? __("api.{$message}", [], app()->getLocale())
             : $message;
 

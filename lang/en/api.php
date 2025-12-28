@@ -46,5 +46,27 @@ return [
     'foodics_maintenance' => 'Foodics is currently under maintenance.',
     'foodics_timeout' => 'Request to Foodics timed out.',
     'foodics_mapping_error' => 'Error mapping Foodics data to local model.',
+
+    // Cart & Order Messages
+    'cart_initialized' => 'Cart initialized successfully.',
+    'item_added' => 'Item added to cart.',
+    'item_updated' => 'Item updated.',
+    'item_removed' => 'Item removed from cart.',
+    'promo_applied' => 'Promo code applied successfully.',
+    'promo_removed' => 'Promo code removed.',
+    'cart_abandoned' => 'Cart marked as abandoned.',
+    'cart_empty' => 'Cart is empty.',
+    'cart_not_found' => 'Cart not found.',
+    'invalid_promo_code' => 'Invalid or expired promo code.',
+    'minimum_order_not_met' => 'Minimum order amount not met.',
+    'order_created' => 'Order created successfully.',
+    'cart_recreated' => 'Cart recreated from order.',
+
+    // QR Receipt Messages
+    'receipt_submitted' => 'Receipt submitted successfully.',
+
+    // Error Messages
+    'product_not_found' => 'Product not found.',
+    'order_not_found' => 'Order not found.',
 ];
 

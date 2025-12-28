@@ -50,6 +50,21 @@ class CustomerResource extends Resource
         return Gate::forUser(auth()->guard('admin')->user())->allows('manage_customers');
     }
 
+    public static function canCreate(): bool
+    {
+        return false; // Customers are read-only, created via API
+    }
+
+    public static function canEdit($record): bool
+    {
+        return false; // Customers are read-only
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_customers');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -167,8 +182,7 @@ class CustomerResource extends Resource
             ])
             ->actions([
                 Actions\ViewAction::make(),
-                Actions\EditAction::make(),
-                Actions\DeleteAction::make(),
+                // Read-only: Edit and Delete removed
                 Actions\RestoreAction::make(),
                 Actions\ForceDeleteAction::make(),
             ])
@@ -193,9 +207,8 @@ class CustomerResource extends Resource
     {
         return [
             'index' => Pages\ListCustomers::route('/'),
-            'create' => Pages\CreateCustomer::route('/create'),
+            // Read-only: Create and Edit removed
             'view' => Pages\ViewCustomer::route('/{record}'),
-            'edit' => Pages\EditCustomer::route('/{record}/edit'),
         ];
     }
 }

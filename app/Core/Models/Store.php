@@ -4,6 +4,8 @@ namespace App\Core\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Store extends Model
@@ -101,6 +103,38 @@ class Store extends Model
     public function scopeHasFoodicsMapping($query)
     {
         return $query->whereNotNull('foodics_branch_id');
+    }
+
+    /**
+     * Get all orders for this store.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get all carts for this store.
+     */
+    public function carts(): HasMany
+    {
+        return $this->hasMany(Cart::class);
+    }
+
+    /**
+     * Get all QR receipts for this store.
+     */
+    public function qrReceipts(): HasMany
+    {
+        return $this->hasMany(QrReceipt::class);
+    }
+
+    /**
+     * Get promo codes that apply to this store.
+     */
+    public function promoCodes(): BelongsToMany
+    {
+        return $this->belongsToMany(PromoCode::class, 'promo_code_stores');
     }
 }
 

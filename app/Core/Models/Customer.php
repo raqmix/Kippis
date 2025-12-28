@@ -5,6 +5,7 @@ namespace App\Core\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -69,6 +70,38 @@ class Customer extends Authenticatable implements JWTSubject
     public function otps(): HasMany
     {
         return $this->hasMany(CustomerOtp::class);
+    }
+
+    /**
+     * Get all orders for this customer.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the loyalty wallet for this customer.
+     */
+    public function loyaltyWallet(): HasOne
+    {
+        return $this->hasOne(LoyaltyWallet::class);
+    }
+
+    /**
+     * Get all QR receipts for this customer.
+     */
+    public function qrReceipts(): HasMany
+    {
+        return $this->hasMany(QrReceipt::class);
+    }
+
+    /**
+     * Get all carts for this customer.
+     */
+    public function carts(): HasMany
+    {
+        return $this->hasMany(Cart::class);
     }
 
     /**

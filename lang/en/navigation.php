@@ -19,6 +19,13 @@ return [
     
     'customers' => 'Customers',
     'stores' => 'Stores',
+    'categories' => 'Categories',
+    'products' => 'Products',
+    'modifiers' => 'Modifiers',
+    'promo_codes' => 'Promo Codes',
+    'orders' => 'Orders',
+    'loyalty_wallets' => 'Loyalty Wallets',
+    'qr_receipts' => 'QR Receipts',
     
     'groups' => [
         'system_management' => 'System Management',

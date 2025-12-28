@@ -22,6 +22,12 @@ class DatabaseSeeder extends Seeder
             NotificationSeeder::class,
             StoreSeeder::class,
             ChannelSeeder::class,
+            CustomerSeeder::class,
+            CategorySeeder::class,
+            ProductSeeder::class,
+            ModifierSeeder::class,
+            PromoCodeSeeder::class,
+            LoyaltyWalletSeeder::class,
         ]);
     }
 }

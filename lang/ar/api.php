@@ -46,4 +46,26 @@ return [
     'foodics_maintenance' => 'Foodics قيد الصيانة حالياً.',
     'foodics_timeout' => 'انتهت مهلة الطلب إلى Foodics.',
     'foodics_mapping_error' => 'خطأ في تعيين بيانات Foodics إلى النموذج المحلي.',
+
+    // Cart & Order Messages
+    'cart_initialized' => 'تم تهيئة السلة بنجاح.',
+    'item_added' => 'تمت إضافة العنصر إلى السلة.',
+    'item_updated' => 'تم تحديث العنصر.',
+    'item_removed' => 'تمت إزالة العنصر من السلة.',
+    'promo_applied' => 'تم تطبيق رمز الخصم بنجاح.',
+    'promo_removed' => 'تمت إزالة رمز الخصم.',
+    'cart_abandoned' => 'تم وضع علامة على السلة كمتروكة.',
+    'cart_empty' => 'السلة فارغة.',
+    'cart_not_found' => 'السلة غير موجودة.',
+    'invalid_promo_code' => 'رمز الخصم غير صحيح أو منتهي الصلاحية.',
+    'minimum_order_not_met' => 'لم يتم استيفاء الحد الأدنى لمبلغ الطلب.',
+    'order_created' => 'تم إنشاء الطلب بنجاح.',
+    'cart_recreated' => 'تم إعادة إنشاء السلة من الطلب.',
+
+    // QR Receipt Messages
+    'receipt_submitted' => 'تم إرسال الإيصال بنجاح.',
+
+    // Error Messages
+    'product_not_found' => 'المنتج غير موجود.',
+    'order_not_found' => 'الطلب غير موجود.',
 ];
