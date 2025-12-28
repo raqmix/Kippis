@@ -1,2 +1,2 @@
-@livewire('filament.components.language-switcher-topbar', key('language-switcher-topbar'))
+@livewire(\App\Filament\Components\LanguageSwitcherTopbar::class, key('language-switcher-topbar'))
 

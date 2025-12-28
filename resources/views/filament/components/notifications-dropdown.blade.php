@@ -1,4 +1,4 @@
-@livewire('filament.components.notifications-dropdown', key('notifications-dropdown'))
+@livewire(\App\Filament\Components\NotificationsDropdown::class, key('notifications-dropdown'))
     <button
         @click="open = !open"
         type="button"
