@@ -21,10 +21,18 @@ class TopStoresWidget extends BaseWidget
             ->query(
                 Store::query()
                     ->select('stores.*')
-                    ->selectRaw('COUNT(CASE WHEN orders.status != "cancelled" THEN orders.id END) as total_orders')
-                    ->selectRaw('COALESCE(SUM(CASE WHEN orders.status != "cancelled" THEN orders.total ELSE 0 END), 0) as total_revenue')
-                    ->leftJoin('orders', 'stores.id', '=', 'orders.store_id')
-                    ->groupBy('stores.id')
+                    ->selectSub(function ($query) {
+                        $query->selectRaw('COUNT(*)')
+                            ->from('orders')
+                            ->whereColumn('orders.store_id', 'stores.id')
+                            ->where('orders.status', '!=', 'cancelled');
+                    }, 'total_orders')
+                    ->selectSub(function ($query) {
+                        $query->selectRaw('COALESCE(SUM(total), 0)')
+                            ->from('orders')
+                            ->whereColumn('orders.store_id', 'stores.id')
+                            ->where('orders.status', '!=', 'cancelled');
+                    }, 'total_revenue')
                     ->orderByDesc('total_revenue')
                     ->limit(10)
             )
