@@ -86,8 +86,10 @@ class TopProductsWidget extends BaseWidget
                                 ]);
                             }
 
-                            $stats[$productId]['total_sold'] += $quantity;
-                            $stats[$productId]['total_revenue'] += $price * $quantity;
+                            $current = $stats->get($productId);
+                            $current['total_sold'] += $quantity;
+                            $current['total_revenue'] += $price * $quantity;
+                            $stats->put($productId, $current);
                         }
                     }
                 }
