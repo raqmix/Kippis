@@ -7,6 +7,13 @@ use Filament\Widgets\ChartWidget;
 
 class FailedLoginAttemptsWidget extends ChartWidget
 {
+    public static function canView(): bool
+    {
+        // Prevent auto-discovery on main Dashboard
+        // Widgets explicitly added via getHeaderWidgets()/getWidgets() will still display
+        return false;
+    }
+
     public function getHeading(): ?string
     {
         return 'Failed Login Attempts (Last 7 Days)';
