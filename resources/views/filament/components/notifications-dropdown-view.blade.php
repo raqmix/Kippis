@@ -59,23 +59,24 @@
                     $userAvatar = $notification['userAvatar'] ?? null;
                     $thumbnail = $notification['thumbnail'] ?? null;
                     
-                    // Parse notification text to extract user name if not provided
-                    $title = $notification['title'];
+                    // Get notification text
+                    $title = $notification['title'] ?? 'Notification';
                     $body = $notification['body'] ?? '';
                     
-                    // If no user name, try to extract from title (e.g., "John Doe reacted to your post")
-                    if (!$userName && $title) {
-                        $parts = explode(' ', $title);
-                        if (count($parts) >= 2) {
-                            $userName = $parts[0] . ' ' . $parts[1];
-                            $body = implode(' ', array_slice($parts, 2));
-                        }
+                    // If we have a user name, use body as the action text
+                    // Otherwise, use title as the full message
+                    if ($userName) {
+                        $actionText = $body ?: $title;
+                    } else {
+                        // No user name, show title as main text
+                        $actionText = $title;
+                        $userName = null; // Don't show user name section
                     }
                     
                     // Generate avatar URL or use default
                     $avatarUrl = $userAvatar 
                         ? (str_starts_with($userAvatar, 'http') ? $userAvatar : asset('storage/' . $userAvatar))
-                        : 'https://ui-avatars.com/api/?name=' . urlencode($userName ?? 'User') . '&background=7B6CF6&color=fff&size=128&bold=true';
+                        : ($userName ? 'https://ui-avatars.com/api/?name=' . urlencode($userName) . '&background=7B6CF6&color=fff&size=128&bold=true' : 'https://ui-avatars.com/api/?name=System&background=6B7280&color=fff&size=128&bold=true');
                     
                     // Generate thumbnail URL
                     $thumbnailUrl = $thumbnail 
@@ -94,9 +95,9 @@
                         <div class="flex-shrink-0">
                             <img 
                                 src="{{ $avatarUrl }}" 
-                                alt="{{ $userName ?? 'User' }}"
+                                alt="{{ $userName ?? 'System' }}"
                                 class="h-12 w-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
-                                onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($userName ?? 'User') }}&background=7B6CF6&color=fff&size=128&bold=true'"
+                                onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($userName ?? 'System') }}&background=6B7280&color=fff&size=128&bold=true'"
                             />
                         </div>
                         
@@ -105,8 +106,10 @@
                             <p class="text-sm text-gray-900 dark:text-white leading-relaxed">
                                 @if($userName)
                                     <span class="font-bold">{{ $userName }}</span>
+                                    <span>{{ $actionText }}</span>
+                                @else
+                                    <span>{{ $actionText }}</span>
                                 @endif
-                                <span>{{ $body ?: $title }}</span>
                             </p>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 {{ $notification['created_at']->diffForHumans() }}
