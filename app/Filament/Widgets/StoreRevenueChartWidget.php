@@ -26,14 +26,23 @@ class StoreRevenueChartWidget extends ChartWidget
     {
         $startDate = now()->subDays(30)->startOfDay();
         
-        $stores = Store::where('is_active', true)
-            ->withCount(['orders' => function ($query) use ($startDate) {
-                $query->where('created_at', '>=', $startDate)
-                    ->where('status', '!=', 'cancelled');
-            }])
-            ->orderBy('orders_count', 'desc')
+        // Use a single query with grouping to get store revenue
+        $storeRevenues = Order::where('created_at', '>=', $startDate)
+            ->where('status', '!=', 'cancelled')
+            ->whereHas('store', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->selectRaw('store_id, SUM(total) as revenue')
+            ->groupBy('store_id')
+            ->orderByDesc('revenue')
             ->limit(10)
             ->get();
+        
+        // Get store details in a single query
+        $storeIds = $storeRevenues->pluck('store_id')->toArray();
+        $stores = Store::whereIn('id', $storeIds)
+            ->get()
+            ->keyBy('id');
         
         $labels = [];
         $revenueData = [];
@@ -53,15 +62,11 @@ class StoreRevenueChartWidget extends ChartWidget
             'rgb(168, 85, 247)',   // Violet
         ];
         
-        foreach ($stores as $index => $store) {
-            $revenue = Order::where('store_id', $store->id)
-                ->where('created_at', '>=', $startDate)
-                ->where('status', '!=', 'cancelled')
-                ->sum('total');
-            
-            if ($revenue > 0) {
+        foreach ($storeRevenues as $index => $storeRevenue) {
+            $store = $stores->get($storeRevenue->store_id);
+            if ($store && $storeRevenue->revenue > 0) {
                 $labels[] = strlen($store->name) > 15 ? substr($store->name, 0, 15) . '...' : $store->name;
-                $revenueData[] = round($revenue, 2);
+                $revenueData[] = round($storeRevenue->revenue, 2);
                 $colors[] = $colorPalette[$index % count($colorPalette)];
             }
         }

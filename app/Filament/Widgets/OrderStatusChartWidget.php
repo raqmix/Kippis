@@ -40,12 +40,19 @@ class OrderStatusChartWidget extends ChartWidget
             'cancelled' => 'rgb(239, 68, 68)',    // Red
         ];
         
+        // Single query to get all status counts
+        $statusCounts = Order::selectRaw('status, COUNT(*) as count')
+            ->whereIn('status', $statuses)
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status');
+        
         $data = [];
         $backgroundColors = [];
         $labels = [];
         
         foreach ($statuses as $status) {
-            $count = Order::where('status', $status)->count();
+            $count = $statusCounts->get($status)?->count ?? 0;
             if ($count > 0) {
                 $data[] = $count;
                 $labels[] = $statusLabels[$status];

@@ -28,14 +28,18 @@ class OrdersByDayChartWidget extends ChartWidget
         $dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         $dayData = array_fill(0, 7, 0);
         
-        $orders = Order::where('created_at', '>=', $startDate)
+        // Use DB aggregation instead of loading all orders
+        $dayStats = Order::where('created_at', '>=', $startDate)
             ->where('status', '!=', 'cancelled')
+            ->selectRaw('DAYOFWEEK(created_at) as day_of_week, COUNT(*) as count')
+            ->groupBy('day_of_week')
             ->get();
         
-        foreach ($orders as $order) {
-            $dayOfWeek = $order->created_at->dayOfWeek;
-            // dayOfWeek returns 0-6 (0 = Sunday, 6 = Saturday)
-            $dayData[$dayOfWeek]++;
+        // MySQL DAYOFWEEK returns 1-7 (1 = Sunday, 7 = Saturday)
+        // Convert to 0-6 index (0 = Sunday, 6 = Saturday)
+        foreach ($dayStats as $stat) {
+            $dayIndex = ($stat->day_of_week - 1) % 7; // Convert 1-7 to 0-6
+            $dayData[$dayIndex] = $stat->count;
         }
         
         return [

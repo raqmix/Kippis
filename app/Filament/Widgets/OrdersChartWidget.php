@@ -20,22 +20,33 @@ class OrdersChartWidget extends ChartWidget
 
     protected function getData(): array
     {
+        $startDate = now()->subDays(29)->startOfDay();
+        $endDate = now()->endOfDay();
+        
+        // Single query to get all data grouped by date
+        $dailyStats = Order::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as orders_count, SUM(total) as revenue')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->keyBy(function ($item) {
+                return \Carbon\Carbon::parse($item->date)->format('Y-m-d');
+            });
+        
         $data = [];
         $salesData = [];
         
+        // Fill in all 30 days, including days with no orders
         for ($i = 29; $i >= 0; $i--) {
             $date = now()->subDays($i)->startOfDay();
-            $endDate = $date->copy()->endOfDay();
+            $dateKey = $date->format('Y-m-d');
             
             $data['labels'][] = $date->format('M d');
             
-            $ordersCount = Order::whereBetween('created_at', [$date, $endDate])
-                ->where('status', '!=', 'cancelled')
-                ->count();
-            
-            $sales = Order::whereBetween('created_at', [$date, $endDate])
-                ->where('status', '!=', 'cancelled')
-                ->sum('total');
+            $stats = $dailyStats->get($dateKey);
+            $ordersCount = $stats ? $stats->orders_count : 0;
+            $sales = $stats ? $stats->revenue : 0;
             
             $data['orders'][] = $ordersCount;
             $salesData[] = round($sales, 2);

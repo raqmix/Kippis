@@ -14,24 +14,27 @@ class SalesStatsWidget extends BaseWidget
         $today = now()->startOfDay();
         $thisMonth = now()->startOfMonth();
         $lastMonth = now()->subMonth()->startOfMonth();
+        $lastMonthEnd = $thisMonth->copy()->subSecond();
 
-        $todaySales = Order::whereDate('created_at', $today)
+        // Optimize: Use conditional aggregation to get multiple stats in fewer queries
+        $todayStats = Order::whereDate('created_at', $today)
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('COUNT(*) as orders_count, COALESCE(SUM(total), 0) as sales')
+            ->first();
+
+        $thisMonthStats = Order::where('created_at', '>=', $thisMonth)
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('COUNT(*) as orders_count, COALESCE(SUM(total), 0) as sales')
+            ->first();
+
+        $lastMonthSales = Order::whereBetween('created_at', [$lastMonth, $lastMonthEnd])
             ->where('status', '!=', 'cancelled')
             ->sum('total');
 
-        $thisMonthSales = Order::where('created_at', '>=', $thisMonth)
-            ->where('status', '!=', 'cancelled')
-            ->sum('total');
-
-        $lastMonthSales = Order::whereBetween('created_at', [
-            $lastMonth,
-            $thisMonth->copy()->subSecond()
-        ])
-            ->where('status', '!=', 'cancelled')
-            ->sum('total');
-
-        $todayOrders = Order::whereDate('created_at', $today)->count();
-        $thisMonthOrders = Order::where('created_at', '>=', $thisMonth)->count();
+        $todaySales = $todayStats->sales ?? 0;
+        $todayOrders = $todayStats->orders_count ?? 0;
+        $thisMonthSales = $thisMonthStats->sales ?? 0;
+        $thisMonthOrders = $thisMonthStats->orders_count ?? 0;
 
         $growth = $lastMonthSales > 0 
             ? (($thisMonthSales - $lastMonthSales) / $lastMonthSales) * 100 
