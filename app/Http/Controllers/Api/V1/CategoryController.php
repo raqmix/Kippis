@@ -8,6 +8,9 @@ use App\Http\Resources\Api\V1\CategoryResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @group Catalog APIs
+ */
 class CategoryController extends Controller
 {
     public function __construct(

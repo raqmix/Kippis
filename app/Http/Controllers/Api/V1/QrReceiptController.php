@@ -10,6 +10,9 @@ use App\Http\Resources\Api\V1\QrReceiptResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @group QR Receipts APIs
+ */
 class QrReceiptController extends Controller
 {
     public function __construct(

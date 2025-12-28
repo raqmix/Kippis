@@ -10,6 +10,9 @@ use App\Http\Resources\Api\V1\CartResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @group Cart APIs
+ */
 class CartController extends Controller
 {
     public function __construct(

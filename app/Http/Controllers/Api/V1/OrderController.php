@@ -9,6 +9,9 @@ use App\Http\Resources\Api\V1\OrderResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @group Orders APIs
+ */
 class OrderController extends Controller
 {
     public function __construct(

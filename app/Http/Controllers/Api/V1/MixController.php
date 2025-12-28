@@ -8,6 +8,9 @@ use App\Http\Resources\Api\V1\ModifierResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @group Mix Builder APIs
+ */
 class MixController extends Controller
 {
     public function __construct(

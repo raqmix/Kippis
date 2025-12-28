@@ -8,6 +8,9 @@ use App\Http\Resources\Api\V1\ProductResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @group Catalog APIs
+ */
 class ProductController extends Controller
 {
     public function __construct(

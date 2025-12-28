@@ -7,6 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\LoyaltyWalletResource;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @group Loyalty APIs
+ */
 class LoyaltyController extends Controller
 {
     public function __construct(
