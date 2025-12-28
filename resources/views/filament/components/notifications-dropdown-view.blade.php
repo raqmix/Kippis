@@ -1,5 +1,6 @@
 @php
     $notifications = $this->notifications;
+    $unreadCount = $this->unreadCount;
 @endphp
 
 <div class="fi-topbar-item" x-data="{ open: false }" @click.away="open = false">
