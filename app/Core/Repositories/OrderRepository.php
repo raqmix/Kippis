@@ -67,15 +67,56 @@ class OrderRepository
         $query = Order::where('customer_id', $customerId)
             ->with(['store', 'promoCode']);
 
+        // Filter by status
         if (isset($filters['status'])) {
             if ($filters['status'] === 'active') {
                 $query->active();
             } elseif ($filters['status'] === 'past') {
                 $query->past();
+            } elseif (in_array($filters['status'], ['received', 'mixing', 'ready', 'completed', 'cancelled'])) {
+                $query->where('status', $filters['status']);
             }
         }
 
-        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+        // Filter by payment method
+        if (isset($filters['payment_method'])) {
+            $query->where('payment_method', $filters['payment_method']);
+        }
+
+        // Filter by store
+        if (isset($filters['store_id'])) {
+            $query->where('store_id', $filters['store_id']);
+        }
+
+        // Date range filters
+        if (isset($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+        if (isset($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        // Total range filters
+        if (isset($filters['total_min'])) {
+            $query->where('total', '>=', $filters['total_min']);
+        }
+        if (isset($filters['total_max'])) {
+            $query->where('total', '<=', $filters['total_max']);
+        }
+
+        // Sorting
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        
+        // Validate sort_by
+        $allowedSorts = ['created_at', 'total', 'status', 'updated_at'];
+        if (!in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'created_at';
+        }
+        
+        $query->orderBy($sortBy, $sortOrder);
+
+        return $query->paginate($perPage);
     }
 
     /**

@@ -72,6 +72,12 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/abandon', [\App\Http\Controllers\Api\V1\CartController::class, 'abandon']);
     });
 
+    // ==================== PAYMENT METHODS APIs ====================
+    Route::prefix('v1/payment-methods')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\PaymentMethodController::class, 'index']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V1\PaymentMethodController::class, 'show']);
+    });
+
     // ==================== ORDERS APIs ====================
     Route::middleware('auth:api')->prefix('v1/orders')->group(function () {
         Route::post('/checkout', [\App\Http\Controllers\Api\V1\OrderController::class, 'checkout']);
@@ -92,6 +98,23 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/scan', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'scan']);
         Route::post('/manual', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'manual']);
         Route::get('/history', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'history']);
+    });
+
+    // ==================== CMS PAGES APIs ====================
+    Route::prefix('v1/pages')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\PageController::class, 'index']);
+        Route::get('/type/{type}', [\App\Http\Controllers\Api\V1\PageController::class, 'getByType']);
+        Route::get('/slug/{slug}', [\App\Http\Controllers\Api\V1\PageController::class, 'showBySlug']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V1\PageController::class, 'show']);
+    });
+
+    // ==================== SETTINGS APIs ====================
+    Route::prefix('v1/settings')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\SettingController::class, 'index']);
+        Route::get('/list', [\App\Http\Controllers\Api\V1\SettingController::class, 'list']);
+        Route::get('/group/{group}', [\App\Http\Controllers\Api\V1\SettingController::class, 'getByGroup']);
+        Route::get('/key/{key}', [\App\Http\Controllers\Api\V1\SettingController::class, 'getByKey']);
+        Route::post('/keys', [\App\Http\Controllers\Api\V1\SettingController::class, 'getByKeys']);
     });
 
     // ==================== SUPPORT TICKETS APIs ====================

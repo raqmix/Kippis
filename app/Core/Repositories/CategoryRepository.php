@@ -15,6 +15,17 @@ class CategoryRepository
     {
         $query = Category::query();
 
+        // Filter by is_active (default to active only if not specified)
+        if (isset($filters['is_active'])) {
+            if ($filters['is_active'] === '1' || $filters['is_active'] === true) {
+                $query->active();
+            } elseif ($filters['is_active'] === '0' || $filters['is_active'] === false) {
+                $query->where('is_active', false);
+            }
+        } else {
+            $query->active();
+        }
+
         // Filter by source
         if (isset($filters['source'])) {
             if ($filters['source'] === 'local') {
@@ -24,8 +35,32 @@ class CategoryRepository
             }
         }
 
-        // Only active
-        $query->active();
+        // Search
+        if (isset($filters['q']) && $filters['q']) {
+            $q = $filters['q'];
+            $query->where(function ($qry) use ($q) {
+                $qry->whereRaw("JSON_EXTRACT(name_json, '$.en') LIKE ?", ["%{$q}%"])
+                    ->orWhereRaw("JSON_EXTRACT(name_json, '$.ar') LIKE ?", ["%{$q}%"])
+                    ->orWhereRaw("JSON_EXTRACT(description_json, '$.en') LIKE ?", ["%{$q}%"])
+                    ->orWhereRaw("JSON_EXTRACT(description_json, '$.ar') LIKE ?", ["%{$q}%"]);
+            });
+        }
+
+        // Sorting
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        
+        // Validate sort_by
+        $allowedSorts = ['created_at', 'name', 'updated_at'];
+        if (!in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'created_at';
+        }
+        
+        if ($sortBy === 'name') {
+            $query->orderByRaw("JSON_EXTRACT(name_json, '$.en') {$sortOrder}");
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+        }
 
         return $query->paginate($perPage);
     }

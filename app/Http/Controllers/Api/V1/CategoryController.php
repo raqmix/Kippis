@@ -22,6 +22,10 @@ class CategoryController extends Controller
     {
         $filters = [
             'source' => $request->query('source', 'all'),
+            'is_active' => $request->query('is_active', '1'),
+            'q' => $request->query('q'),
+            'sort_by' => $request->query('sort_by', 'created_at'),
+            'sort_order' => $request->query('sort_order', 'desc'),
         ];
 
         $perPage = min($request->query('per_page', 15), 100);

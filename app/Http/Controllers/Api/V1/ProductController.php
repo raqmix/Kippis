@@ -25,6 +25,9 @@ class ProductController extends Controller
             'category_id' => $request->query('category_id'),
             'q' => $request->query('q'),
             'source' => $request->query('source', 'all'),
+            'is_active' => $request->query('is_active', '1'),
+            'price_min' => $request->query('price_min'),
+            'price_max' => $request->query('price_max'),
             'sort_by' => $request->query('sort_by', 'created_at'),
             'sort_order' => $request->query('sort_order', 'desc'),
         ];
