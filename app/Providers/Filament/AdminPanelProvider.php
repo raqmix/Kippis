@@ -68,11 +68,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Kippis')
             ->favicon(asset('favicon.ico'))
             ->userMenuItems([
-                \Filament\Navigation\MenuItem::make()
-                    ->label(__('system.all_notifications'))
-                    ->icon('heroicon-o-bell')
-                    ->url(fn () => \App\Filament\Pages\AllNotifications::getUrl())
-                    ->visible(fn () => true),
+                // Notifications removed
             ])
             ->navigationGroups([
                 __('navigation.groups.system_management'),

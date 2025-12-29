@@ -36,7 +36,7 @@ class NotificationCenterResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return Auth::guard('admin')->check();
+        return false; // Hidden from navigation
     }
 
     public static function form(Schema $schema): Schema

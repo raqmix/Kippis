@@ -37,12 +37,6 @@ class CustomTheme implements \Filament\Contracts\Plugin
             fn (): View => view('filament.components.html-direction'),
         );
         
-        // Register topbar notifications dropdown (before user menu)
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::USER_MENU_BEFORE,
-            fn (): View => view('filament.components.notifications-dropdown'),
-        );
-        
         // Register topbar language switcher (before user menu)
         FilamentView::registerRenderHook(
             PanelsRenderHook::USER_MENU_BEFORE,
