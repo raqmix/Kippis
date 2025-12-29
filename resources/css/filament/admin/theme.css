@@ -75,3 +75,58 @@ button[data-notification-bell] {
 .fi-topbar-item:has(svg[class*="bell"]):not(:has([wire\\:id*="notifications-dropdown"])) {
     display: none !important;
 }
+
+/* Notification Center Bell - Fix layout and positioning */
+.fi-topbar-item:has([wire\\:id*="notification-center-bell"]) {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Ensure dropdown is properly positioned and doesn't stack */
+.fi-topbar-item:has([wire\\:id*="notification-center-bell"]) [x-show] {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    margin-top: 0.5rem !important;
+    z-index: 9999 !important;
+}
+
+/* Prevent text overflow in notification items */
+.fi-topbar-item .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Ensure proper RTL layout */
+.fi-topbar-item[dir="rtl"] {
+    direction: rtl;
+}
+
+.fi-topbar-item[dir="rtl"] button,
+.fi-topbar-item[dir="rtl"] a,
+.fi-topbar-item[dir="rtl"] p {
+    text-align: right;
+}
+
+/* Fix notification item layout - prevent stacking */
+.fi-topbar-item [wire\\:id*="notification-center-bell"] button[type="button"] {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    text-align: right;
+}
+
+/* Ensure icons don't stack */
+.fi-topbar-item [wire\\:id*="notification-center-bell"] .flex-shrink-0 {
+    flex-shrink: 0;
+}
+
+/* Content block should take remaining space */
+.fi-topbar-item [wire\\:id*="notification-center-bell"] .flex-1 {
+    flex: 1 1 0%;
+    min-width: 0;
+}
