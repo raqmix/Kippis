@@ -35,7 +35,7 @@
             </div>
         </x-slot>
 
-        <div @if($isRtl) dir="rtl" @endif class="w-[420px] max-h-[600px] flex flex-col">
+        <div {{ $isRtl ? 'dir="rtl"' : '' }} class="w-[420px] max-h-[600px] flex flex-col">
             <!-- Header -->
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-between">
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white">
@@ -87,7 +87,7 @@
                         @endphp
                         <x-filament::dropdown.list.item
                             wire:click="markAsRead('{{ $notification['id'] }}')"
-                            @if($notification['actionUrl'])
+                            @if(!empty($notification['actionUrl']))
                                 :href="$notification['actionUrl']"
                             @endif
                             :attributes="
