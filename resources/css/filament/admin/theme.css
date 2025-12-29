@@ -184,37 +184,20 @@
     background: linear-gradient(90deg, transparent, rgba(123, 108, 246, 0.4), transparent);
 }
 
+/* Topbar Right Cluster Container */
+.fi-topbar-right-cluster {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 100%;
+}
+
 /* Topbar Items - Proper Spacing and Alignment */
 .fi-topbar-item {
     display: flex;
     align-items: center;
     height: 100%;
     position: relative;
-}
-
-.fi-topbar-item + .fi-topbar-item {
-    margin-left: 1.25rem;
-}
-
-/* Extra spacing between language and notification */
-.fi-topbar-item:nth-of-type(2) {
-    margin-left: 1.5rem !important;
-    position: relative;
-}
-
-.fi-topbar-item:nth-of-type(2)::before {
-    content: '';
-    position: absolute;
-    left: -0.875rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 1px;
-    height: 1.75rem;
-    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.08), transparent);
-}
-
-.dark .fi-topbar-item:nth-of-type(2)::before {
-    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
 .fi-topbar-item-button {
@@ -264,16 +247,15 @@
     transition: transform 0.1s ease;
 }
 
-/* Notification Badge Positioning - Enhanced */
-.fi-topbar-item-button .absolute {
+/* Notification Badge Positioning */
+.fi-topbar-item .absolute {
     top: -0.25rem;
     right: -0.25rem;
     z-index: 10;
-    animation: pulse-badge 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.8);
 }
 
-.dark .fi-topbar-item-button .absolute {
+.dark .fi-topbar-item .absolute {
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5), 0 0 0 2px rgba(17, 24, 39, 0.8);
 }
 

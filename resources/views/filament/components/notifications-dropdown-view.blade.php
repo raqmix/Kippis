@@ -5,7 +5,7 @@
     $isRtl = $currentLocale === 'ar';
 @endphp
 
-<div class="fi-topbar-item" wire:poll.30s="loadUnreadCount">
+<div class="fi-topbar-item relative" wire:poll.30s="loadUnreadCount">
     <x-filament::dropdown
         placement="bottom-end"
         teleport="true"
@@ -16,53 +16,36 @@
         "
     >
         <x-slot name="trigger">
-            <button
-                type="button"
-                class="fi-topbar-item-button fi-topbar-item-button-label group relative flex items-center justify-center rounded-lg p-2 text-sm font-medium outline-none transition duration-75 hover:bg-gray-50 focus:bg-gray-50 dark:hover:bg-white/5 dark:focus:bg-white/5"
-                aria-label="{{ __('system.notifications') }}"
-                title="{{ __('system.notifications') }}"
-            >
-                <x-filament::icon
+            <div class="relative inline-block">
+                <x-filament::icon-button
                     icon="heroicon-o-bell"
-                    class="h-5 w-5 transition-colors duration-75 group-hover:text-primary-600 dark:group-hover:text-primary-400"
+                    :label="__('system.notifications')"
+                    color="gray"
+                    size="lg"
                 />
                 @if($unreadCount > 0)
-                    <span class="absolute -top-0.5 -right-0.5 flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-600 px-1.5 text-[10px] font-bold leading-none text-white shadow-lg ring-2 ring-white dark:ring-gray-900 animate-pulse">
+                    <span class="absolute -top-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-600 text-[10px] font-bold leading-none text-white shadow-lg ring-2 ring-white dark:ring-gray-900 z-10">
                         {{ $unreadCount > 99 ? '99+' : $unreadCount }}
                     </span>
                 @endif
-            </button>
+            </div>
         </x-slot>
 
         <div {{ $isRtl ? 'dir="rtl"' : '' }} class="w-[420px] max-h-[600px] flex flex-col">
-            <!-- Header - Enhanced Design -->
-            <div class="px-5 py-4 border-b border-gray-200/60 dark:border-gray-700/60 bg-gradient-to-r from-primary-50/50 via-white to-white dark:from-primary-900/10 dark:via-gray-900 dark:to-gray-900 flex items-center justify-between backdrop-blur-sm">
-                <div class="flex items-center gap-3">
-                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/25">
-                        <x-filament::icon
-                            icon="heroicon-o-bell"
-                            class="h-5 w-5 text-white"
-                        />
-                    </div>
-                    <div>
-                        <h3 class="text-base font-bold text-gray-900 dark:text-white">
-                            {{ __('system.notifications') }}
-                        </h3>
-                        @if($unreadCount > 0)
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                {{ $unreadCount }} {{ $unreadCount === 1 ? __('system.unread_notification') : __('system.unread_notifications') }}
-                            </p>
-                        @endif
-                    </div>
-                </div>
+            <!-- Header -->
+            <div class="px-5 py-4 border-b border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                    {{ __('system.notifications') }}
+                </h3>
                 @if($unreadCount > 0)
-                    <button
+                    <x-filament::button
                         wire:click="markAllAsRead"
-                        type="button"
-                        class="rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-all duration-200 hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                        size="sm"
+                        color="primary"
+                        variant="ghost"
                     >
                         {{ __('system.mark_all_as_read') }}
-                    </button>
+                    </x-filament::button>
                 @endif
             </div>
 

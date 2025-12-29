@@ -1,7 +1,6 @@
 @php
     $locales = $this->availableLocales;
     $currentLocale = $this->locale ?? 'en';
-    $currentLocaleName = $locales[$currentLocale] ?? ($currentLocale === 'ar' ? 'العربية' : 'English');
 @endphp
 
 <div class="fi-topbar-item">
@@ -11,7 +10,7 @@
     >
         <x-slot name="trigger">
             <x-filament::icon-button
-                icon="heroicon-o-language"
+                icon="heroicon-o-globe-alt"
                 :label="__('system.language')"
                 color="gray"
                 size="lg"
@@ -25,7 +24,7 @@
                     :active="$currentLocale === $code"
                 >
                     <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium">{{ $name }}</span>
+                        <span class="text-sm font-medium">{{ $code === 'ar' ? 'AR' : 'EN' }}</span>
                         @if($currentLocale === $code)
                             <x-filament::icon
                                 icon="heroicon-o-check"

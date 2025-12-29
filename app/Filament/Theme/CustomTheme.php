@@ -37,16 +37,10 @@ class CustomTheme implements \Filament\Contracts\Plugin
             fn (): View => view('filament.components.html-direction'),
         );
 
-        // Register language switcher in topbar (before notifications)
+        // Register topbar right cluster (language switcher + notifications)
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_END,
-            fn (): View => view('filament.components.language-switcher-topbar'),
-        );
-
-        // Register notifications in topbar (before user menu)
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::TOPBAR_END,
-            fn (): View => view('filament.components.notifications-topbar'),
+            fn (): View => view('filament.components.topbar-right-cluster'),
         );
     }
 
