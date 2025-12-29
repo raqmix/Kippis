@@ -37,7 +37,7 @@
         @endif
     </button>
 
-    <!-- Dropdown Panel -->
+    <!-- Dropdown Panel - Matching User Menu Design -->
     <div
         x-ref="dropdown"
         x-show="open"
@@ -48,13 +48,13 @@
         x-transition:leave="transition ease-in duration-150"
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95"
-        class="fixed w-[420px] max-w-[90vw] rounded-xl bg-white shadow-xl ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 z-[9999] overflow-hidden"
+        class="fixed w-[420px] max-w-[90vw] rounded-lg bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10 z-[9999] overflow-hidden"
         style="display: none;"
         dir="rtl"
     >
         <!-- Header -->
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
                 الإشعارات
             </h3>
             <button
@@ -64,7 +64,7 @@
             >
                 <x-filament::icon
                     icon="heroicon-o-cog-6-tooth"
-                    class="h-5 w-5"
+                    class="h-4 w-4"
                 />
             </button>
         </div>
@@ -73,10 +73,10 @@
         <div class="max-h-[500px] overflow-y-auto">
             @if(empty($notifications))
                 <div class="flex flex-col items-center justify-center p-12 text-center">
-                    <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
                         <x-filament::icon
                             icon="heroicon-o-bell-slash"
-                            class="h-8 w-8 text-gray-400 dark:text-gray-500"
+                            class="h-6 w-6 text-gray-400 dark:text-gray-500"
                         />
                     </div>
                     <p class="text-sm font-medium text-gray-900 dark:text-white">
@@ -84,40 +84,40 @@
                     </p>
                 </div>
             @else
-                <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">
                     @foreach($notifications as $notification)
                         <button
                             type="button"
                             wire:click="markAsRead({{ $notification['id'] }})"
                             wire:key="notification-{{ $notification['id'] }}"
-                            class="group w-full px-5 py-4 text-right transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                            class="group w-full px-4 py-3 text-right transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         >
                             <div class="flex items-start gap-3">
                                 <!-- Red dot for unread -->
                                 @if(!$notification['is_read'])
-                                    <div class="mt-2 flex-shrink-0">
+                                    <div class="mt-1.5 flex-shrink-0">
                                         <span class="block h-2 w-2 rounded-full bg-red-500"></span>
                                     </div>
                                 @else
-                                    <div class="mt-2 flex-shrink-0 w-2"></div>
+                                    <div class="mt-1.5 flex-shrink-0 w-2"></div>
                                 @endif
 
                                 <!-- Icon with light green background -->
                                 <div class="flex-shrink-0">
-                                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
                                         <x-filament::icon 
                                             icon="{{ $notification['icon'] }}" 
-                                            class="h-5 w-5 text-green-600 dark:text-green-400" 
+                                            class="h-4 w-4 text-green-600 dark:text-green-400" 
                                         />
                                     </div>
                                 </div>
 
                                 <!-- Content Block -->
-                                <div class="min-w-0 flex-1 space-y-1">
-                                    <p class="text-sm font-bold leading-5 text-gray-900 dark:text-white truncate">
+                                <div class="min-w-0 flex-1 space-y-0.5">
+                                    <p class="text-sm font-semibold leading-5 text-gray-900 dark:text-white truncate">
                                         {{ $notification['title'] }}
                                     </p>
-                                    <p class="text-sm leading-5 text-gray-600 dark:text-gray-300 line-clamp-2">
+                                    <p class="text-sm leading-4 text-gray-600 dark:text-gray-300 line-clamp-2">
                                         {{ $notification['body'] }}
                                     </p>
                                     <p class="text-xs text-gray-400 dark:text-gray-500">
@@ -133,11 +133,11 @@
 
         <!-- Footer -->
         @if(!empty($notifications))
-            <div class="border-t border-gray-200 bg-gray-50/50 px-5 py-3 dark:border-gray-700 dark:bg-gray-800/50">
+            <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-2.5 bg-gray-50/50 dark:bg-gray-800/50">
                 <div class="flex items-center justify-between gap-3">
                     <a
                         href="{{ \App\Filament\Resources\NotificationCenterResource::getUrl('index') }}"
-                        class="inline-flex items-center justify-center rounded-lg bg-success-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-success-700 dark:bg-success-500 dark:hover:bg-success-600"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-success-700 dark:bg-success-500 dark:hover:bg-success-600"
                         @click="open = false"
                     >
                         عرض جميع الإشعارات
@@ -145,7 +145,7 @@
                     <button
                         wire:click="markAllAsRead"
                         type="button"
-                        class="text-sm font-semibold text-success-600 transition-colors hover:text-success-700 dark:text-success-400 dark:hover:text-success-300"
+                        class="text-xs font-semibold text-success-600 transition-colors hover:text-success-700 dark:text-success-400 dark:hover:text-success-300"
                         @click="open = false"
                     >
                         وضع علامة على الكل كمقروء

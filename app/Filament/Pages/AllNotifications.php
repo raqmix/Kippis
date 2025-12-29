@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Tables;
@@ -81,7 +82,7 @@ class AllNotifications extends Page implements HasTable
                     ->falseLabel(__('system.unread')),
             ])
             ->actions([
-                Tables\Actions\Action::make('mark_read')
+                Actions\Action::make('mark_read')
                     ->label(__('system.mark_as_read'))
                     ->icon('heroicon-o-check')
                     ->color('success')
@@ -95,15 +96,15 @@ class AllNotifications extends Page implements HasTable
                         }
                     })
                     ->visible(fn (DatabaseNotification $record) => !$record->read_at),
-                Tables\Actions\Action::make('view')
+                Actions\Action::make('view')
                     ->label(__('system.view'))
                     ->icon('heroicon-o-eye')
                     ->url(fn (DatabaseNotification $record) => $record->data['action_url'] ?? null)
                     ->visible(fn (DatabaseNotification $record) => !empty($record->data['action_url'] ?? null)),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\BulkAction::make('mark_read')
+                Actions\BulkActionGroup::make([
+                    Actions\BulkAction::make('mark_read')
                         ->label(__('system.mark_as_read'))
                         ->icon('heroicon-o-check')
                         ->action(function ($records) {
