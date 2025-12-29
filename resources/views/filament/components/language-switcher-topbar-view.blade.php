@@ -13,10 +13,6 @@
         aria-label="{{ __('system.language') }}"
         title="{{ __('system.language') }}"
     >
-        <x-filament::icon
-            icon="heroicon-o-language"
-            class="h-5 w-5 transition-colors duration-75 group-hover:text-primary-600 dark:group-hover:text-primary-400"
-        />
-        <span class="hidden sm:inline">{{ $otherLocaleName }}</span>
+        <span>{{ $otherLocaleName }}</span>
     </button>
 </div>
