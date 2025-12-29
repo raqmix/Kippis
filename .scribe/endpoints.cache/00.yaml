@@ -9,7 +9,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/register
+    uri: api/v1/auth/register
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -159,7 +159,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/verify
+    uri: api/v1/auth/verify
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -232,7 +232,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/login
+    uri: api/v1/auth/login
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -311,7 +311,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/forgot-password
+    uri: api/v1/auth/forgot-password
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -366,7 +366,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/reset-password
+    uri: api/v1/auth/reset-password
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -457,7 +457,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/resend-otp
+    uri: api/v1/auth/resend-otp
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -522,7 +522,7 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/customers/me
+    uri: api/v1/auth/me
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -604,7 +604,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/logout
+    uri: api/v1/auth/logout
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -661,7 +661,7 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/customers/refresh-token
+    uri: api/v1/auth/refresh-token
     metadata:
       custom: []
       groupName: 'Customer Authentication'
@@ -723,7 +723,7 @@ endpoints:
     custom: []
     httpMethods:
       - DELETE
-    uri: api/v1/customers/account
+    uri: api/v1/auth/account
     metadata:
       custom: []
       groupName: 'Customer Authentication'

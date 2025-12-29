@@ -28,7 +28,15 @@ const headers = {
 const body = new FormData();
 @foreach($endpoint->cleanBodyParameters as $parameter => $value)
 @foreach( u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $actualValue)
-body.append('{!! $key !!}', '{!! $actualValue !!}');
+body.append('{!! $key !!}', @php
+                    if (is_object($actualValue) || is_array($actualValue)) {
+                        echo "'" . addslashes(json_encode($actualValue, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . "'";
+                    } elseif (is_bool($actualValue)) {
+                        echo $actualValue ? 'true' : 'false';
+                    } else {
+                        echo "'" . addslashes((string) $actualValue) . "'";
+                    }
+                @endphp);
 @endforeach
 @endforeach
 @foreach($endpoint->fileParameters as $parameter => $value)

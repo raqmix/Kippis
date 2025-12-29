@@ -21,7 +21,15 @@ $response = $client->{{ strtolower($endpoint->httpMethods[0]) }}(
 @foreach(u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $actualValue)
             [
                 'name' => '{!! $key !!}',
-                'contents' => '{!! $actualValue !!}'
+                'contents' => @php
+                    if (is_object($actualValue) || is_array($actualValue)) {
+                        echo json_encode($actualValue, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    } elseif (is_bool($actualValue)) {
+                        echo $actualValue ? 'true' : 'false';
+                    } else {
+                        echo addslashes((string) $actualValue);
+                    }
+                @endphp
             ],
 @endforeach
 @endforeach
@@ -29,7 +37,20 @@ $response = $client->{{ strtolower($endpoint->httpMethods[0]) }}(
 @foreach(u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $file)
             [
                 'name' => '{!!  $key !!}',
-                'contents' => fopen('{!! $file->path() !!}', 'r')
+                'contents' => @php
+                    $filePath = 'path/to/file.jpg';
+                    if (is_object($file) && method_exists($file, 'path')) {
+                        try {
+                            $path = $file->path();
+                            if (is_string($path) && $path !== '(binary)' && file_exists($path)) {
+                                $filePath = $path;
+                            }
+                        } catch (\Exception $e) {
+                            // Use default path
+                        }
+                    }
+                    echo "fopen('" . addslashes($filePath) . "', 'r')";
+                @endphp
             ],
 @endforeach
 @endforeach

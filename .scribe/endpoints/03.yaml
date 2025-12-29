@@ -1,0 +1,174 @@
+name: 'Mix Builder APIs'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/mix/options
+    metadata:
+      custom: []
+      groupName: 'Mix Builder APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Get mix builder options'
+      description: 'Returns all available modifiers grouped by type (sweetness, fizz, caffeine, extra).'
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "data": {
+              "sweetness": [
+                {
+                  "id": 1,
+                  "name": "Low Sugar",
+                  "price": 0.00
+                }
+              ],
+              "fizz": [],
+              "caffeine": [],
+              "extra": []
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/mix/preview
+    metadata:
+      custom: []
+      groupName: 'Mix Builder APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Preview mix price calculation'
+      description: 'Calculate the total price for a custom mix based on base price and selected modifiers.'
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      base_price:
+        custom: []
+        name: base_price
+        description: 'Base product price (min 0).'
+        required: true
+        example: 15.0
+        type: number
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      modifiers:
+        custom: []
+        name: modifiers
+        description: 'optional Array of modifier objects.'
+        required: false
+        example:
+          -
+            id: 1
+            level: 2
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      'modifiers[].id':
+        custom: []
+        name: 'modifiers[].id'
+        description: 'The <code>id</code> of an existing record in the modifiers table.'
+        required: true
+        example: consequatur
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'modifiers[].level':
+        custom: []
+        name: 'modifiers[].level'
+        description: 'Must be at least 1 character.'
+        required: false
+        example: 45
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'modifiers.*.id':
+        custom: []
+        name: 'modifiers.*.id'
+        description: 'Modifier ID.'
+        required: true
+        example: 1
+        type: integer
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      'modifiers.*.level':
+        custom: []
+        name: 'modifiers.*.level'
+        description: 'optional Modifier level (min 1). Default: 1.'
+        required: false
+        example: 2
+        type: integer
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      base_price: 15.0
+      modifiers:
+        -
+          id: 1
+          level: 2
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "data": {
+              "base_price": 15.00,
+              "modifiers_price": 5.00,
+              "total": 20.00
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

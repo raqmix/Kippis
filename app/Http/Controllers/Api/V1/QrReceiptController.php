@@ -27,7 +27,7 @@ class QrReceiptController extends Controller
      * 
      * @authenticated
      * 
-     * @bodyParam receipt_image file required Receipt image (max 5MB). Example: (binary)
+     * @bodyParam receipt_image file required Receipt image file (max 5MB, formats: jpg, jpeg, png, gif). No-example
      * @bodyParam receipt_number string required Receipt number. Example: "RCP-123456"
      * @bodyParam amount number required Receipt amount (min 0). Example: 50.00
      * @bodyParam points_requested integer required Points requested (min 1). Example: 50

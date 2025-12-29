@@ -1,0 +1,56 @@
+name: 'Loyalty APIs'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/loyalty
+    metadata:
+      custom: []
+      groupName: 'Loyalty APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Get customer loyalty wallet'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "data": {
+              "id": 1,
+              "customer_id": 123,
+              "balance": 500,
+              "transactions": [
+                {
+                  "id": 1,
+                  "type": "earned",
+                  "points": 100,
+                  "created_at": "2025-12-21T10:00:00Z"
+                }
+              ]
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

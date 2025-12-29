@@ -11,13 +11,34 @@ url = '{!! rtrim($baseUrl, '/') !!}/{{ $endpoint->boundUri }}'
 files = {
 @foreach($endpoint->cleanBodyParameters as $parameter => $value)
 @foreach(u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $actualValue)
-  '{!! $key !!}': (None, '{!! $actualValue !!}')@if(!($loop->parent->last) || count($endpoint->fileParameters)),
+  '{!! $key !!}': (None, @php
+                    if (is_object($actualValue) || is_array($actualValue)) {
+                        echo "'" . addslashes(json_encode($actualValue, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . "'";
+                    } elseif (is_bool($actualValue)) {
+                        echo "'" . ($actualValue ? 'true' : 'false') . "'";
+                    } else {
+                        echo "'" . addslashes((string) $actualValue) . "'";
+                    }
+                @endphp)@if(!($loop->parent->last) || count($endpoint->fileParameters)),
 @endif
 @endforeach
 @endforeach
 @foreach($endpoint->fileParameters as $parameter => $value)
 @foreach(u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $file)
-  '{!! $key !!}': open('{!! $file->path() !!}', 'rb')@if(!($loop->parent->last)),
+  '{!! $key !!}': @php
+                    $filePath = 'path/to/file.jpg';
+                    if (is_object($file) && method_exists($file, 'path')) {
+                        try {
+                            $path = $file->path();
+                            if (is_string($path) && $path !== '(binary)' && file_exists($path)) {
+                                $filePath = $path;
+                            }
+                        } catch (\Exception $e) {
+                            // Use default path
+                        }
+                    }
+                    echo "open('" . addslashes($filePath) . "', 'rb')";
+                @endphp@if(!($loop->parent->last)),
 @endif
 @endforeach
 @endforeach

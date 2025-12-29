@@ -13,13 +13,36 @@ curl --request {{$endpoint->httpMethods[0]}} \
 @if($endpoint->hasFiles() || (isset($endpoint->headers['Content-Type']) && $endpoint->headers['Content-Type'] == 'multipart/form-data' && count($endpoint->cleanBodyParameters)))
 @foreach($endpoint->cleanBodyParameters as $parameter => $value)
 @foreach(u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $actualValue)
-    --form "{!! "$key=".$actualValue !!}"@if(!($loop->parent->last) || count($endpoint->fileParameters))\
+    --form "@php
+                    $formValue = $actualValue;
+                    if (is_object($formValue) || is_array($formValue)) {
+                        $formValue = json_encode($formValue, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    } elseif (is_bool($formValue)) {
+                        $formValue = $formValue ? 'true' : 'false';
+                    } else {
+                        $formValue = (string) $formValue;
+                    }
+                    echo "$key=" . addslashes($formValue);
+                @endphp"@if(!($loop->parent->last) || count($endpoint->fileParameters))\
 @endif
 @endforeach
 @endforeach
 @foreach($endpoint->fileParameters as $parameter => $value)
 @foreach(u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $file)
-    --form "{!! "$key=@".$file->path() !!}" @if(!($loop->parent->last))\
+    --form "@php
+                    $filePath = 'path/to/file.jpg';
+                    if (is_object($file) && method_exists($file, 'path')) {
+                        try {
+                            $path = $file->path();
+                            if (is_string($path) && $path !== '(binary)' && file_exists($path)) {
+                                $filePath = $path;
+                            }
+                        } catch (\Exception $e) {
+                            // Use default path
+                        }
+                    }
+                    echo "$key=@" . addslashes($filePath);
+                @endphp" @if(!($loop->parent->last))\
 @endif
 @endforeach
 @endforeach
