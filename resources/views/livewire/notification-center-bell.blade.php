@@ -8,12 +8,26 @@
             const dropdown = this.$refs.dropdown;
             if (button && dropdown) {
                 const rect = button.getBoundingClientRect();
+                const scrollY = window.scrollY || window.pageYOffset;
+                const scrollX = window.scrollX || window.pageXOffset;
+                
+                // Calculate position relative to viewport
                 dropdown.style.right = (window.innerWidth - rect.right) + 'px';
-                dropdown.style.top = (rect.bottom + 8) + 'px';
+                dropdown.style.top = (rect.bottom + scrollY + 8) + 'px';
+                dropdown.style.left = 'auto';
+                dropdown.style.bottom = 'auto';
+                
+                // Ensure dropdown doesn't go off screen
+                const dropdownWidth = dropdown.offsetWidth || 420;
+                const dropdownRight = window.innerWidth - rect.right;
+                if (dropdownRight + dropdownWidth > window.innerWidth) {
+                    dropdown.style.right = '16px';
+                }
             }
         }
     }"
     @resize.window="positionDropdown()"
+    @scroll.window="if (open) positionDropdown()"
     wire:poll.30s="loadNotifications"
     dir="rtl"
 >
@@ -48,8 +62,8 @@
         x-transition:leave="transition ease-in duration-150"
         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
         x-transition:leave-end="opacity-0 scale-95 translate-y-1"
-        class="fixed w-[420px] max-w-[90vw] rounded-2xl bg-white shadow-2xl ring-0 dark:bg-gray-800 z-[9999] overflow-hidden backdrop-blur-sm"
-        style="display: none; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);"
+        class="fixed w-[420px] max-w-[90vw] rounded-2xl bg-white shadow-2xl ring-0 dark:bg-gray-800 z-[9999] overflow-hidden backdrop-blur-sm pointer-events-auto"
+        style="display: none; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); isolation: isolate;"
         dir="rtl"
     >
         <!-- Header -->

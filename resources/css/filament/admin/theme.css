@@ -81,19 +81,34 @@ button[data-notification-bell] {
     position: relative;
     display: inline-flex;
     align-items: center;
+    overflow: visible;
 }
 
-/* Ensure dropdown is properly positioned and doesn't stack */
-.fi-topbar-item:has([wire\\:id*="notification-center-bell"]) [x-show] {
+/* Ensure dropdown is properly positioned and doesn't affect navbar */
+.fi-topbar-item:has([wire\\:id*="notification-center-bell"]) [x-ref="dropdown"] {
     position: fixed !important;
     z-index: 9999 !important;
+    pointer-events: auto;
+    isolation: isolate;
 }
 
-/* Allow dropdown to escape topbar overflow */
+/* Prevent dropdown from affecting navbar layout */
+.fi-topbar-item:has([wire\\:id*="notification-center-bell"]) [x-ref="dropdown"]:not([x-show]) {
+    display: none !important;
+}
+
+/* Allow dropdown to escape topbar overflow without affecting layout */
 .fi-topbar,
 .fi-topbar-items,
-.fi-topbar-item:has([wire\\:id*="notification-center-bell"]) {
+.fi-topbar-nav,
+.fi-topbar-nav-end {
     overflow: visible !important;
+}
+
+/* Ensure the bell button doesn't cause layout shifts */
+.fi-topbar-item:has([wire\\:id*="notification-center-bell"]) button[x-ref="bellButton"] {
+    position: relative;
+    z-index: 1;
 }
 
 /* Prevent text overflow in notification items */
