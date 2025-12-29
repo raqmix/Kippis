@@ -61,7 +61,13 @@
                 <span>Example:</span> <!-- <span> important for spacing -->
                 <div class="sl-flex sl-flex-1 sl-flex-wrap" style="gap: 4px;">
                     <div class="sl-max-w-full sl-break-all sl-px-1 sl-bg-canvas-tint sl-text-muted sl-rounded sl-border">
-                        {{ is_array($example) || is_bool($example) ? json_encode($example) : $example }}
+                        @php
+                            if (is_array($example) || is_object($example) || is_bool($example)) {
+                                echo json_encode($example, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                            } else {
+                                echo $example;
+                            }
+                        @endphp
                     </div>
                 </div>
             </div>

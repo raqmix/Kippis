@@ -65,6 +65,10 @@
         $exampleAsString = $example;
         if (is_bool($example)) {
             $exampleAsString = $example ? "true" : "false";
+        } elseif (is_object($example)) {
+            $exampleAsString = json_encode($example, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } elseif (!is_string($example) && !is_numeric($example)) {
+            $exampleAsString = (string) $example;
         }
         $description .= " Example: `$exampleAsString`";
     }
