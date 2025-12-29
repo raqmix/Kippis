@@ -225,4 +225,33 @@ class Admin extends Authenticatable
     {
         return $this->hasMany(SupportTicket::class, 'assigned_to');
     }
+
+    /**
+     * Get notifications from notifications_center
+     */
+    public function notificationsCenter()
+    {
+        return $this->hasMany(NotificationCenter::class, 'user_id');
+    }
+
+    /**
+     * Get unread notifications count from notifications_center
+     */
+    public function unreadNotificationsCenterCount(): int
+    {
+        return NotificationCenter::forUser($this)
+            ->where('is_read', false)
+            ->count();
+    }
+
+    /**
+     * Get unread notifications from notifications_center
+     */
+    public function unreadNotificationsCenter()
+    {
+        return NotificationCenter::forUser($this)
+            ->where('is_read', false)
+            ->latest()
+            ->limit(10);
+    }
 }

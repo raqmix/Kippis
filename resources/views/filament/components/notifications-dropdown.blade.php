@@ -1,2 +1,2 @@
-@livewire(\App\Filament\Components\NotificationsDropdown::class, key('notifications-dropdown'))
+@livewire(\App\Livewire\NotificationCenterBell::class, key('notification-center-bell'))
 
