@@ -33,6 +33,11 @@
     --warning: #F59E0B;
     --danger: #EF4444;
     --info: #60A5FA;
+
+    /* Facebook Notification Colors */
+    --fb-unread-bg: #E7F3FF;
+    --fb-hover-bg: #F2F2F2;
+    --fb-blue-dot: #1877F2;
 }
 
 [data-theme="light"] {
@@ -50,8 +55,6 @@
     direction: rtl;
 }
 
-/* Filament native notifications are now enabled - no custom notification center */
-
 /* Ensure proper RTL layout */
 .fi-topbar-item[dir="rtl"] {
     direction: rtl;
@@ -61,4 +64,155 @@
 .fi-topbar-item[dir="rtl"] a,
 .fi-topbar-item[dir="rtl"] p {
     text-align: right;
+}
+
+/* Facebook-Style Notification Styles */
+.facebook-notifications {
+    position: relative;
+}
+
+.facebook-notification-dropdown {
+    box-shadow: 0 12px 28px 0 rgba(0, 0, 0, 0.2), 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.facebook-notification-item {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: background-color 0.15s ease;
+}
+
+.facebook-notification-item:last-child {
+    border-bottom: none;
+}
+
+.facebook-notification-item:hover {
+    background-color: var(--fb-hover-bg) !important;
+}
+
+.dark .facebook-notification-item:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Facebook-style scrollbar */
+.facebook-notification-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.dark .facebook-notification-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .facebook-notification-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Enhanced Topbar Styling */
+.fi-topbar {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .fi-topbar {
+    background: rgba(17, 24, 39, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fi-topbar-item-button {
+    transition: all 0.2s ease;
+}
+
+.fi-topbar-item-button:hover {
+    transform: translateY(-1px);
+}
+
+/* Modern Button Styles */
+.fi-btn {
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.fi-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.fi-btn:active {
+    transform: translateY(0);
+}
+
+/* Enhanced Card Shadows */
+.fi-section {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease;
+}
+
+.fi-section:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Improved Typography */
+.fi-section-header-title {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+/* Smooth Transitions */
+* {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Enhanced Focus States */
+.fi-topbar-item-button:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+/* Better Spacing */
+.fi-section-content {
+    padding: 1.5rem;
+}
+
+/* Modern Input Fields */
+.fi-input {
+    transition: all 0.2s ease;
+}
+
+.fi-input:focus {
+    box-shadow: 0 0 0 3px rgba(123, 108, 246, 0.1);
+}
+
+/* Improved Table Styles */
+.fi-ta-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.fi-ta-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.fi-ta-table tbody tr:hover {
+    background-color: rgba(123, 108, 246, 0.05);
 }
