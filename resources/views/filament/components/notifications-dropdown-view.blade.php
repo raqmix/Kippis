@@ -85,16 +85,17 @@
                                 ? (str_starts_with($thumbnail, 'http') ? $thumbnail : asset('storage/' . $thumbnail))
                                 : null;
                         @endphp
+                        @php
+                            $itemAttributes = new \Illuminate\View\ComponentAttributeBag([
+                                'class' => 'facebook-notification-item group relative px-4 py-3 cursor-pointer transition-all duration-150 ' . (!$isRead ? 'bg-[#E7F3FF] dark:bg-blue-900/20' : 'bg-white dark:bg-gray-900') . ' hover:bg-[#F2F2F2] dark:hover:bg-gray-800/50',
+                            ]);
+                            if (!empty($notification['actionUrl'])) {
+                                $itemAttributes = $itemAttributes->merge(['href' => $notification['actionUrl']]);
+                            }
+                        @endphp
                         <x-filament::dropdown.list.item
                             wire:click="markAsRead('{{ $notification['id'] }}')"
-                            @if(!empty($notification['actionUrl']))
-                                :href="$notification['actionUrl']"
-                            @endif
-                            :attributes="
-                                \Filament\Support\prepare_inherited_attributes(new \Illuminate\View\ComponentAttributeBag([
-                                    'class' => 'facebook-notification-item group relative px-4 py-3 cursor-pointer transition-all duration-150 ' . (!$isRead ? 'bg-[#E7F3FF] dark:bg-blue-900/20' : 'bg-white dark:bg-gray-900') . ' hover:bg-[#F2F2F2] dark:hover:bg-gray-800/50',
-                                ]))
-                            "
+                            :attributes="\Filament\Support\prepare_inherited_attributes($itemAttributes)"
                         >
                             <div class="flex items-start gap-3">
                                 <!-- Unread dot indicator -->
