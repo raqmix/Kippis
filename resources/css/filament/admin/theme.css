@@ -157,6 +157,7 @@
 
 /* Enhanced Topbar Styling - Beautiful Design */
 .fi-topbar {
+    height: 4.5rem;
     backdrop-filter: blur(20px) saturate(180%);
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.95) 100%);
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
@@ -205,10 +206,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 2.5rem;
-    width: 2.5rem;
+    height: 2.85rem;
+    width: 2.85rem;
     position: relative;
-    border-radius: 0.75rem;
+    border-radius: 0.85rem;
     background: transparent;
 }
 
@@ -272,6 +273,8 @@
 
 /* Icon Button Enhancements */
 .fi-topbar-item-button .fi-icon {
+    height: 1.65rem;
+    width: 1.65rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

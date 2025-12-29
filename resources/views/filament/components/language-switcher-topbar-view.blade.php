@@ -14,6 +14,7 @@
                 :label="__('system.language')"
                 color="gray"
                 size="lg"
+                class="rounded-xl hover:bg-gray-100 dark:hover:bg-white/5"
             />
         </x-slot>
 

@@ -22,13 +22,13 @@
                     :label="__('system.notifications')"
                     color="gray"
                     size="lg"
-                    class="rounded-xl"
+                    class="rounded-xl hover:bg-gray-100 dark:hover:bg-white/5"
                 />
 
                 @if ($unreadCount > 0)
                     <span
-                        class="absolute -top-1 -right-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full
-                               bg-red-600 px-1 text-[10px] font-bold leading-none text-white shadow-lg
+                        class="absolute -top-1 -right-1 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full
+                               bg-red-600 px-1 text-[11px] font-bold leading-none text-white shadow-lg
                                ring-2 ring-white dark:ring-gray-900"
                     >
                         {{ $unreadCount > 99 ? '99+' : $unreadCount }}
