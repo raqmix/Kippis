@@ -78,11 +78,20 @@ class Cart extends Model
      */
     public function recalculate(): void
     {
-        $subtotal = $this->items->sum(function ($item) {
+        // Use fresh query to get all items (not cached relationship)
+        $items = $this->items()->get();
+        
+        $subtotal = $items->sum(function ($item) {
             return $item->price * $item->quantity;
         });
 
         $discount = 0;
+        
+        // Load promo code if not already loaded
+        if (!$this->relationLoaded('promoCode')) {
+            $this->load('promoCode');
+        }
+        
         if ($this->promoCode && $this->promoCode->isValid() && $subtotal >= $this->promoCode->minimum_order_amount) {
             $discount = $this->promoCode->calculateDiscount($subtotal);
         }

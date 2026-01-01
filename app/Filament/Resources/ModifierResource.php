@@ -77,6 +77,8 @@ class ModifierResource extends Resource
                                 'fizz' => __('system.fizz'),
                                 'caffeine' => __('system.caffeine'),
                                 'extra' => __('system.extra'),
+                                'size' => __('system.size'),
+                                'smothing'=>__('system.smothing'),
                             ])
                             ->required()
                             ->reactive(),

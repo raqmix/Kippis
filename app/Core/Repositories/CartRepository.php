@@ -98,15 +98,18 @@ class CartRepository
      */
     public function recalculate(Cart $cart): void
     {
-        // Ensure items and promoCode relationships are loaded
-        if (!$cart->relationLoaded('items')) {
-            $cart->load('items');
-        }
+        // Refresh items relationship to ensure we have the latest items
+        $cart->load('items');
+        
+        // Ensure promoCode relationship is loaded
         if (!$cart->relationLoaded('promoCode')) {
             $cart->load('promoCode');
         }
         
         $cart->recalculate();
+        
+        // Refresh the cart model to get updated totals
+        $cart->refresh();
     }
 }
 

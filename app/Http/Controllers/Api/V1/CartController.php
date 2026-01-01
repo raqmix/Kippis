@@ -89,8 +89,11 @@ class CartController extends Controller
 
         // Recalculate totals to ensure they are up to date
         $this->cartRepository->recalculate($cart);
+        
+        // Refresh cart with all relationships to get updated totals
+        $cart = $cart->fresh(['items.product', 'promoCode']);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])));
+        return apiSuccess(new CartResource($cart));
     }
 
     /**
@@ -145,9 +148,13 @@ class CartController extends Controller
             $request->input('modifiers', [])
         );
 
+        // Recalculate cart totals after adding item
         $this->cartRepository->recalculate($cart);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_added', 201);
+        // Refresh cart with all relationships to get updated totals
+        $cart = $cart->fresh(['items.product', 'promoCode']);
+
+        return apiSuccess(new CartResource($cart), 'item_added', 201);
     }
 
     /**
@@ -183,9 +190,14 @@ class CartController extends Controller
 
         $cartItem = $cart->items()->findOrFail($id);
         $this->cartRepository->updateItem($cartItem, ['quantity' => $request->input('quantity')]);
+        
+        // Recalculate cart totals after updating item
         $this->cartRepository->recalculate($cart);
+        
+        // Refresh cart with all relationships to get updated totals
+        $cart = $cart->fresh(['items.product', 'promoCode']);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_updated');
+        return apiSuccess(new CartResource($cart), 'item_updated');
     }
 
     /**
@@ -216,9 +228,14 @@ class CartController extends Controller
 
         $cartItem = $cart->items()->findOrFail($id);
         $this->cartRepository->removeItem($cartItem);
+        
+        // Recalculate cart totals after removing item
         $this->cartRepository->recalculate($cart);
+        
+        // Refresh cart with all relationships to get updated totals
+        $cart = $cart->fresh(['items.product', 'promoCode']);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_removed');
+        return apiSuccess(new CartResource($cart), 'item_removed');
     }
 
     /**
@@ -273,9 +290,14 @@ class CartController extends Controller
         }
 
         $this->cartRepository->applyPromoCode($cart, $promoCode);
+        
+        // Recalculate cart totals after applying promo code
         $this->cartRepository->recalculate($cart);
+        
+        // Refresh cart with all relationships to get updated totals
+        $cart = $cart->fresh(['items.product', 'promoCode']);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'promo_applied');
+        return apiSuccess(new CartResource($cart), 'promo_applied');
     }
 
     /**
@@ -303,9 +325,14 @@ class CartController extends Controller
         }
 
         $this->cartRepository->removePromoCode($cart);
+        
+        // Recalculate cart totals after removing promo code
         $this->cartRepository->recalculate($cart);
+        
+        // Refresh cart with all relationships to get updated totals
+        $cart = $cart->fresh(['items.product', 'promoCode']);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'promo_removed');
+        return apiSuccess(new CartResource($cart), 'promo_removed');
     }
 
     /**
