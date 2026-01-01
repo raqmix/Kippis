@@ -66,6 +66,10 @@ class OrderController extends Controller
             return apiError('CART_EMPTY', 'cart_empty', 400);
         }
 
+        // Recalculate cart totals before creating order to ensure they are accurate
+        $this->cartRepository->recalculate($cart);
+        $cart->refresh();
+
         $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method'));
 
         $this->cartRepository->abandon($cart);
