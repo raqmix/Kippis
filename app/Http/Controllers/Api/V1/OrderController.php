@@ -82,7 +82,7 @@ class OrderController extends Controller
      * 
      * @authenticated
      * 
-     * @queryParam status string optional Filter by status (active, completed, cancelled). Default: "active". Example: "completed"
+     * @queryParam status string optional Filter by status. Use "active" to get orders that are active now (not completed or cancelled). Use "past" to get all orders that are not active (completed or cancelled). You can also filter by specific status: received, mixing, ready, completed, cancelled. Default: "active". Example: "past"
      * @queryParam payment_method string optional Filter by payment method. Example: "cash"
      * @queryParam store_id integer optional Filter by store ID. Example: 1
      * @queryParam date_from date optional Filter orders from date (Y-m-d). Example: "2025-01-01"

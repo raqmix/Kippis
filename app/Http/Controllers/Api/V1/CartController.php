@@ -87,7 +87,10 @@ class CartController extends Controller
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
         }
 
-        return apiSuccess(new CartResource($cart));
+        // Recalculate totals to ensure they are up to date
+        $this->cartRepository->recalculate($cart);
+
+        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])));
     }
 
     /**

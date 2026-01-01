@@ -67,15 +67,14 @@ class OrderRepository
         $query = Order::where('customer_id', $customerId)
             ->with(['store', 'promoCode']);
 
-        // Filter by status
-        if (isset($filters['status'])) {
-            if ($filters['status'] === 'active') {
-                $query->active();
-            } elseif ($filters['status'] === 'past') {
-                $query->past();
-            } elseif (in_array($filters['status'], ['received', 'mixing', 'ready', 'completed', 'cancelled'])) {
-                $query->where('status', $filters['status']);
-            }
+        // Filter by status (default to 'active' if not provided)
+        $status = $filters['status'] ?? 'active';
+        if ($status === 'active') {
+            $query->active();
+        } elseif ($status === 'past') {
+            $query->past();
+        } elseif (in_array($status, ['received', 'mixing', 'ready', 'completed', 'cancelled'])) {
+            $query->where('status', $status);
         }
 
         // Filter by payment method
