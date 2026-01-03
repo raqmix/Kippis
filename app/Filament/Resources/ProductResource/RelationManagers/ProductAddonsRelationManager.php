@@ -21,7 +21,7 @@ class ProductAddonsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    public static function canViewForRecord(Model $ownerRecord, string $page): bool
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
         // Only show this relation manager for regular products (not mix_base)
         return $ownerRecord->product_kind === 'regular';

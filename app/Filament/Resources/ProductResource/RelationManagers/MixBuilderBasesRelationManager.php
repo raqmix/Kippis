@@ -9,6 +9,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MixBuilderBasesRelationManager extends RelationManager
@@ -97,7 +98,7 @@ class MixBuilderBasesRelationManager extends RelationManager
             ->emptyStateIcon('heroicon-o-cube');
     }
 
-    public static function canViewForRecord(Model $ownerRecord, string $page): bool
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
         // Only show this relation manager for mix_base products
         return $ownerRecord->product_kind === 'mix_base';
