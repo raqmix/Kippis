@@ -131,14 +131,6 @@ class Store extends Model
     }
 
     /**
-     * Get all QR receipts for this store.
-     */
-    public function qrReceipts(): HasMany
-    {
-        return $this->hasMany(QrReceipt::class);
-    }
-
-    /**
      * Get promo codes that apply to this store.
      */
     public function promoCodes(): BelongsToMany

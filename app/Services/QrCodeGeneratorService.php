@@ -43,9 +43,9 @@ class QrCodeGeneratorService
      *
      * @param string $code The code string to encode
      * @param array $options Optional settings
-     * @return \Illuminate\Http\Response
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
      */
-    public function download(string $code, array $options = []): \Illuminate\Http\Response
+    public function download(string $code, array $options = []): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $path = $this->generate($code, $options);
         $fullPath = Storage::disk('public')->path($path);

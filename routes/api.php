@@ -100,11 +100,9 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/scan', [\App\Http\Controllers\Api\V1\PromoQrController::class, 'scan']);
     });
 
-    // ==================== QR RECEIPTS APIs ====================
+    // ==================== QR CODES APIs ====================
     Route::middleware('auth:api')->prefix('v1/qr-receipts')->group(function () {
         Route::post('/scan', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'scan']);
-        Route::post('/manual', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'manual']);
-        Route::get('/history', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'history']);
     });
 
     // ==================== CMS PAGES APIs ====================
@@ -143,8 +141,6 @@ Route::middleware('api.locale')->group(function () {
     });
     Route::prefix('v1/qr')->group(function () {
         Route::post('/scan', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'scan']);
-        Route::post('/manual', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'manual']);
-        Route::get('/history', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'history']);
     });
     Route::prefix('v1/support-tickets')->group(function () {
         Route::post('/', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'store']);

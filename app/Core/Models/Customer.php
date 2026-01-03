@@ -89,14 +89,6 @@ class Customer extends Authenticatable implements JWTSubject
     }
 
     /**
-     * Get all QR receipts for this customer.
-     */
-    public function qrReceipts(): HasMany
-    {
-        return $this->hasMany(QrReceipt::class);
-    }
-
-    /**
      * Get all carts for this customer.
      */
     public function carts(): HasMany

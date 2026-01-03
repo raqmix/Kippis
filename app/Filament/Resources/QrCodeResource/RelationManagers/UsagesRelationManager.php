@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\QrCodeResource\RelationManagers;
 
+use Filament\Actions;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -43,7 +44,7 @@ class UsagesRelationManager extends RelationManager
                 // No create action - usages are created via API only
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                Actions\ViewAction::make(),
             ])
             ->bulkActions([
                 // No bulk actions - read-only
