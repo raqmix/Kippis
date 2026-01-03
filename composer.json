@@ -15,6 +15,7 @@
         "mews/purifier": "^3.0",
         "pragmarx/google2fa": "^9.0",
         "predis/predis": "^2.2",
+        "simplesoftwareio/simple-qrcode": "*",
         "spatie/laravel-permission": "^6.24",
         "tymon/jwt-auth": "*"
     },

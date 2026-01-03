@@ -95,6 +95,11 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/redeem', [\App\Http\Controllers\Api\V1\LoyaltyController::class, 'redeem']);
     });
 
+    // ==================== PROMOTIONAL QR CODES APIs ====================
+    Route::middleware('auth:api')->prefix('v1/promo-qr')->group(function () {
+        Route::post('/scan', [\App\Http\Controllers\Api\V1\PromoQrController::class, 'scan']);
+    });
+
     // ==================== QR RECEIPTS APIs ====================
     Route::middleware('auth:api')->prefix('v1/qr-receipts')->group(function () {
         Route::post('/scan', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'scan']);
