@@ -22,10 +22,13 @@ return [
     'categories' => 'الفئات',
     'products' => 'المنتجات',
     'modifiers' => 'المعدلات',
+    'frames' => 'الإطارات',
     'promo_codes' => 'رموز الخصم',
     'orders' => 'الطلبات',
     'loyalty_wallets' => 'محافظ الولاء',
     'qr_receipts' => 'إيصالات QR',
+    'qr_codes' => 'رموز QR',
+    'promo_qr_codes' => 'رموز QR الترويجية',
     
     'groups' => [
         'system_management' => 'إدارة النظام',

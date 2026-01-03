@@ -22,10 +22,13 @@ return [
     'categories' => 'Categories',
     'products' => 'Products',
     'modifiers' => 'Modifiers',
+    'frames' => 'Frames',
     'promo_codes' => 'Promo Codes',
     'orders' => 'Orders',
     'loyalty_wallets' => 'Loyalty Wallets',
     'qr_receipts' => 'QR Receipts',
+    'qr_codes' => 'QR Codes',
+    'promo_qr_codes' => 'Promotional QR Codes',
     
     'groups' => [
         'system_management' => 'System Management',

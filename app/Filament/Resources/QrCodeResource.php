@@ -57,63 +57,63 @@ class QrCodeResource extends Resource
     {
         return $schema
             ->schema([
-                Components\Section::make('QR Code Information')
+                Components\Section::make(__('system.qr_code_information'))
                     ->schema([
                         Forms\Components\TextInput::make('code')
-                            ->label('Code')
+                            ->label(__('system.code'))
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(255)
                             ->default(fn () => 'QR-' . strtoupper(Str::random(8)))
-                            ->helperText('Unique code string that will be embedded in the QR code'),
+                            ->helperText(__('system.unique_code_string')),
                         Forms\Components\TextInput::make('title')
-                            ->label('Title')
+                            ->label(__('system.title'))
                             ->maxLength(255)
                             ->nullable(),
                         Forms\Components\Textarea::make('description')
-                            ->label('Description')
+                            ->label(__('system.description'))
                             ->rows(3)
                             ->nullable(),
                         Forms\Components\TextInput::make('points_awarded')
-                            ->label('Points Awarded')
+                            ->label(__('system.points_awarded'))
                             ->required()
                             ->numeric()
                             ->minValue(1)
                             ->default(10)
-                            ->helperText('Points awarded when this QR code is redeemed'),
+                            ->helperText(__('system.points_awarded_helper')),
                     ])
                     ->columns(2),
-                Components\Section::make('Status & Availability')
+                Components\Section::make(__('system.status_availability'))
                     ->schema([
                         Forms\Components\Toggle::make('is_active')
-                            ->label('Active')
+                            ->label(__('system.active'))
                             ->default(true)
-                            ->helperText('Enable or disable this QR code'),
+                            ->helperText(__('system.enable_disable_qr_code')),
                         Forms\Components\DateTimePicker::make('start_at')
-                            ->label('Start At')
+                            ->label(__('system.start_at'))
                             ->nullable()
-                            ->helperText('When QR code becomes valid (leave empty for immediate activation)'),
+                            ->helperText(__('system.when_qr_becomes_valid')),
                         Forms\Components\DateTimePicker::make('expires_at')
-                            ->label('Expires At')
+                            ->label(__('system.expires_at'))
                             ->nullable()
-                            ->helperText('When QR code expires (leave empty for no expiration)')
+                            ->helperText(__('system.when_qr_expires'))
                             ->after('start_at'),
                     ])
                     ->columns(3),
-                Components\Section::make('Usage Limits')
+                Components\Section::make(__('system.usage_limits'))
                     ->schema([
                         Forms\Components\TextInput::make('per_customer_limit')
-                            ->label('Per Customer Limit')
+                            ->label(__('system.per_customer_limit'))
                             ->numeric()
                             ->minValue(1)
                             ->nullable()
-                            ->helperText('Maximum times one customer can use this (leave empty for unlimited)'),
+                            ->helperText(__('system.max_times_one_customer')),
                         Forms\Components\TextInput::make('total_limit')
-                            ->label('Total Limit')
+                            ->label(__('system.total_limit'))
                             ->numeric()
                             ->minValue(1)
                             ->nullable()
-                            ->helperText('Maximum total redemptions across all customers (leave empty for unlimited)'),
+                            ->helperText(__('system.max_total_redemptions')),
                     ])
                     ->columns(2),
             ]);
@@ -124,24 +124,24 @@ class QrCodeResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Code')
+                    ->label(__('system.code'))
                     ->searchable()
                     ->sortable()
                     ->copyable(),
                 Tables\Columns\TextColumn::make('title')
-                    ->label('Title')
+                    ->label(__('system.title'))
                     ->searchable()
                     ->sortable()
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('points_awarded')
-                    ->label('Points')
+                    ->label(__('system.points'))
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label(__('system.active'))
                     ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_used_count')
-                    ->label('Total Uses')
+                    ->label(__('system.total_uses'))
                     ->sortable()
                     ->formatStateUsing(fn ($state, $record) => 
                         $record->total_limit 
@@ -149,41 +149,41 @@ class QrCodeResource extends Resource
                             : (string) $state
                     ),
                 Tables\Columns\TextColumn::make('per_customer_limit')
-                    ->label('Per Customer')
+                    ->label(__('system.per_customer'))
                     ->sortable()
-                    ->formatStateUsing(fn ($state) => $state ? (string) $state : 'Unlimited')
-                    ->placeholder('Unlimited'),
+                    ->formatStateUsing(fn ($state) => $state ? (string) $state : __('system.unlimited'))
+                    ->placeholder(__('system.unlimited')),
                 Tables\Columns\TextColumn::make('start_at')
-                    ->label('Start At')
+                    ->label(__('system.start_at'))
                     ->dateTime()
                     ->sortable()
-                    ->placeholder('Immediate'),
+                    ->placeholder(__('system.immediate')),
                 Tables\Columns\TextColumn::make('expires_at')
-                    ->label('Expires At')
+                    ->label(__('system.expires_at'))
                     ->dateTime()
                     ->sortable()
-                    ->placeholder('Never'),
+                    ->placeholder(__('system.never')),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Created At')
+                    ->label(__('system.created_at'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('is_active')
-                    ->label('Status')
+                    ->label(__('system.status'))
                     ->options([
-                        true => 'Active',
-                        false => 'Inactive',
+                        true => __('system.active'),
+                        false => __('system.inactive'),
                     ]),
                 Tables\Filters\Filter::make('expired')
-                    ->label('Expired')
+                    ->label(__('system.expired'))
                     ->query(fn ($query) => $query->expired()),
                 Tables\Filters\Filter::make('upcoming')
-                    ->label('Upcoming')
+                    ->label(__('system.upcoming'))
                     ->query(fn ($query) => $query->where('start_at', '>', now())),
                 Tables\Filters\Filter::make('has_remaining')
-                    ->label('Has Remaining Uses')
+                    ->label(__('system.has_remaining_uses'))
                     ->query(function ($query) {
                         return $query->where(function ($q) {
                             $q->whereNull('total_limit')
@@ -191,7 +191,7 @@ class QrCodeResource extends Resource
                         });
                     }),
                 Tables\Filters\Filter::make('fully_used')
-                    ->label('Fully Used')
+                    ->label(__('system.fully_used'))
                     ->query(function ($query) {
                         return $query->whereNotNull('total_limit')
                             ->whereColumn('total_used_count', '>=', 'total_limit');
@@ -201,7 +201,7 @@ class QrCodeResource extends Resource
                 Actions\ViewAction::make(),
                 Actions\EditAction::make(),
                 Actions\Action::make('generate_qr')
-                    ->label('Generate QR Code')
+                    ->label(__('system.generate_qr_code'))
                     ->icon('heroicon-o-qr-code')
                     ->color('success')
                     ->action(function (QrCode $record, QrCodeGeneratorService $qrService) {
@@ -209,15 +209,15 @@ class QrCodeResource extends Resource
                         $url = Storage::disk('public')->url($path);
                         
                         \Filament\Notifications\Notification::make()
-                            ->title('QR Code Generated')
-                            ->body('QR code has been generated successfully.')
+                            ->title(__('system.qr_code_generated'))
+                            ->body(__('system.qr_code_generated_successfully'))
                             ->success()
                             ->send();
                         
                         return redirect($url);
                     }),
                 Actions\Action::make('download_qr')
-                    ->label('Download QR Code')
+                    ->label(__('system.download_qr_code'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('info')
                     ->action(function (QrCode $record, QrCodeGeneratorService $qrService) {
