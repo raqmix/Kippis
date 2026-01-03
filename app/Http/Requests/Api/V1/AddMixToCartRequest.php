@@ -37,6 +37,7 @@ class AddMixToCartRequest extends FormRequest
             'ref_id' => 'nullable|integer',
             'name' => 'nullable|string|max:255',
             'product_id' => 'required_if:item_type,product|exists:products,id',
+            'note' => 'nullable|string|max:1000',
         ];
     }
 }

@@ -22,10 +22,11 @@ class CartService
      * @param Product $product
      * @param int $quantity
      * @param array $addons Array of addon configurations: [{modifier_id, level}]
+     * @param string|null $note Optional note for the cart item
      * @return \App\Core\Models\CartItem
      * @throws \InvalidArgumentException
      */
-    public function addProductToCart(Cart $cart, Product $product, int $quantity, array $addons = []): \App\Core\Models\CartItem
+    public function addProductToCart(Cart $cart, Product $product, int $quantity, array $addons = [], ?string $note = null): \App\Core\Models\CartItem
     {
         if (!$product->is_active) {
             throw new \InvalidArgumentException('Product is not active.');
@@ -50,6 +51,7 @@ class CartService
             'ref_id' => $product->id,
             'name' => $product->getName(app()->getLocale()),
             'configuration' => $configuration,
+            'note' => $note,
         ];
 
         return $this->cartRepository->addItemUnified($cart, $payload);
@@ -64,6 +66,7 @@ class CartService
      * @param int $quantity
      * @param int|null $refId Optional reference ID (mix_builder_id or creator_mix_id)
      * @param string|null $name Optional custom name
+     * @param string|null $note Optional note for the cart item
      * @return \App\Core\Models\CartItem
      * @throws \InvalidArgumentException
      */
@@ -73,7 +76,8 @@ class CartService
         array $configuration,
         int $quantity = 1,
         ?int $refId = null,
-        ?string $name = null
+        ?string $name = null,
+        ?string $note = null
     ): \App\Core\Models\CartItem {
         if (!in_array($itemType, ['mix', 'creator_mix'])) {
             throw new \InvalidArgumentException("Invalid item type: {$itemType}");
@@ -94,6 +98,7 @@ class CartService
             'ref_id' => $refId,
             'name' => $name,
             'configuration' => $configuration,
+            'note' => $note,
         ];
 
         return $this->cartRepository->addItemUnified($cart, $payload);

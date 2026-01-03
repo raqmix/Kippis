@@ -50,8 +50,10 @@ class CartRepository
 
     /**
      * Add item to cart.
+     *
+     * @param string|null $note Optional note for the cart item
      */
-    public function addItem(Cart $cart, int $productId, int $quantity, array $modifiers = []): CartItem
+    public function addItem(Cart $cart, int $productId, int $quantity, array $modifiers = [], ?string $note = null): CartItem
     {
         $product = Product::findOrFail($productId);
 
@@ -64,6 +66,7 @@ class CartRepository
             'ref_id' => $product->id,
             'name' => $product->name_json['en'] ?? $product->name,
             'configuration' => null,
+            'note' => $note,
         ];
 
         return $this->addItemUnified($cart, $payload);
@@ -73,7 +76,7 @@ class CartRepository
      * Unified add item API. Accepts payload with item_type and configuration. Price must be provided
      * or computed by caller (e.g., MixPriceCalculator) before calling this method.
      *
-     * $payload keys: item_type, ref_id, name, price, quantity, configuration (array)
+     * $payload keys: item_type, ref_id, name, price, quantity, configuration (array), note (string)
      */
     public function addItemUnified(Cart $cart, array $payload): CartItem
     {
@@ -88,6 +91,7 @@ class CartRepository
                 'ref_id' => $payload['ref_id'] ?? null,
                 'name' => $payload['name'] ?? null,
                 'configuration' => $payload['configuration'] ?? null,
+                'note' => $payload['note'] ?? null,
             ];
 
             return CartItem::create($data);

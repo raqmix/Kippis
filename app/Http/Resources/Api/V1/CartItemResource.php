@@ -22,6 +22,7 @@ class CartItemResource extends JsonResource
             'name' => $this->name,
             'quantity' => $this->quantity,
             'price' => (float) $this->price,
+            'note' => $this->note,
         ];
 
         // Handle product items

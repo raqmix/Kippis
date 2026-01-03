@@ -21,6 +21,7 @@ class CartItem extends Model
         'ref_id',
         'name',
         'configuration',
+        'note',
     ];
 
     protected function casts(): array

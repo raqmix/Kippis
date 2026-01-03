@@ -230,6 +230,7 @@ class CartController extends Controller
      * @bodyParam addons array optional Array of addon configurations (only for products). Example: [{"modifier_id":5,"level":2}]
      * @bodyParam addons.*.modifier_id integer required Modifier ID assigned to product as addon. Example: 5
      * @bodyParam addons.*.level integer optional Modifier level (0 to max_level). Default: 1. Example: 2
+     * @bodyParam note string optional Note for this cart item (max 1000 characters). Example: "Extra hot please"
      * @bodyParam configuration object required_if:item_type,mix,creator_mix Configuration snapshot for mix or creator_mix. Example: {"base_id":1,"modifiers":[{"id":2,"level":1}]}
      * @bodyParam configuration.base_id integer optional Base product ID (preferred). Must be a product with product_kind = mix_base. Example: 1
      * @bodyParam configuration.base_price number optional Deprecated. Raw base price for backward compatibility. Example: 15.00
@@ -284,6 +285,7 @@ class CartController extends Controller
                 'product_id' => 'required|exists:products,id',
                 'quantity' => 'required|integer|min:1',
                 'modifiers' => 'array',
+                'note' => 'nullable|string|max:1000',
             ]);
 
             $customer = auth('api')->user();
@@ -300,12 +302,13 @@ class CartController extends Controller
                 return apiError('PRODUCT_INACTIVE', 'product_inactive', 400);
             }
 
-            // Legacy: use old addItem method (no addons support)
+            // Legacy: use old addItem method (no addons support, but supports note)
             $this->cartRepository->addItem(
                 $cart,
                 $product->id,
                 $validated['quantity'],
-                $validated['modifiers'] ?? []
+                $validated['modifiers'] ?? [],
+                $validated['note'] ?? null
             );
 
             $this->cartRepository->recalculate($cart);
@@ -353,7 +356,7 @@ class CartController extends Controller
                     }, $addons);
                 }
 
-                $this->cartService->addProductToCart($cart, $product, $quantity, $addons);
+                $this->cartService->addProductToCart($cart, $product, $quantity, $addons, $validated['note'] ?? null);
             } else {
                 // mix or creator_mix
                 $configuration = $validated['configuration'] ?? [];
@@ -363,7 +366,8 @@ class CartController extends Controller
                     $configuration,
                     $quantity,
                     $validated['ref_id'] ?? null,
-                    $validated['name'] ?? null
+                    $validated['name'] ?? null,
+                    $validated['note'] ?? null
                 );
             }
 
