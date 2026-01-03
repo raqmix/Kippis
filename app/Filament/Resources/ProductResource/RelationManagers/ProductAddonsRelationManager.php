@@ -34,9 +34,14 @@ class ProductAddonsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Modifier')
-                    ->formatStateUsing(fn ($record) => $record->getName(app()->getLocale()))
-                    ->searchable()
-                    ->sortable(),
+                    ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
+                    ->searchable(query: fn ($query, string $search) => 
+                        $query->where('name_json->en', 'like', "%{$search}%")
+                              ->orWhere('name_json->ar', 'like', "%{$search}%")
+                    )
+                    ->sortable(query: fn ($query, string $direction) => 
+                        $query->orderBy('name_json->' . app()->getLocale(), $direction)
+                    ),
                 Tables\Columns\TextColumn::make('type')
                     ->label('Type')
                     ->badge()
