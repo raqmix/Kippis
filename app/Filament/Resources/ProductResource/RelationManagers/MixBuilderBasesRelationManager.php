@@ -4,7 +4,6 @@ namespace App\Filament\Resources\ProductResource\RelationManagers;
 
 use App\Core\Models\MixBuilderBase;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -23,18 +22,6 @@ class MixBuilderBasesRelationManager extends RelationManager
     protected static ?string $modelLabel = 'Mix Builder Base';
 
     protected static ?string $pluralModelLabel = 'Mix Builder Bases';
-
-    public function form(Form $form): Form
-    {
-        return $form
-            ->schema([
-                Forms\Components\TextInput::make('mix_builder_id')
-                    ->label('Mix Builder ID')
-                    ->numeric()
-                    ->helperText('Leave empty for global bases (available to all builders)')
-                    ->nullable(),
-            ]);
-    }
 
     public function table(Table $table): Table
     {
@@ -79,13 +66,27 @@ class MixBuilderBasesRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
+                    ->form([
+                        Forms\Components\TextInput::make('mix_builder_id')
+                            ->label('Mix Builder ID')
+                            ->numeric()
+                            ->helperText('Leave empty for global bases (available to all builders)')
+                            ->nullable(),
+                    ])
                     ->mutateFormDataUsing(function (array $data, $livewire): array {
                         $data['product_id'] = $livewire->getOwnerRecord()->id;
                         return $data;
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->form([
+                        Forms\Components\TextInput::make('mix_builder_id')
+                            ->label('Mix Builder ID')
+                            ->numeric()
+                            ->helperText('Leave empty for global bases (available to all builders)')
+                            ->nullable(),
+                    ]),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

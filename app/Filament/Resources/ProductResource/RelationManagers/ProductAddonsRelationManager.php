@@ -5,13 +5,12 @@ namespace App\Filament\Resources\ProductResource\RelationManagers;
 use App\Core\Models\Modifier;
 use App\Core\Models\ProductModifierGroup;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ProductAddonsRelationManager extends RelationManager
 {
@@ -25,54 +24,6 @@ class ProductAddonsRelationManager extends RelationManager
     {
         // Only show this relation manager for regular products (not mix_base)
         return $ownerRecord->product_kind === 'regular';
-    }
-
-    public function form(Form $form): Form
-    {
-        return $form
-            ->schema([
-                Forms\Components\Select::make('modifier_id')
-                    ->label('Modifier')
-                    ->relationship('modifier', 'name_json')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale()))
-                    ->searchable()
-                    ->required()
-                    ->preload()
-                    ->createOptionForm([
-                        Forms\Components\Select::make('type')
-                            ->label('Type')
-                            ->options([
-                                'sweetness' => 'Sweetness',
-                                'fizz' => 'Fizz',
-                                'caffeine' => 'Caffeine',
-                                'extra' => 'Extra',
-                            ])
-                            ->required(),
-                        Forms\Components\TextInput::make('name_json.en')
-                            ->label('Name (English)')
-                            ->required(),
-                        Forms\Components\TextInput::make('name_json.ar')
-                            ->label('Name (Arabic)')
-                            ->required(),
-                        Forms\Components\TextInput::make('price')
-                            ->label('Price')
-                            ->numeric()
-                            ->default(0),
-                    ]),
-                Forms\Components\Toggle::make('is_required')
-                    ->label('Required')
-                    ->default(false),
-                Forms\Components\TextInput::make('min_select')
-                    ->label('Min Select (Level)')
-                    ->numeric()
-                    ->minValue(0)
-                    ->helperText('Minimum level to select (0 = optional)'),
-                Forms\Components\TextInput::make('max_select')
-                    ->label('Max Select (Level)')
-                    ->numeric()
-                    ->minValue(0)
-                    ->helperText('Maximum level to select'),
-            ]);
     }
 
     public function table(Table $table): Table
@@ -111,6 +62,49 @@ class ProductAddonsRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
+                    ->form([
+                        Forms\Components\Select::make('modifier_id')
+                            ->label('Modifier')
+                            ->relationship('modifier', 'name_json')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale()))
+                            ->searchable()
+                            ->required()
+                            ->preload()
+                            ->createOptionForm([
+                                Forms\Components\Select::make('type')
+                                    ->label('Type')
+                                    ->options([
+                                        'sweetness' => 'Sweetness',
+                                        'fizz' => 'Fizz',
+                                        'caffeine' => 'Caffeine',
+                                        'extra' => 'Extra',
+                                    ])
+                                    ->required(),
+                                Forms\Components\TextInput::make('name_json.en')
+                                    ->label('Name (English)')
+                                    ->required(),
+                                Forms\Components\TextInput::make('name_json.ar')
+                                    ->label('Name (Arabic)')
+                                    ->required(),
+                                Forms\Components\TextInput::make('price')
+                                    ->label('Price')
+                                    ->numeric()
+                                    ->default(0),
+                            ]),
+                        Forms\Components\Toggle::make('is_required')
+                            ->label('Required')
+                            ->default(false),
+                        Forms\Components\TextInput::make('min_select')
+                            ->label('Min Select (Level)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->helperText('Minimum level to select (0 = optional)'),
+                        Forms\Components\TextInput::make('max_select')
+                            ->label('Max Select (Level)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->helperText('Maximum level to select'),
+                    ])
                     ->using(function (array $data, $livewire): \Illuminate\Database\Eloquent\Model {
                         $product = $livewire->getOwnerRecord();
                         return ProductModifierGroup::create([
