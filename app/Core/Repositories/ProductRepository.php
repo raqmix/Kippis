@@ -111,7 +111,7 @@ class ProductRepository
      */
     public function findById(int $id): ?Product
     {
-        return Product::with('category')->active()->find($id);
+        return Product::with(['category', 'addonModifiers'])->active()->find($id);
     }
 
     /**

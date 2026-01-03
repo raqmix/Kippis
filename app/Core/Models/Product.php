@@ -5,6 +5,7 @@ namespace App\Core\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Database\Factories\ProductFactory;
 
@@ -110,6 +111,24 @@ class Product extends Model
     public function scopeFoodics($query)
     {
         return $query->where('external_source', 'foodics');
+    }
+
+    /**
+     * Get the modifier groups assigned to this product (addons).
+     */
+    public function modifierGroups()
+    {
+        return $this->hasMany(ProductModifierGroup::class);
+    }
+
+    /**
+     * Get the modifiers assigned to this product as addons.
+     */
+    public function addonModifiers()
+    {
+        return $this->belongsToMany(Modifier::class, 'product_modifier_groups')
+            ->withPivot('is_required', 'min_select', 'max_select')
+            ->withTimestamps();
     }
 }
 

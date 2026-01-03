@@ -14,19 +14,45 @@ class CartItemResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
+        $itemType = $this->item_type ?? 'product';
+        
+        $base = [
             'id' => $this->id,
-            'product' => $this->whenLoaded('product', function () {
+            'item_type' => $itemType,
+            'name' => $this->name,
+            'quantity' => $this->quantity,
+            'price' => (float) $this->price,
+        ];
+
+        // Handle product items
+        if ($itemType === 'product') {
+            $base['product'] = $this->whenLoaded('product', function () {
                 return [
                     'id' => $this->product->id,
                     'name' => $this->product->getName(app()->getLocale()),
                     'image' => $this->product->image ? asset('storage/' . $this->product->image) : null,
                 ];
-            }),
-            'quantity' => $this->quantity,
-            'price' => (float) $this->price,
-            'modifiers' => $this->modifiers_snapshot,
-        ];
+            });
+            
+            // Include addons if present in configuration
+            if ($this->configuration && isset($this->configuration['addons'])) {
+                $base['addons'] = $this->configuration['addons'];
+            }
+            
+            // Backward compatibility: include modifiers_snapshot if present
+            if ($this->modifiers_snapshot) {
+                $base['modifiers'] = $this->modifiers_snapshot;
+            }
+        } else {
+            // Handle mix and creator_mix items
+            $base['ref_id'] = $this->ref_id;
+            
+            if ($this->configuration) {
+                $base['configuration'] = $this->configuration;
+            }
+        }
+
+        return $base;
     }
 }
 

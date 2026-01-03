@@ -66,19 +66,21 @@ class CartRepository
      */
     public function addItemUnified(Cart $cart, array $payload): CartItem
     {
-        $data = [
-            'cart_id' => $cart->id,
-            'product_id' => $payload['product_id'] ?? null,
-            'quantity' => $payload['quantity'] ?? 1,
-            'price' => $payload['price'] ?? 0.0,
-            'modifiers_snapshot' => $payload['modifiers_snapshot'] ?? null,
-            'item_type' => $payload['item_type'] ?? 'product',
-            'ref_id' => $payload['ref_id'] ?? null,
-            'name' => $payload['name'] ?? null,
-            'configuration' => $payload['configuration'] ?? null,
-        ];
+        return \DB::transaction(function () use ($cart, $payload) {
+            $data = [
+                'cart_id' => $cart->id,
+                'product_id' => $payload['product_id'] ?? null,
+                'quantity' => $payload['quantity'] ?? 1,
+                'price' => $payload['price'] ?? 0.0,
+                'modifiers_snapshot' => $payload['modifiers_snapshot'] ?? null,
+                'item_type' => $payload['item_type'] ?? 'product',
+                'ref_id' => $payload['ref_id'] ?? null,
+                'name' => $payload['name'] ?? null,
+                'configuration' => $payload['configuration'] ?? null,
+            ];
 
-        return CartItem::create($data);
+            return CartItem::create($data);
+        });
     }
 
     /**

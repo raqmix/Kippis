@@ -6,7 +6,10 @@ use App\Core\Repositories\CartRepository;
 use App\Core\Repositories\ProductRepository;
 use App\Core\Repositories\PromoCodeRepository;
 use App\Services\MixPriceCalculator;
+use App\Services\CartService;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\AddProductToCartRequest;
+use App\Http\Requests\Api\V1\AddMixToCartRequest;
 use App\Http\Resources\Api\V1\CartResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +23,8 @@ class CartController extends Controller
         private CartRepository $cartRepository,
         private ProductRepository $productRepository,
         private PromoCodeRepository $promoCodeRepository,
-        private MixPriceCalculator $mixPriceCalculator
+        private MixPriceCalculator $mixPriceCalculator,
+        private CartService $cartService
     ) {
     }
 
@@ -98,24 +102,103 @@ class CartController extends Controller
     /**
      * Add item to cart
      *
-     * Backwards-compatible: if `item_type` is not provided, the controller expects `product_id` + `quantity`.
+     * Add a product, mix, or creator mix to the cart. Price is computed ONCE when adding and stored in cart_item.price.
+     * Cart totals are calculated by summing stored item prices (no repricing after save).
      *
-     * Request examples:
-     * - Product: {"product_id":1,"quantity":2}
-     * - Mix: {"item_type":"mix","quantity":1,"configuration": {"base_id":1,"modifiers":[{"id":2,"level":1}]}}
-     * - Creator mix: {"item_type":"creator_mix","quantity":1,"configuration": {"creator_mix_id":4}}
+     * **Backward Compatibility**: If `item_type` is not provided, the old format is used: `{"product_id":1,"quantity":2}`
      *
-     * @bodyParam item_type string optional Item type: product|mix|creator_mix. Example: mix
+     * **Request Examples:**
+     *
+     * 1. **Product (simple)**:
+     * ```json
+     * {
+     *   "item_type": "product",
+     *   "product_id": 1,
+     *   "quantity": 2
+     * }
+     * ```
+     *
+     * 2. **Product with addons**:
+     * ```json
+     * {
+     *   "item_type": "product",
+     *   "product_id": 1,
+     *   "quantity": 1,
+     *   "addons": [
+     *     {"modifier_id": 5, "level": 2},
+     *     {"modifier_id": 8, "level": 1}
+     *   ]
+     * }
+     * ```
+     *
+     * 3. **Mix (custom mix)**:
+     * ```json
+     * {
+     *   "item_type": "mix",
+     *   "quantity": 1,
+     *   "configuration": {
+     *     "base_id": 1,
+     *     "modifiers": [
+     *       {"id": 2, "level": 3},
+     *       {"id": 5, "level": 1}
+     *     ],
+     *     "extras": [3, 4]
+     *   },
+     *   "name": "My Custom Mix"
+     * }
+     * ```
+     *
+     * 4. **Creator Mix**:
+     * ```json
+     * {
+     *   "item_type": "creator_mix",
+     *   "quantity": 1,
+     *   "configuration": {
+     *     "base_id": 1,
+     *     "modifiers": [{"id": 2, "level": 2}],
+     *     "extras": []
+     *   },
+     *   "ref_id": 10,
+     *   "name": "Berry Blast Mix"
+     * }
+     * ```
+     *
+     * **Modifier Levels**: Level must be between 0 and modifier.max_level. Level 0 means no modifier applied.
+     * Price calculation: `modifier.price * level`
+     *
+     * @bodyParam item_type string optional Item type: product|mix|creator_mix. Default: product (if not provided, uses legacy format). Example: mix
      * @bodyParam product_id integer required_if:item_type,product The product ID. Example: 1
      * @bodyParam quantity integer required Quantity (min 1). Example: 2
-     * @bodyParam configuration object optional Configuration snapshot for mix or creator_mix. Example: {"base_id":1}
+     * @bodyParam addons array optional Array of addon configurations (only for products). Example: [{"modifier_id":5,"level":2}]
+     * @bodyParam addons.*.modifier_id integer required Modifier ID assigned to product as addon. Example: 5
+     * @bodyParam addons.*.level integer optional Modifier level (0 to max_level). Default: 1. Example: 2
+     * @bodyParam configuration object required_if:item_type,mix,creator_mix Configuration snapshot for mix or creator_mix. Example: {"base_id":1,"modifiers":[{"id":2,"level":1}]}
+     * @bodyParam configuration.base_id integer optional Base product ID (preferred). Example: 1
+     * @bodyParam configuration.base_price number optional Deprecated. Raw base price for backward compatibility. Example: 15.00
+     * @bodyParam configuration.modifiers array optional Array of modifier configurations. Example: [{"id":2,"level":1}]
+     * @bodyParam configuration.modifiers.*.id integer required Modifier ID. Example: 2
+     * @bodyParam configuration.modifiers.*.level integer optional Modifier level (0 to max_level). Default: 1. Example: 1
+     * @bodyParam configuration.extras array optional Array of extra product IDs. Example: [3,4]
+     * @bodyParam ref_id integer optional Reference ID (mix_builder_id or creator_mix_id). Example: 10
+     * @bodyParam name string optional Custom name for the item. Example: "My Custom Mix"
      *
      * @response 201 {
      *   "success": true,
      *   "message": "item_added",
      *   "data": {
      *     "id": 123,
-     *     "items": [],
+     *     "items": [
+     *       {
+     *         "id": 1,
+     *         "item_type": "product",
+     *         "name": "Product Name",
+     *         "quantity": 2,
+     *         "price": 25.50,
+     *         "addons": [{"modifier_id": 5, "level": 2}]
+     *       }
+     *     ],
+     *     "subtotal": 25.50,
+     *     "discount": 0.00,
      *     "total": 25.50
      *   }
      * }
@@ -125,12 +208,18 @@ class CartController extends Controller
      *   "error": "PRODUCT_INACTIVE",
      *   "message": "product_inactive"
      * }
+     *
+     * @response 400 {
+     *   "success": false,
+     *   "error": "INVALID_CONFIGURATION",
+     *   "message": "Modifier level 5 exceeds maximum level 3"
+     * }
      */
     public function addItem(Request $request): JsonResponse
     {
         // Backwards-compatible product-only flow when item_type is not provided
         if (!$request->has('item_type')) {
-            $request->validate([
+            $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
                 'quantity' => 'required|integer|min:1',
                 'modifiers' => 'array',
@@ -145,16 +234,17 @@ class CartController extends Controller
                 return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
             }
 
-            $product = $this->productRepository->findById($request->input('product_id'));
+            $product = $this->productRepository->findById($validated['product_id']);
             if (!$product || !$product->is_active) {
                 return apiError('PRODUCT_INACTIVE', 'product_inactive', 400);
             }
 
+            // Legacy: use old addItem method (no addons support)
             $this->cartRepository->addItem(
                 $cart,
                 $product->id,
-                $request->input('quantity'),
-                $request->input('modifiers', [])
+                $validated['quantity'],
+                $validated['modifiers'] ?? []
             );
 
             $this->cartRepository->recalculate($cart);
@@ -163,12 +253,8 @@ class CartController extends Controller
         }
 
         // Unified add-item flow
-        $request->validate([
-            'item_type' => 'required|in:product,mix,creator_mix',
-            'quantity' => 'required|integer|min:1',
-            'configuration' => 'required_if:item_type,mix,creator_mix|array',
-            'product_id' => 'required_if:item_type,product|exists:products,id',
-        ]);
+        $addMixRequest = new AddMixToCartRequest();
+        $validated = $addMixRequest->validate($request);
 
         $customer = auth('api')->user();
         $sessionId = session()->getId();
@@ -179,52 +265,54 @@ class CartController extends Controller
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
         }
 
-        $itemType = $request->input('item_type');
-        $quantity = $request->input('quantity', 1);
-
-        if ($itemType === 'product') {
-            $product = $this->productRepository->findById($request->input('product_id'));
-            if (!$product || !$product->is_active) {
-                return apiError('PRODUCT_INACTIVE', 'product_inactive', 400);
-            }
-
-            $payload = [
-                'product_id' => $product->id,
-                'quantity' => $quantity,
-                'price' => (float)$product->base_price,
-                'item_type' => 'product',
-                'ref_id' => $product->id,
-                'name' => $product->name_json['en'] ?? $product->name,
-            ];
-
-            $this->cartRepository->addItemUnified($cart, $payload);
-            $this->cartRepository->recalculate($cart);
-
-            return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_added', 201);
-        }
-
-        // mix or creator_mix: must provide configuration (snapshot)
-        $configuration = $request->input('configuration', []);
+        $itemType = $validated['item_type'];
+        $quantity = $validated['quantity'];
 
         try {
-            $calculated = $this->mixPriceCalculator->calculate($configuration);
-        } catch (\Exception $e) {
+            if ($itemType === 'product') {
+                $product = $this->productRepository->findById($validated['product_id']);
+                if (!$product || !$product->is_active) {
+                    return apiError('PRODUCT_INACTIVE', 'product_inactive', 400);
+                }
+
+                // Validate addons if provided
+                $addons = $validated['addons'] ?? [];
+                if (!empty($addons)) {
+                    // Normalize addons format
+                    $addons = array_map(function ($addon) {
+                        return [
+                            'modifier_id' => $addon['modifier_id'] ?? $addon['id'] ?? null,
+                            'level' => $addon['level'] ?? 1,
+                        ];
+                    }, $addons);
+                }
+
+                $this->cartService->addProductToCart($cart, $product, $quantity, $addons);
+            } else {
+                // mix or creator_mix
+                $configuration = $validated['configuration'] ?? [];
+                $this->cartService->addMixToCart(
+                    $cart,
+                    $itemType,
+                    $configuration,
+                    $quantity,
+                    $validated['ref_id'] ?? null,
+                    $validated['name'] ?? null
+                );
+            }
+
+            $this->cartRepository->recalculate($cart);
+
+            return apiSuccess(
+                new CartResource($cart->fresh(['items.product', 'promoCode'])),
+                'item_added',
+                201
+            );
+        } catch (\InvalidArgumentException $e) {
             return apiError('INVALID_CONFIGURATION', $e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return apiError('ERROR', $e->getMessage(), 500);
         }
-
-        $payload = [
-            'quantity' => $quantity,
-            'price' => $calculated['total'],
-            'item_type' => $itemType,
-            'ref_id' => $request->input('ref_id'),
-            'name' => $request->input('name') ?? ($itemType === 'creator_mix' ? 'Creator Mix' : 'Custom Mix'),
-            'configuration' => $configuration,
-        ];
-
-        $this->cartRepository->addItemUnified($cart, $payload);
-        $this->cartRepository->recalculate($cart);
-
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_added', 201);
     }
 
     /**

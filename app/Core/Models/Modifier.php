@@ -4,6 +4,7 @@ namespace App\Core\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Database\Factories\ModifierFactory;
 
@@ -70,6 +71,16 @@ class Modifier extends Model
     public function scopeOfType($query, string $type)
     {
         return $query->where('type', $type);
+    }
+
+    /**
+     * Get the products that have this modifier as an addon.
+     */
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'product_modifier_groups')
+            ->withPivot('is_required', 'min_select', 'max_select')
+            ->withTimestamps();
     }
 }
 
