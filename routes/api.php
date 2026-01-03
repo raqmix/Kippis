@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('api.locale')->group(function () {
-    
+
     // ==================== AUTHENTICATION APIs ====================
     Route::prefix('v1/auth')->group(function () {
         // Public routes
@@ -25,7 +25,7 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/forgot-password', [CustomerAuthController::class, 'forgotPassword']);
         Route::post('/reset-password', [CustomerAuthController::class, 'resetPassword']);
         Route::post('/resend-otp', [CustomerAuthController::class, 'resendOtp'])->name('resend-otp');
-        
+
         // Authenticated routes
         Route::middleware('auth:api')->group(function () {
             Route::get('/me', [CustomerAuthController::class, 'me']);
@@ -47,10 +47,10 @@ Route::middleware('api.locale')->group(function () {
     Route::prefix('v1/catalog')->group(function () {
         // Home API
         Route::get('/home', [\App\Http\Controllers\Api\V1\HomeController::class, 'index']);
-        
+
         // Categories
         Route::get('/categories', [\App\Http\Controllers\Api\V1\CategoryController::class, 'index']);
-        
+
         // Products
         Route::get('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'index']);
         Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
@@ -90,8 +90,9 @@ Route::middleware('api.locale')->group(function () {
     Route::middleware('auth:api')->prefix('v1/orders')->group(function () {
         Route::post('/checkout', [\App\Http\Controllers\Api\V1\OrderController::class, 'checkout']);
         Route::get('/', [\App\Http\Controllers\Api\V1\OrderController::class, 'index']);
-        Route::get('/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show']);
+        Route::get('/{id}/pdf', [\App\Http\Controllers\Api\V1\OrderController::class, 'downloadPdf']);
         Route::get('/{id}/tracking', [\App\Http\Controllers\Api\V1\OrderController::class, 'tracking']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show']);
         Route::post('/{id}/reorder', [\App\Http\Controllers\Api\V1\OrderController::class, 'reorder']);
     });
 

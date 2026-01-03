@@ -6,8 +6,10 @@ use App\Core\Repositories\CartRepository;
 use App\Core\Repositories\OrderRepository;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\OrderResource;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @group Orders APIs
@@ -306,5 +308,52 @@ class OrderController extends Controller
             'subtotal' => (float) $cart->subtotal,
             'total' => (float) $cart->total,
         ], 'cart_recreated', 201);
+    }
+
+    /**
+     * Download order receipt as PDF
+     * 
+     * @authenticated
+     * 
+     * @urlParam id required The order ID. Example: 123
+     * 
+     * @response 200
+     * The response will be a PDF file download.
+     * 
+     * @response 404 {
+     *   "success": false,
+     *   "error": "ORDER_NOT_FOUND",
+     *   "message": "order_not_found"
+     * }
+     */
+    public function downloadPdf($id): Response|JsonResponse
+    {
+        $customer = auth('api')->user();
+        $order = $this->orderRepository->findByIdForCustomer($id, $customer->id);
+
+        if (!$order) {
+            return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
+        }
+
+        // Load relationships
+        $order->load(['store', 'customer', 'promoCode']);
+
+        // Generate PDF
+        $pdf = Pdf::loadView('orders.receipt', [
+            'order' => $order,
+            'store' => $order->store,
+            'customer' => $order->customer,
+            'htmlDir' => app()->getLocale() === 'ar' ? 'rtl' : 'ltr',
+        ]);
+
+        // Set PDF options for better mobile compatibility
+        $pdf->setPaper('a4', 'portrait');
+        $pdf->setOption('enable-local-file-access', true);
+
+        // Generate filename
+        $filename = 'order-' . $order->id . '-' . $order->pickup_code . '.pdf';
+
+        // Return PDF download response with proper headers for mobile compatibility
+        return $pdf->download($filename);
     }
 }
