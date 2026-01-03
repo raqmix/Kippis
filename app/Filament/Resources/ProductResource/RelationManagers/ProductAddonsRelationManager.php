@@ -61,60 +61,6 @@ class ProductAddonsRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make()
-                    ->form([
-                        Forms\Components\Select::make('modifier_id')
-                            ->label('Modifier')
-                            ->relationship('modifier', 'name_json')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale()))
-                            ->searchable()
-                            ->required()
-                            ->preload()
-                            ->createOptionForm([
-                                Forms\Components\Select::make('type')
-                                    ->label('Type')
-                                    ->options([
-                                        'sweetness' => 'Sweetness',
-                                        'fizz' => 'Fizz',
-                                        'caffeine' => 'Caffeine',
-                                        'extra' => 'Extra',
-                                    ])
-                                    ->required(),
-                                Forms\Components\TextInput::make('name_json.en')
-                                    ->label('Name (English)')
-                                    ->required(),
-                                Forms\Components\TextInput::make('name_json.ar')
-                                    ->label('Name (Arabic)')
-                                    ->required(),
-                                Forms\Components\TextInput::make('price')
-                                    ->label('Price')
-                                    ->numeric()
-                                    ->default(0),
-                            ]),
-                        Forms\Components\Toggle::make('is_required')
-                            ->label('Required')
-                            ->default(false),
-                        Forms\Components\TextInput::make('min_select')
-                            ->label('Min Select (Level)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->helperText('Minimum level to select (0 = optional)'),
-                        Forms\Components\TextInput::make('max_select')
-                            ->label('Max Select (Level)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->helperText('Maximum level to select'),
-                    ])
-                    ->using(function (array $data, $livewire): \Illuminate\Database\Eloquent\Model {
-                        $product = $livewire->getOwnerRecord();
-                        return ProductModifierGroup::create([
-                            'product_id' => $product->id,
-                            'modifier_id' => $data['modifier_id'],
-                            'is_required' => $data['is_required'] ?? false,
-                            'min_select' => $data['min_select'] ?? null,
-                            'max_select' => $data['max_select'] ?? null,
-                        ]);
-                    }),
                 Tables\Actions\AttachAction::make()
                     ->preloadRecordSelect()
                     ->recordSelectOptionsQuery(fn (Builder $query) => $query->active())
@@ -145,7 +91,8 @@ class ProductAddonsRelationManager extends RelationManager
                                 'max_select' => $data['max_select'] ?? null,
                             ]
                         );
-                    }),
+                    })
+                    ->preloadRecordSelect(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()

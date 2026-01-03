@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductResource\RelationManagers;
 
 use App\Core\Models\MixBuilderBase;
+use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -65,7 +66,7 @@ class MixBuilderBasesRelationManager extends RelationManager
                     }),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make()
+                Actions\CreateAction::make()
                     ->form([
                         Forms\Components\TextInput::make('mix_builder_id')
                             ->label('Mix Builder ID')
@@ -79,7 +80,7 @@ class MixBuilderBasesRelationManager extends RelationManager
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make()
+                Actions\EditAction::make()
                     ->form([
                         Forms\Components\TextInput::make('mix_builder_id')
                             ->label('Mix Builder ID')
@@ -87,11 +88,11 @@ class MixBuilderBasesRelationManager extends RelationManager
                             ->helperText('Leave empty for global bases (available to all builders)')
                             ->nullable(),
                     ]),
-                Tables\Actions\DeleteAction::make(),
+                Actions\DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
                 ]),
             ])
             ->emptyStateHeading('No mix builder assignments')
