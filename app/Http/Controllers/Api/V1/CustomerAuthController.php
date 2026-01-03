@@ -600,6 +600,9 @@ class CustomerAuthController extends Controller
 
             $validated = $request->validated();
             
+            // Remove password_confirmation from data (not needed for update)
+            unset($validated['password_confirmation']);
+            
             // Handle avatar upload
             if ($request->hasFile('avatar')) {
                 // Delete old avatar if exists
