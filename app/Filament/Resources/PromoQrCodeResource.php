@@ -20,7 +20,10 @@ class PromoQrCodeResource extends Resource
 {
     protected static ?string $model = PromoQrCode::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-qr-code';
+    public static function getNavigationIcon(): ?string
+    {
+        return 'heroicon-o-qr-code';
+    }
 
     public static function getNavigationGroup(): ?string
     {
