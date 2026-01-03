@@ -26,13 +26,54 @@ class CartItemResource extends JsonResource
 
         // Handle product items
         if ($itemType === 'product') {
-            $base['product'] = $this->whenLoaded('product', function () {
-                return [
+            // Check if full product details should be included (when product.addonModifiers is loaded)
+            $includeFullProduct = $this->relationLoaded('product') && 
+                                  $this->product && 
+                                  $this->product->relationLoaded('addonModifiers');
+            
+            if ($includeFullProduct) {
+                // Include full product details with allowed_addons
+                $base['product'] = [
                     'id' => $this->product->id,
                     'name' => $this->product->getName(app()->getLocale()),
+                    'name_ar' => $this->product->getName('ar'),
+                    'name_en' => $this->product->getName('en'),
+                    'description' => $this->product->getDescription(app()->getLocale()),
+                    'description_ar' => $this->product->getDescription('ar'),
+                    'description_en' => $this->product->getDescription('en'),
                     'image' => $this->product->image ? asset('storage/' . $this->product->image) : null,
+                    'base_price' => (float) $this->product->base_price,
+                    'category' => $this->product->whenLoaded('category', function () {
+                        return [
+                            'id' => $this->product->category->id,
+                            'name' => $this->product->category->getName(app()->getLocale()),
+                        ];
+                    }),
+                    'external_source' => $this->product->external_source,
+                    'allowed_addons' => $this->product->addonModifiers->map(function ($modifier) {
+                        return [
+                            'id' => $modifier->id,
+                            'modifier_id' => $modifier->id,
+                            'name' => $modifier->getName(app()->getLocale()),
+                            'type' => $modifier->type,
+                            'max_level' => $modifier->max_level,
+                            'price' => (float) $modifier->price,
+                            'is_required' => (bool) ($modifier->pivot->is_required ?? false),
+                            'min_select' => $modifier->pivot->min_select ?? null,
+                            'max_select' => $modifier->pivot->max_select ?? null,
+                        ];
+                    })->values(),
                 ];
-            });
+            } else {
+                // Include minimal product info (backward compatible)
+                $base['product'] = $this->whenLoaded('product', function () {
+                    return [
+                        'id' => $this->product->id,
+                        'name' => $this->product->getName(app()->getLocale()),
+                        'image' => $this->product->image ? asset('storage/' . $this->product->image) : null,
+                    ];
+                });
+            }
             
             // Include addons if present in configuration
             if ($this->configuration && isset($this->configuration['addons'])) {

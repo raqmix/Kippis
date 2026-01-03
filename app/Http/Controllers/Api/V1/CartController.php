@@ -29,6 +29,23 @@ class CartController extends Controller
     }
 
     /**
+     * Get relationships array based on include_product parameter.
+     */
+    private function getCartRelationships(bool $includeProduct = false): array
+    {
+        $relationships = ['items', 'promoCode'];
+        
+        if ($includeProduct) {
+            $relationships[] = 'items.product.addonModifiers';
+            $relationships[] = 'items.product.category';
+        } else {
+            $relationships[] = 'items.product';
+        }
+        
+        return $relationships;
+    }
+
+    /**
      * Initialize a new cart
      *
      * @bodyParam store_id integer required The store ID. Example: 1
@@ -66,6 +83,8 @@ class CartController extends Controller
     /**
      * Get current active cart
      *
+     * @queryParam include_product boolean optional Include full product details in cart items. Example: true
+     *
      * @response 200 {
      *   "success": true,
      *   "data": {
@@ -76,18 +95,55 @@ class CartController extends Controller
      *   }
      * }
      *
+     * @response 200 {
+     *   "success": true,
+     *   "data": {
+     *     "id": 123,
+     *     "items": [
+     *       {
+     *         "id": 1,
+     *         "item_type": "product",
+     *         "name": "Espresso",
+     *         "quantity": 1,
+     *         "price": 12.00,
+     *         "product": {
+     *           "id": 19,
+     *           "name": "Espresso",
+     *           "name_ar": "إسبريسو",
+     *           "name_en": "Espresso",
+     *           "description": "Strong and bold espresso shot",
+     *           "description_ar": "جرعة إسبريسو قوية وجريئة",
+     *           "description_en": "Strong and bold espresso shot",
+     *           "image": null,
+     *           "base_price": 12,
+     *           "category": {
+     *             "id": 1,
+     *             "name": "Hot Drinks"
+     *           },
+     *           "external_source": "local",
+     *           "allowed_addons": []
+     *         }
+     *       }
+     *     ],
+     *     "subtotal": 12.00,
+     *     "total": 12.00
+     *   }
+     * }
+     *
      * @response 404 {
      *   "success": false,
      *   "error": "CART_NOT_FOUND",
      *   "message": "cart_not_found"
      * }
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $customer = auth('api')->user();
         $sessionId = session()->getId();
+        
+        $includeProduct = $request->boolean('include_product', false);
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId, $includeProduct);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -96,7 +152,7 @@ class CartController extends Controller
         // Recalculate totals to ensure they are up to date
         $this->cartRepository->recalculate($cart);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])));
+        return apiSuccess(new CartResource($cart->fresh($this->getCartRelationships($includeProduct))));
     }
 
     /**
@@ -106,6 +162,8 @@ class CartController extends Controller
      * Cart totals are calculated by summing stored item prices (no repricing after save).
      *
      * **Backward Compatibility**: If `item_type` is not provided, the old format is used: `{"product_id":1,"quantity":2}`
+     *
+     * **Product Details**: Use `include_product=true` query parameter to include full product details with `allowed_addons` in the response.
      *
      * **Request Examples:**
      *
@@ -183,6 +241,7 @@ class CartController extends Controller
      * @bodyParam configuration.extras array optional Array of extra product IDs. Example: [3,4]
      * @bodyParam ref_id integer optional Reference ID (mix_builder_id or creator_mix_id). Example: 10
      * @bodyParam name string optional Custom name for the item. Example: "My Custom Mix"
+     * @queryParam include_product boolean optional Include full product details in response. Example: true
      *
      * @response 201 {
      *   "success": true,
@@ -251,7 +310,12 @@ class CartController extends Controller
 
             $this->cartRepository->recalculate($cart);
 
-            return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_added', 201);
+            $includeProduct = $request->boolean('include_product', false);
+            return apiSuccess(
+                new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+                'item_added', 
+                201
+            );
         }
 
         // Unified add-item flow
@@ -305,8 +369,9 @@ class CartController extends Controller
 
             $this->cartRepository->recalculate($cart);
 
+            $includeProduct = $request->boolean('include_product', false);
             return apiSuccess(
-                new CartResource($cart->fresh(['items.product', 'promoCode'])),
+                new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
                 'item_added',
                 201
             );
@@ -352,13 +417,18 @@ class CartController extends Controller
         $this->cartRepository->updateItem($cartItem, ['quantity' => $request->input('quantity')]);
         $this->cartRepository->recalculate($cart);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_updated');
+        $includeProduct = $request->boolean('include_product', false);
+        return apiSuccess(
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            'item_updated'
+        );
     }
 
     /**
      * Remove item from cart
      *
      * @urlParam id required The cart item ID. Example: 1
+     * @queryParam include_product boolean optional Include full product details in response. Example: true
      *
      * @response 200 {
      *   "success": true,
@@ -385,13 +455,18 @@ class CartController extends Controller
         $this->cartRepository->removeItem($cartItem);
         $this->cartRepository->recalculate($cart);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'item_removed');
+        $includeProduct = $request->boolean('include_product', false);
+        return apiSuccess(
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            'item_removed'
+        );
     }
 
     /**
      * Apply promo code to cart
      *
      * @bodyParam code string required Promo code. Example: "SAVE20"
+     * @queryParam include_product boolean optional Include full product details in response. Example: true
      *
      * @response 200 {
      *   "success": true,
@@ -442,11 +517,17 @@ class CartController extends Controller
         $this->cartRepository->applyPromoCode($cart, $promoCode);
         $this->cartRepository->recalculate($cart);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'promo_applied');
+        $includeProduct = $request->boolean('include_product', false);
+        return apiSuccess(
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            'promo_applied'
+        );
     }
 
     /**
      * Remove promo code from cart
+     *
+     * @queryParam include_product boolean optional Include full product details in response. Example: true
      *
      * @response 200 {
      *   "success": true,
@@ -472,7 +553,11 @@ class CartController extends Controller
         $this->cartRepository->removePromoCode($cart);
         $this->cartRepository->recalculate($cart);
 
-        return apiSuccess(new CartResource($cart->fresh(['items.product', 'promoCode'])), 'promo_removed');
+        $includeProduct = request()->boolean('include_product', false);
+        return apiSuccess(
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            'promo_removed'
+        );
     }
 
     /**

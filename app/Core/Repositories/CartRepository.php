@@ -20,10 +20,21 @@ class CartRepository
 
     /**
      * Find active cart for customer or session.
+     *
+     * @param bool $includeProductDetails If true, loads product with addonModifiers and category
      */
-    public function findActiveCart(?int $customerId = null, ?string $sessionId = null): ?Cart
+    public function findActiveCart(?int $customerId = null, ?string $sessionId = null, bool $includeProductDetails = false): ?Cart
     {
-        $query = Cart::with(['items.product', 'promoCode', 'store'])
+        $relationships = ['items', 'promoCode', 'store'];
+        
+        if ($includeProductDetails) {
+            $relationships[] = 'items.product.addonModifiers';
+            $relationships[] = 'items.product.category';
+        } else {
+            $relationships[] = 'items.product';
+        }
+        
+        $query = Cart::with($relationships)
             ->whereNull('abandoned_at');
 
         if ($customerId) {
