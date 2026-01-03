@@ -52,6 +52,11 @@ class PageRepository
             $sortBy = 'created_at';
         }
         
+        // Validate sort_order must be 'asc' or 'desc'
+        if (!in_array(strtolower($sortOrder), ['asc', 'desc'])) {
+            $sortOrder = 'desc';
+        }
+        
         $query->orderBy($sortBy, $sortOrder);
 
         return $query->paginate($perPage);
