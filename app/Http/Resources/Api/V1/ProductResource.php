@@ -31,25 +31,19 @@ class ProductResource extends JsonResource
                 ];
             }),
             'external_source' => $this->external_source,
-            'allowed_addons' => $this->when(
-                $this->relationLoaded('addonModifiers'),
-                function () {
-                    return $this->addonModifiers->map(function ($modifier) {
-                        return [
-                            'id' => $modifier->id,
-                            'modifier_id' => $modifier->id,
-                            'name' => $modifier->getName(app()->getLocale()),
-                            'type' => $modifier->type,
-                            'max_level' => $modifier->max_level,
-                            'price' => (float) $modifier->price,
-                            'is_required' => (bool) $modifier->pivot->is_required,
-                            'min_select' => $modifier->pivot->min_select,
-                            'max_select' => $modifier->pivot->max_select,
-                        ];
-                    })->values();
-                },
-                []
-            ),
+            'allowed_addons' => $this->addonModifiers->map(function ($modifier) {
+                return [
+                    'id' => $modifier->id,
+                    'modifier_id' => $modifier->id,
+                    'name' => $modifier->getName(app()->getLocale()),
+                    'type' => $modifier->type,
+                    'max_level' => $modifier->max_level,
+                    'price' => (float) $modifier->price,
+                    'is_required' => (bool) ($modifier->pivot->is_required ?? false),
+                    'min_select' => $modifier->pivot->min_select ?? null,
+                    'max_select' => $modifier->pivot->max_select ?? null,
+                ];
+            })->values(),
         ];
     }
 }
