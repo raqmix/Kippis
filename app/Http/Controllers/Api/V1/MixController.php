@@ -26,7 +26,7 @@ class MixController extends Controller
     /**
      * Get mix builder options
      *
-     * Returns all available bases and modifiers grouped by type (sweetness, fizz, caffeine, extra).
+     * Returns all available bases and modifiers grouped by type (size, smothing, customize_modifires).
      * Bases are products marked as `product_kind = mix_base`.
      *
      * @queryParam builder_id integer optional Filter bases by specific builder ID. Example: 1
@@ -44,16 +44,15 @@ class MixController extends Controller
      *       }
      *     ],
      *     "modifiers": {
-     *       "sweetness": [
+     *       "size": [
      *         {
      *           "id": 1,
-     *           "name": "Low Sugar",
+     *           "name": "S",
      *           "price": 0.00
      *         }
      *       ],
-     *       "fizz": [],
-     *       "caffeine": [],
-     *       "extra": []
+     *       "smothing": [],
+     *       "customize_modifires": []
      *     }
      *   }
      * }
@@ -93,8 +92,8 @@ class MixController extends Controller
         $modifiers = $this->modifierRepository->getGroupedByType();
 
         $modifiersData = [];
-        foreach (['sweetness', 'fizz', 'caffeine', 'extra'] as $type) {
-            $modifiersData[$type] = ModifierResource::collection($modifiers[$type]);
+        foreach (['size', 'smothing', 'customize_modifires'] as $type) {
+            $modifiersData[$type] = ModifierResource::collection($modifiers[$type] ?? collect());
         }
 
         return apiSuccess([

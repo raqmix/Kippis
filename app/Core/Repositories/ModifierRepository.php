@@ -15,10 +15,9 @@ class ModifierRepository
         $modifiers = Modifier::active()->get()->groupBy('type');
 
         return [
-            'sweetness' => $modifiers->get('sweetness', collect()),
-            'fizz' => $modifiers->get('fizz', collect()),
-            'caffeine' => $modifiers->get('caffeine', collect()),
-            'extra' => $modifiers->get('extra', collect()),
+            'size' => $modifiers->get('size', collect()),
+            'smothing' => $modifiers->get('smothing', collect()),
+            'customize_modifires' => $modifiers->get('customize_modifires', collect()),
         ];
     }
 
