@@ -380,7 +380,7 @@ class CartController extends Controller
 
         // Unified add-item flow
         $addMixRequest = new AddMixToCartRequest();
-        $validated = $addMixRequest->validate($request);
+        $validated = $request->validate($addMixRequest->rules());
 
         $customer = auth('api')->user();
         $sessionId = session()->getId();
