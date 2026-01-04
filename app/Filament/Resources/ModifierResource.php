@@ -76,9 +76,10 @@ class ModifierResource extends Resource
                                 'size' => __('system.size'),
                                 'smothing' => __('system.smothing'),
                                 'customize_modifires' => __('system.customize_modifires'),
+                                'extra' => __('system.extra'),
                             ])
                             ->required()
-                            ->rules(['required', 'in:size,smothing,customize_modifires'])
+                            ->rules(['required', 'in:size,smothing,customize_modifires,extra'])
                             ->reactive(),
                         Components\Tabs::make('name_json_tabs')
                             ->label(__('system.name'))
@@ -131,6 +132,7 @@ class ModifierResource extends Resource
                         'size' => 'primary',
                         'smothing' => 'info',
                         'customize_modifires' => 'success',
+                        'extra' => 'warning',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -169,6 +171,7 @@ class ModifierResource extends Resource
                         'size' => __('system.size'),
                         'smothing' => __('system.smothing'),
                         'customize_modifires' => __('system.customize_modifires'),
+                        'extra' => __('system.extra'),
                     ]),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label(__('system.is_active'))

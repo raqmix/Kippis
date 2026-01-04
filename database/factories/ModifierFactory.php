@@ -19,7 +19,7 @@ class ModifierFactory extends Factory
      */
     public function definition(): array
     {
-        $type = $this->faker->randomElement(['size', 'smothing', 'customize_modifires']);
+        $type = $this->faker->randomElement(['size', 'smothing', 'customize_modifires', 'extra']);
 
         return [
             'type' => $type,

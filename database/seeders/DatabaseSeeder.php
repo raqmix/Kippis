@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             ProductSeeder::class,
             ModifierSeeder::class,
+            ExtraSeeder::class,
             PromoCodeSeeder::class,
             LoyaltyWalletSeeder::class,
             CartSeeder::class,

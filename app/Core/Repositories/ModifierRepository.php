@@ -18,6 +18,7 @@ class ModifierRepository
             'size' => $modifiers->get('size', collect()),
             'smothing' => $modifiers->get('smothing', collect()),
             'customize_modifires' => $modifiers->get('customize_modifires', collect()),
+            'extra' => $modifiers->get('extra', collect()),
         ];
     }
 
