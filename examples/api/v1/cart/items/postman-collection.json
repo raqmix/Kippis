@@ -1,0 +1,232 @@
+{
+  "info": {
+    "name": "POST api/v1/cart/items - Examples",
+    "description": "Collection of example requests for adding items to cart",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Simple Product (no addons)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"product\",\n  \"product_id\": 1,\n  \"quantity\": 2\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Adds a simple product to the cart without any addons or modifiers."
+      }
+    },
+    {
+      "name": "2. Product with Addons",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"product\",\n  \"product_id\": 1,\n  \"quantity\": 1,\n  \"addons\": [\n    {\n      \"modifier_id\": 5,\n      \"level\": 2\n    },\n    {\n      \"modifier_id\": 8,\n      \"level\": 1\n    }\n  ],\n  \"note\": \"Extra hot please\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Adds a product with modifier addons and a custom note."
+      }
+    },
+    {
+      "name": "3. Product with Note Only",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"product\",\n  \"product_id\": 1,\n  \"quantity\": 1,\n  \"note\": \"Please make it extra hot\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Adds a product with just a custom note, no addons."
+      }
+    },
+    {
+      "name": "4. Custom Mix",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"mix\",\n  \"quantity\": 1,\n  \"configuration\": {\n    \"base_id\": 1,\n    \"modifiers\": [\n      {\n        \"id\": 2,\n        \"level\": 3\n      },\n      {\n        \"id\": 5,\n        \"level\": 1\n      }\n    ],\n    \"extras\": [3, 4]\n  },\n  \"name\": \"My Custom Mix\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Adds a custom mix with base product, modifiers, and extras."
+      }
+    },
+    {
+      "name": "5. Creator Mix",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"creator_mix\",\n  \"quantity\": 1,\n  \"configuration\": {\n    \"base_id\": 1,\n    \"modifiers\": [\n      {\n        \"id\": 2,\n        \"level\": 2\n      }\n    ],\n    \"extras\": []\n  },\n  \"ref_id\": 10,\n  \"name\": \"Berry Blast Mix\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Adds a creator mix with reference ID."
+      }
+    },
+    {
+      "name": "6. Mix with Base Price and Builder ID",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"mix\",\n  \"quantity\": 2,\n  \"configuration\": {\n    \"base_id\": 1,\n    \"base_price\": 15.00,\n    \"builder_id\": 1,\n    \"modifiers\": [\n      {\n        \"id\": 2,\n        \"level\": 1\n      }\n    ],\n    \"extras\": [3]\n  },\n  \"name\": \"Special Mix\",\n  \"note\": \"Extra shot please\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Adds a mix with base price (deprecated) and builder ID for validation."
+      }
+    },
+    {
+      "name": "7. Legacy Format (Backward Compatibility)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"product_id\": 1,\n  \"quantity\": 2,\n  \"modifiers\": [1, 2, 3],\n  \"note\": \"No ice\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Legacy format for backward compatibility. Used when item_type is not provided."
+      }
+    },
+    {
+      "name": "8. Add Item with Product Details",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"product\",\n  \"product_id\": 1,\n  \"quantity\": 1\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items?include_product=true",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"],
+          "query": [
+            {
+              "key": "include_product",
+              "value": "true",
+              "description": "Include full product details in response"
+            }
+          ]
+        },
+        "description": "Adds a product and includes full product details with allowed_addons in the response."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost",
+      "type": "string"
+    }
+  ]
+}
+

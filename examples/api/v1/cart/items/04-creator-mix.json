@@ -1,0 +1,17 @@
+{
+  "item_type": "creator_mix",
+  "quantity": 1,
+  "configuration": {
+    "base_id": 1,
+    "modifiers": [
+      {
+        "id": 2,
+        "level": 2
+      }
+    ],
+    "extras": []
+  },
+  "ref_id": 10,
+  "name": "Berry Blast Mix"
+}
+

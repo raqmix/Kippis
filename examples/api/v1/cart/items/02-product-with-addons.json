@@ -1,0 +1,17 @@
+{
+  "item_type": "product",
+  "product_id": 1,
+  "quantity": 1,
+  "addons": [
+    {
+      "modifier_id": 5,
+      "level": 2
+    },
+    {
+      "modifier_id": 8,
+      "level": 1
+    }
+  ],
+  "note": "Extra hot please"
+}
+
