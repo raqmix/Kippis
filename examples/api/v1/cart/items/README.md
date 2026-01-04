@@ -17,20 +17,26 @@ Authorization: Bearer {token} (optional, for authenticated users)
 ## Query Parameters
 - `include_product` (boolean, optional): Include full product details in response. Example: `?include_product=true`
 
+## Body Parameters (Additional)
+- `store_id` (integer, optional): Store ID for the cart. If not provided, uses the first active store. Example: `1`
+
 ## Examples
 
 ### 1. Simple Product (no addons)
 **File:** `01-simple-product.json`
 
-Adds a simple product to the cart without any addons or modifiers.
+Adds a simple product to the cart without any addons or modifiers. Includes `store_id` to specify which store.
 
 ```json
 {
   "item_type": "product",
   "product_id": 1,
-  "quantity": 2
+  "quantity": 2,
+  "store_id": 1
 }
 ```
+
+**Note:** If no cart exists, a new cart is automatically created for the session. If `store_id` is omitted, the first active store is used.
 
 **cURL Example:**
 ```bash
@@ -211,6 +217,26 @@ Adds a mix with base price (deprecated field) and builder ID for validation.
 
 ---
 
+### 8. Auto-Create Cart (No store_id)
+**File:** `08-auto-create-cart.json`
+
+Adds a product without specifying `store_id`. The API will automatically create a cart using the first active store that receives online orders.
+
+```json
+{
+  "item_type": "product",
+  "product_id": 1,
+  "quantity": 1
+}
+```
+
+**Fields:**
+- `store_id`: Omitted - API uses first active store automatically
+
+**When to use:** When you don't need to specify a specific store, let the API choose the default active store. The API will automatically create/open a session cart if not found.
+
+---
+
 ## Response Examples
 
 ### Success Response (201)
@@ -270,15 +296,23 @@ Adds a mix with base price (deprecated field) and builder ID for validation.
 
 ## Important Notes
 
-1. **Price Calculation**: Price is computed ONCE when adding and stored in `cart_item.price`. Cart totals are calculated by summing stored item prices (no repricing after save).
+1. **Auto Cart Creation**: The API automatically creates a new session cart if no active cart is found. You don't need to call `/api/v1/cart/init` before adding items. The cart is created automatically using:
+   - The `store_id` from the request body (optional), or
+   - The first active store that receives online orders (if `store_id` is not provided)
 
-2. **Modifier Levels**: Level must be between 0 and `modifier.max_level`. Level 0 means no modifier applied. Price calculation: `modifier.price * level`
+2. **Session Cart**: For guest users (not authenticated), a session-based cart is automatically created using the session ID. The same session ID will reuse the same cart.
 
-3. **Backward Compatibility**: If `item_type` is not provided, the old format is used: `{"product_id":1,"quantity":2}`
+3. **Price Calculation**: Price is computed ONCE when adding and stored in `cart_item.price`. Cart totals are calculated by summing stored item prices (no repricing after save).
 
-4. **Product Details**: Use `include_product=true` query parameter to include full product details with `allowed_addons` in the response.
+4. **Modifier Levels**: Level must be between 0 and `modifier.max_level`. Level 0 means no modifier applied. Price calculation: `modifier.price * level`
 
-5. **Validation**: All fields are validated according to the `AddMixToCartRequest` validation rules.
+5. **Backward Compatibility**: If `item_type` is not provided, the old format is used: `{"product_id":1,"quantity":2}`
+
+6. **Product Details**: Use `include_product=true` query parameter to include full product details with `allowed_addons` in the response.
+
+7. **Validation**: All fields are validated according to the `AddMixToCartRequest` validation rules.
+
+8. **Store ID**: The `store_id` field is optional. If not provided, the system uses the first active store that receives online orders.
 
 ---
 

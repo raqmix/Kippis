@@ -21,7 +21,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"item_type\": \"product\",\n  \"product_id\": 1,\n  \"quantity\": 2\n}"
+          "raw": "{\n  \"item_type\": \"product\",\n  \"product_id\": 1,\n  \"quantity\": 2,\n  \"store_id\": 1\n}"
         },
         "url": {
           "raw": "{{base_url}}/api/v1/cart/items",
@@ -218,6 +218,32 @@
           ]
         },
         "description": "Adds a product and includes full product details with allowed_addons in the response."
+      }
+    },
+    {
+      "name": "8. Auto-Create Cart (No store_id)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"item_type\": \"product\",\n  \"product_id\": 1,\n  \"quantity\": 1\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/cart/items",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cart", "items"]
+        },
+        "description": "Adds a product without specifying store_id. The API will automatically create a cart using the first active store."
       }
     }
   ],

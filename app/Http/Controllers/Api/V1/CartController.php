@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Core\Repositories\CartRepository;
 use App\Core\Repositories\ProductRepository;
 use App\Core\Repositories\PromoCodeRepository;
+use App\Core\Models\Store;
 use App\Services\MixPriceCalculator;
 use App\Services\CartService;
 use App\Http\Controllers\Controller;
@@ -43,6 +44,43 @@ class CartController extends Controller
         }
         
         return $relationships;
+    }
+
+    /**
+     * Get or create active cart for customer or session.
+     * If cart not found, creates a new cart using store_id from request or first active store.
+     */
+    private function getOrCreateCart(?int $customerId, ?string $sessionId, ?int $storeId = null)
+    {
+        // Try to find existing cart
+        $cart = $this->cartRepository->findActiveCart($customerId, $sessionId);
+        
+        if ($cart) {
+            return $cart;
+        }
+
+        // Cart not found, create a new one
+        // Determine store_id: use provided store_id, or get first active store
+        if (!$storeId) {
+            $store = Store::where('is_active', true)
+                ->where('receive_online_orders', true)
+                ->first();
+            
+            if (!$store) {
+                return null; // No active store available
+            }
+            
+            $storeId = $store->id;
+        }
+
+        // Create new cart
+        $cart = $this->cartRepository->create([
+            'customer_id' => $customerId,
+            'session_id' => $sessionId,
+            'store_id' => $storeId,
+        ]);
+
+        return $cart;
     }
 
     /**
@@ -343,15 +381,16 @@ class CartController extends Controller
                 'quantity' => 'required|integer|min:1',
                 'modifiers' => 'array',
                 'note' => 'nullable|string|max:1000',
+                'store_id' => 'nullable|exists:stores,id',
             ]);
 
             $customer = auth('api')->user();
             $sessionId = session()->getId();
 
-            $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+            $cart = $this->getOrCreateCart($customer?->id, $sessionId, $request->input('store_id'));
 
             if (!$cart) {
-                return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
+                return apiError('STORE_NOT_AVAILABLE', 'No active store available for cart creation', 400);
             }
 
             $product = $this->productRepository->findById($validated['product_id']);
@@ -385,10 +424,10 @@ class CartController extends Controller
         $customer = auth('api')->user();
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+        $cart = $this->getOrCreateCart($customer?->id, $sessionId, $validated['store_id'] ?? null);
 
         if (!$cart) {
-            return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
+            return apiError('STORE_NOT_AVAILABLE', 'No active store available for cart creation', 400);
         }
 
         $itemType = $validated['item_type'];
