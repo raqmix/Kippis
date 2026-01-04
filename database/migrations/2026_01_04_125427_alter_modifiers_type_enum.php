@@ -1,40 +1,39 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        // Delete existing records with old type values since they're no longer valid
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
+        // 1) لو في قيم قديمة، يا إما نحذفها أو نحولها لقيمة جديدة
+        // أنا هنا هحذف القديم زي ما أنت كنت عامل (ممكن تعمل update بدل delete لو محتاج)
         DB::table('modifiers')
             ->whereIn('type', ['sweetness', 'fizz', 'caffeine', 'extra'])
             ->delete();
-        
-        // For MySQL/MariaDB: Alter the ENUM column to only include new values
-        // For SQLite: No need to alter (it's stored as string, validation is application-level)
-        if (DB::getDriverName() === 'mysql' || DB::getDriverName() === 'mariadb') {
-            DB::statement("ALTER TABLE modifiers MODIFY COLUMN type ENUM('size','smothing','customize_modifires') NOT NULL");
-        }
-        // For SQLite, the column is already a string type, so no alteration needed
-        // Validation will be enforced at the application level (Filament form validation)
+
+        // 2) اجبر العمود يبقى VARCHAR مؤقتًا (بيحل مشكلة لو كان INT أو ENUM قديم)
+        DB::statement("ALTER TABLE modifiers MODIFY COLUMN type VARCHAR(50) NOT NULL");
+
+        // 3) بعد كده حوّله لـ ENUM بالقيم الجديدة فقط
+        DB::statement("
+            ALTER TABLE modifiers
+            MODIFY COLUMN type ENUM('size','smothing','customize_modifires') NOT NULL
+        ");
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        // For MySQL/MariaDB: Restore the old ENUM values
-        if (DB::getDriverName() === 'mysql' || DB::getDriverName() === 'mariadb') {
-            DB::statement("ALTER TABLE modifiers MODIFY COLUMN type ENUM('sweetness','fizz','caffeine','extra') NOT NULL");
+        if (DB::getDriverName() !== 'mysql') {
+            return;
         }
-        // For SQLite, no reversal needed (it's a string column)
+
+        // رجّعه VARCHAR (أو رجعه ENUM قديم لو ده المطلوب عندك)
+        DB::statement("ALTER TABLE modifiers MODIFY COLUMN type VARCHAR(50) NOT NULL");
     }
 };
