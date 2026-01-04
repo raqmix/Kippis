@@ -1,38 +1,105 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+namespace Database\Seeders;
 
-return new class extends Migration
+use App\Core\Models\Modifier;
+use Illuminate\Database\Seeder;
+
+class ModifierSeeder extends Seeder
 {
-    public function up(): void
+    public function run(): void
     {
-        if (DB::getDriverName() !== 'mysql') {
-            return;
+        // Base modifier types (3 فقط)
+        $baseModifiers = [
+            [
+                'type' => 'size',
+                'name_json' => [
+                    'en' => 'Size',
+                    'ar' => 'الحجم',
+                ],
+                'max_level' => null,
+                'price' => 0.00,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'smothing',
+                'name_json' => [
+                    'en' => 'Smothing',
+                    'ar' => 'السلاسة',
+                ],
+                'max_level' => null,
+                'price' => 0.00,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'customize_modifires',
+                'name_json' => [
+                    'en' => 'Customize Modifires',
+                    'ar' => 'تخصيص المعدلات',
+                ],
+                'max_level' => null,
+                'price' => 0.00,
+                'is_active' => true,
+            ],
+        ];
+
+        // Size options (S/M/L)
+        $sizeOptions = [
+            [
+                'type' => 'size',
+                'name_json' => [
+                    'en' => 'S',
+                    'ar' => 'صغير',
+                ],
+                'max_level' => null,
+                'price' => 0.00,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'size',
+                'name_json' => [
+                    'en' => 'M',
+                    'ar' => 'متوسط',
+                ],
+                'max_level' => null,
+                'price' => 10.00,
+                'is_active' => true,
+            ],
+            [
+                'type' => 'size',
+                'name_json' => [
+                    'en' => 'L',
+                    'ar' => 'كبير',
+                ],
+                'max_level' => null,
+                'price' => 20.00,
+                'is_active' => true,
+            ],
+        ];
+
+        // Upsert base modifiers
+        foreach ($baseModifiers as $data) {
+            Modifier::query()->updateOrCreate(
+                [
+                    'type' => $data['type'],
+                    // مطابقة على EN لتفادي مقارنة JSON كاملة
+                    'name_json->en' => $data['name_json']['en'],
+                ],
+                $data
+            );
         }
 
-        // 1) حوّل العمود إلى VARCHAR مؤقتًا مهما كان نوعه الحالي (int/enum/..)
-        DB::statement("ALTER TABLE modifiers MODIFY COLUMN type VARCHAR(50) NOT NULL");
-
-        // 2) احذف أي قيم قديمة غير مسموح بها قبل تحويله إلى ENUM جديد
-        DB::table('modifiers')
-            ->whereNotIn('type', ['size', 'smothing', 'customize_modifires'])
-            ->delete();
-
-        // 3) حوّله إلى ENUM بالقيم الجديدة فقط
-        DB::statement("
-            ALTER TABLE modifiers
-            MODIFY COLUMN type ENUM('size','smothing','customize_modifires') NOT NULL
-        ");
-    }
-
-    public function down(): void
-    {
-        if (DB::getDriverName() !== 'mysql') {
-            return;
+        // Upsert size options
+        foreach ($sizeOptions as $data) {
+            Modifier::query()->updateOrCreate(
+                [
+                    'type' => $data['type'],
+                    'name_json->en' => $data['name_json']['en'],
+                ],
+                $data
+            );
         }
 
-        // رجّعه VARCHAR (أو رجّعه ENUM القديم لو عايز)
-        DB::statement("ALTER TABLE modifiers MODIFY COLUMN type VARCHAR(50) NOT NULL");
+        $this->command?->info('✅ Modifiers seeded successfully!');
     }
-};
+}
