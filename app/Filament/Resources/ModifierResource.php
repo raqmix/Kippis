@@ -104,8 +104,7 @@ class ModifierResource extends Resource
                         Forms\Components\TextInput::make('max_level')
                             ->label(__('system.max_level'))
                             ->numeric()
-                            ->minValue(1)
-                            ->toggleable(),
+                            ->minValue(1),
                         Forms\Components\TextInput::make('price')
                             ->label(__('system.price'))
                             ->numeric()
