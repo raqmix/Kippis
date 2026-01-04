@@ -19,7 +19,7 @@ class ModifierFactory extends Factory
      */
     public function definition(): array
     {
-        $type = $this->faker->randomElement(['sweetness', 'fizz', 'caffeine', 'extra']);
+        $type = $this->faker->randomElement(['size', 'smothing', 'customize_modifires']);
 
         return [
             'type' => $type,
@@ -27,8 +27,8 @@ class ModifierFactory extends Factory
                 'en' => $this->faker->word(),
                 'ar' => $this->faker->word(),
             ],
-            'max_level' => in_array($type, ['sweetness', 'fizz', 'caffeine']) ? $this->faker->numberBetween(3, 10) : null,
-            'price' => $type === 'extra' ? $this->faker->randomFloat(2, 2, 10) : 0,
+            'max_level' => null,
+            'price' => $this->faker->randomFloat(2, 0, 20),
             'is_active' => true,
         ];
     }

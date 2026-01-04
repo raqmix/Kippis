@@ -73,14 +73,12 @@ class ModifierResource extends Resource
                         Forms\Components\Select::make('type')
                             ->label(__('system.type'))
                             ->options([
-                                'sweetness' => __('system.sweetness'),
-                                'fizz' => __('system.fizz'),
-                                'caffeine' => __('system.caffeine'),
-                                'extra' => __('system.extra'),
                                 'size' => __('system.size'),
-                                'smothing'=>__('system.smothing'),
+                                'smothing' => __('system.smothing'),
+                                'customize_modifires' => __('system.customize_modifires'),
                             ])
                             ->required()
+                            ->rules(['required', 'in:size,smothing,customize_modifires'])
                             ->reactive(),
                         Components\Tabs::make('name_json_tabs')
                             ->label(__('system.name'))
@@ -107,8 +105,7 @@ class ModifierResource extends Resource
                             ->label(__('system.max_level'))
                             ->numeric()
                             ->minValue(1)
-                            ->visible(fn ($get) => in_array($get('type'), ['sweetness', 'fizz', 'caffeine']))
-                            ->required(fn ($get) => in_array($get('type'), ['sweetness', 'fizz', 'caffeine'])),
+                            ->toggleable(),
                         Forms\Components\TextInput::make('price')
                             ->label(__('system.price'))
                             ->numeric()
@@ -132,21 +129,20 @@ class ModifierResource extends Resource
                     ->label(__('system.type'))
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'sweetness' => 'warning',
-                        'fizz' => 'info',
-                        'caffeine' => 'danger',
-                        'extra' => 'success',
+                        'size' => 'primary',
+                        'smothing' => 'info',
+                        'customize_modifires' => 'success',
                         default => 'gray',
                     })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('name')
                     ->label(__('system.name'))
                     ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
-                    ->searchable(query: fn ($query, string $search) => 
+                    ->searchable(query: fn ($query, string $search) =>
                         $query->where('name_json->en', 'like', "%{$search}%")
                               ->orWhere('name_json->ar', 'like', "%{$search}%")
                     )
-                    ->sortable(query: fn ($query, string $direction) => 
+                    ->sortable(query: fn ($query, string $direction) =>
                         $query->orderBy('name_json->' . app()->getLocale(), $direction)
                     ),
                 Tables\Columns\TextColumn::make('max_level')
@@ -171,10 +167,9 @@ class ModifierResource extends Resource
                 Tables\Filters\SelectFilter::make('type')
                     ->label(__('system.type'))
                     ->options([
-                        'sweetness' => __('system.sweetness'),
-                        'fizz' => __('system.fizz'),
-                        'caffeine' => __('system.caffeine'),
-                        'extra' => __('system.extra'),
+                        'size' => __('system.size'),
+                        'smothing' => __('system.smothing'),
+                        'customize_modifires' => __('system.customize_modifires'),
                     ]),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label(__('system.is_active'))
