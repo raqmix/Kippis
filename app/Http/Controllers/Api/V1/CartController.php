@@ -165,9 +165,9 @@ class CartController extends Controller
      *
      * **Product Details**: Use `include_product=true` query parameter to include full product details with `allowed_addons` in the response.
      *
-     * **Request Examples:**
+     * **Request Body Examples:**
      *
-     * 1. **Product (simple)**:
+     * **Example 1: Simple Product (no addons)**
      * ```json
      * {
      *   "item_type": "product",
@@ -175,21 +175,40 @@ class CartController extends Controller
      *   "quantity": 2
      * }
      * ```
+     * *Fields:*
+     * - `item_type`: "product" (required for new format)
+     * - `product_id`: Product ID to add (required)
+     * - `quantity`: Number of items (required, minimum: 1)
      *
-     * 2. **Product with addons**:
+     * **Example 2: Product with Addons**
      * ```json
      * {
      *   "item_type": "product",
      *   "product_id": 1,
      *   "quantity": 1,
      *   "addons": [
-     *     {"modifier_id": 5, "level": 2},
-     *     {"modifier_id": 8, "level": 1}
-     *   ]
+     *     {
+     *       "modifier_id": 5,
+     *       "level": 2
+     *     },
+     *     {
+     *       "modifier_id": 8,
+     *       "level": 1
+     *     }
+     *   ],
+     *   "note": "Extra hot please"
      * }
      * ```
+     * *Fields:*
+     * - `item_type`: "product" (required)
+     * - `product_id`: Product ID to add (required)
+     * - `quantity`: Number of items (required, minimum: 1)
+     * - `addons`: Array of modifier configurations (optional)
+     *   - `modifier_id`: ID of the modifier/addon (required in addon object)
+     *   - `level`: Modifier level 0-max_level (optional, default: 1)
+     * - `note`: Custom note for this item (optional, max 1000 characters)
      *
-     * 3. **Mix (custom mix)**:
+     * **Example 3: Custom Mix**
      * ```json
      * {
      *   "item_type": "mix",
@@ -197,29 +216,67 @@ class CartController extends Controller
      *   "configuration": {
      *     "base_id": 1,
      *     "modifiers": [
-     *       {"id": 2, "level": 3},
-     *       {"id": 5, "level": 1}
+     *       {
+     *         "id": 2,
+     *         "level": 3
+     *       },
+     *       {
+     *         "id": 5,
+     *         "level": 1
+     *       }
      *     ],
      *     "extras": [3, 4]
      *   },
      *   "name": "My Custom Mix"
      * }
      * ```
+     * *Fields:*
+     * - `item_type`: "mix" (required)
+     * - `quantity`: Number of items (required, minimum: 1)
+     * - `configuration`: Mix configuration object (required)
+     *   - `base_id`: Base product ID with product_kind = mix_base (preferred)
+     *   - `modifiers`: Array of modifier configurations (optional)
+     *     - `id`: Modifier ID (required in modifier object)
+     *     - `level`: Modifier level 0-max_level (optional, default: 1)
+     *   - `extras`: Array of extra product IDs (optional)
+     * - `name`: Custom name for the mix (optional)
      *
-     * 4. **Creator Mix**:
+     * **Example 4: Creator Mix**
      * ```json
      * {
      *   "item_type": "creator_mix",
      *   "quantity": 1,
      *   "configuration": {
      *     "base_id": 1,
-     *     "modifiers": [{"id": 2, "level": 2}],
+     *     "modifiers": [
+     *       {
+     *         "id": 2,
+     *         "level": 2
+     *       }
+     *     ],
      *     "extras": []
      *   },
      *   "ref_id": 10,
      *   "name": "Berry Blast Mix"
      * }
      * ```
+     * *Fields:*
+     * - `item_type`: "creator_mix" (required)
+     * - `quantity`: Number of items (required, minimum: 1)
+     * - `configuration`: Mix configuration object (required, same structure as custom mix)
+     * - `ref_id`: Reference ID (mix_builder_id or creator_mix_id) (optional)
+     * - `name`: Custom name for the mix (optional)
+     *
+     * **Example 5: Legacy Format (backward compatibility)**
+     * ```json
+     * {
+     *   "product_id": 1,
+     *   "quantity": 2,
+     *   "modifiers": [1, 2, 3],
+     *   "note": "No ice"
+     * }
+     * ```
+     * *Note:* If `item_type` is not provided, this legacy format is used. The `modifiers` field accepts an array of modifier IDs (not objects with level).
      *
      * **Modifier Levels**: Level must be between 0 and modifier.max_level. Level 0 means no modifier applied.
      * Price calculation: `modifier.price * level`
