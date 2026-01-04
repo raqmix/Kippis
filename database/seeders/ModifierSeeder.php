@@ -1,108 +1,38 @@
 <?php
 
-namespace Database\Seeders;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
-use App\Core\Models\Modifier;
-use Illuminate\Database\Seeder;
-
-class ModifierSeeder extends Seeder
+return new class extends Migration
 {
-    /**
-     * Run the database seeds.
-     */
-    public function run(): void
+    public function up(): void
     {
-        // Base modifier types
-        $baseModifiers = [
-            [
-                'type' => 'size',
-                'name_json' => [
-                    'en' => 'Size',
-                    'ar' => 'الحجم',
-                ],
-                'max_level' => null,
-                'price' => 0.00,
-                'is_active' => true,
-            ],
-            [
-                'type' => 'smothing',
-                'name_json' => [
-                    'en' => 'Smothing',
-                    'ar' => 'السلاسة',
-                ],
-                'max_level' => null,
-                'price' => 0.00,
-                'is_active' => true,
-            ],
-            [
-                'type' => 'customize_modifires',
-                'name_json' => [
-                    'en' => 'Customize Modifires',
-                    'ar' => 'تخصيص المعدلات',
-                ],
-                'max_level' => null,
-                'price' => 0.00,
-                'is_active' => true,
-            ],
-        ];
-
-        // Size option modifiers (S, M, L)
-        $sizeOptions = [
-            [
-                'type' => 'size',
-                'name_json' => [
-                    'en' => 'S',
-                    'ar' => 'صغير',
-                ],
-                'max_level' => null,
-                'price' => 0.00,
-                'is_active' => true,
-            ],
-            [
-                'type' => 'size',
-                'name_json' => [
-                    'en' => 'M',
-                    'ar' => 'متوسط',
-                ],
-                'max_level' => null,
-                'price' => 10.00,
-                'is_active' => true,
-            ],
-            [
-                'type' => 'size',
-                'name_json' => [
-                    'en' => 'L',
-                    'ar' => 'كبير',
-                ],
-                'max_level' => null,
-                'price' => 20.00,
-                'is_active' => true,
-            ],
-        ];
-
-        // Create base modifiers
-        foreach ($baseModifiers as $modifierData) {
-            Modifier::updateOrCreate(
-                [
-                    'type' => $modifierData['type'],
-                    'name_json' => $modifierData['name_json'],
-                ],
-                $modifierData
-            );
+        if (DB::getDriverName() !== 'mysql') {
+            return;
         }
 
-        // Create size option modifiers
-        foreach ($sizeOptions as $modifierData) {
-            Modifier::updateOrCreate(
-                [
-                    'type' => $modifierData['type'],
-                    'name_json' => $modifierData['name_json'],
-                ],
-                $modifierData
-            );
-        }
+        // 1) حوّل العمود إلى VARCHAR مؤقتًا مهما كان نوعه الحالي (int/enum/..)
+        DB::statement("ALTER TABLE modifiers MODIFY COLUMN type VARCHAR(50) NOT NULL");
 
-        $this->command->info('Modifiers seeded successfully!');
+        // 2) احذف أي قيم قديمة غير مسموح بها قبل تحويله إلى ENUM جديد
+        DB::table('modifiers')
+            ->whereNotIn('type', ['size', 'smothing', 'customize_modifires'])
+            ->delete();
+
+        // 3) حوّله إلى ENUM بالقيم الجديدة فقط
+        DB::statement("
+            ALTER TABLE modifiers
+            MODIFY COLUMN type ENUM('size','smothing','customize_modifires') NOT NULL
+        ");
     }
-}
 
+    public function down(): void
+    {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
+        // رجّعه VARCHAR (أو رجّعه ENUM القديم لو عايز)
+        DB::statement("ALTER TABLE modifiers MODIFY COLUMN type VARCHAR(50) NOT NULL");
+    }
+};
