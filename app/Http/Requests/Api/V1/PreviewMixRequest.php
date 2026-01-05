@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Rules\ExtraItemRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PreviewMixRequest extends FormRequest
@@ -31,7 +32,7 @@ class PreviewMixRequest extends FormRequest
             'configuration.modifiers.*.id' => 'required_with:configuration.modifiers|exists:modifiers,id',
             'configuration.modifiers.*.level' => 'nullable|integer|min:0',
             'configuration.extras' => 'nullable|array',
-            'configuration.extras.*' => 'exists:products,id',
+            'configuration.extras.*' => [new ExtraItemRule()],
         ];
     }
 }

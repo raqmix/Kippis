@@ -52,7 +52,7 @@ class MixPriceCalculator
             }
         }
 
-        // Calculate extra product prices
+        // Calculate extra product/modifier prices
         if (isset($configuration['extras']) && is_array($configuration['extras'])) {
             foreach ($configuration['extras'] as $extraId) {
                 $extraResult = $this->calculateExtraPrice($extraId);
@@ -61,7 +61,8 @@ class MixPriceCalculator
                         'label' => $extraResult['label'],
                         'amount' => round($extraResult['price'], 2),
                         'type' => 'extra',
-                        'product_id' => $extraId,
+                        'product_id' => $extraResult['product_id'] ?? null,
+                        'modifier_id' => $extraResult['modifier_id'] ?? null,
                     ];
                     $total += $extraResult['price'];
                 }
@@ -339,24 +340,35 @@ class MixPriceCalculator
     }
 
     /**
-     * Calculate extra product price.
+     * Calculate extra price (product or modifier of type "extra").
      *
-     * @param int $productId
-     * @return array Array with 'price' and 'label'
+     * @param int $extraId Product ID or modifier ID (if modifier, must be type "extra")
+     * @return array Array with 'price', 'label', and optionally 'product_id' or 'modifier_id'
      * @throws \InvalidArgumentException
      */
-    protected function calculateExtraPrice(int $productId): array
+    protected function calculateExtraPrice(int $extraId): array
     {
-        $product = Product::active()->find($productId);
-
-        if (!$product) {
-            throw new \InvalidArgumentException("Extra product with ID {$productId} not found or inactive.");
+        // First, try to find as a product
+        $product = Product::active()->find($extraId);
+        if ($product) {
+            return [
+                'price' => (float) $product->base_price,
+                'label' => $product->getName(app()->getLocale()),
+                'product_id' => $product->id,
+            ];
         }
 
-        return [
-            'price' => (float) $product->base_price,
-            'label' => $product->getName(app()->getLocale()),
-        ];
+        // If not a product, try to find as a modifier with type "extra"
+        $modifier = Modifier::active()->where('id', $extraId)->where('type', 'extra')->first();
+        if ($modifier) {
+            return [
+                'price' => (float) $modifier->price,
+                'label' => $modifier->getName(app()->getLocale()),
+                'modifier_id' => $modifier->id,
+            ];
+        }
+
+        throw new \InvalidArgumentException("Extra with ID {$extraId} not found. It must be a valid product ID or a modifier ID with type 'extra'.");
     }
 }
 

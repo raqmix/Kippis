@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Rules\ExtraItemRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AddMixToCartRequest extends FormRequest
@@ -33,24 +34,12 @@ class AddMixToCartRequest extends FormRequest
             'configuration.modifiers.*.id' => 'required_with:configuration.modifiers|exists:modifiers,id',
             'configuration.modifiers.*.level' => 'nullable|integer|min:0',
             'configuration.extras' => 'nullable|array',
-            'configuration.extras.*' => 'exists:products,id',
+            'configuration.extras.*' => [new ExtraItemRule()],
             'ref_id' => 'nullable|integer',
             'name' => 'nullable|string|max:255',
             'product_id' => 'required_if:item_type,product|exists:products,id',
             'note' => 'nullable|string|max:1000',
             'store_id' => 'nullable|exists:stores,id',
-        ];
-    }
-
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return [
-            'configuration.extras.*.exists' => 'The selected extra must be a valid product ID. Extras must be product IDs, not modifier IDs.',
         ];
     }
 }
