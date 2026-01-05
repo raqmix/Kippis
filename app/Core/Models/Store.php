@@ -33,6 +33,7 @@ class Store extends Model
         'receive_online_orders',
         'foodics_branch_id',
         'synced_from_foodics_at',
+        'kiosk_api_key',
     ];
 
     protected function casts(): array

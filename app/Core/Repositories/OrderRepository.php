@@ -47,8 +47,8 @@ class OrderRepository
             'promo_discount' => $cart->discount,
         ]);
 
-        // Record promo code usage
-        if ($cart->promoCode) {
+        // Record promo code usage (only if customer is authenticated)
+        if ($cart->promoCode && $cart->customer_id) {
             PromoCodeUsage::create([
                 'promo_code_id' => $cart->promoCode->id,
                 'customer_id' => $cart->customer_id,
@@ -57,6 +57,9 @@ class OrderRepository
                 'used_at' => now(),
             ]);
 
+            $cart->promoCode->increment('used_count');
+        } elseif ($cart->promoCode) {
+            // For guest orders, still increment usage count but don't track customer usage
             $cart->promoCode->increment('used_count');
         }
 

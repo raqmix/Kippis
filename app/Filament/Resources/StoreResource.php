@@ -127,6 +127,18 @@ class StoreResource extends Resource
                     ])->columns(2)
                     ->collapsible()
                     ->collapsed(),
+                Components\Section::make('Kiosk API Credentials')
+                    ->description('API credentials for kiosk device authentication. Use the "Generate API Key" button to create a new key.')
+                    ->schema([
+                        Forms\Components\TextInput::make('kiosk_api_key')
+                            ->label('Kiosk API Key')
+                            ->disabled()
+                            ->dehydrated()
+                            ->helperText('Use this key in the X-Kiosk-API-Key header along with X-Store-ID header for kiosk authentication. Generate a new key using the action buttons.')
+                            ->default('Not generated'),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 
@@ -174,6 +186,11 @@ class StoreResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\IconColumn::make('has_kiosk_api_key')
+                    ->label('Kiosk API Key')
+                    ->boolean()
+                    ->getStateUsing(fn ($record) => !empty($record->kiosk_api_key))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label(__('system.created_at'))
                     ->dateTime()
@@ -214,6 +231,23 @@ class StoreResource extends Resource
             ->actions([
                 Actions\ViewAction::make(),
                 Actions\EditAction::make(),
+                Actions\Action::make('generate_kiosk_api_key')
+                    ->label('Generate API Key')
+                    ->icon('heroicon-o-key')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Generate Kiosk API Key')
+                    ->modalDescription('This will generate a new API key for this store. The old key (if any) will be replaced.')
+                    ->action(function (Store $record) {
+                        $apiKey = \Illuminate\Support\Str::uuid()->toString();
+                        $record->update(['kiosk_api_key' => $apiKey]);
+                        \Filament\Notifications\Notification::make()
+                            ->title('API Key Generated Successfully')
+                            ->body('New API key: ' . $apiKey)
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    }),
                 Actions\DeleteAction::make(),
                 Actions\RestoreAction::make(),
                 Actions\ForceDeleteAction::make(),

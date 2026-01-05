@@ -19,14 +19,28 @@ class CartRepository
     }
 
     /**
-     * Find active cart for customer.
+     * Find active cart for customer or session.
      *
-     * @param int $customerId The customer ID
+     * Supports multiple calling patterns for backward compatibility:
+     * - findActiveCart($customerId, $includeProductDetails) - old pattern for authenticated users
+     * - findActiveCart($customerId, $sessionId, $includeProductDetails) - new pattern for both
+     * - findActiveCart(null, $sessionId, $includeProductDetails) - new pattern for guest carts
+     *
+     * @param int|null $customerId The customer ID (null for guest carts)
+     * @param bool|string|null $sessionIdOrIncludeProduct The session ID (string) OR includeProductDetails (bool) for backward compatibility
      * @param bool $includeProductDetails If true, loads product with addonModifiers and category
      */
-    public function findActiveCart(int $customerId, bool $includeProductDetails = false): ?Cart
+    public function findActiveCart(?int $customerId = null, $sessionIdOrIncludeProduct = false, bool $includeProductDetails = false): ?Cart
     {
         $relationships = ['items', 'promoCode', 'store'];
+        
+        // Handle backward compatibility: if second param is bool, treat it as includeProductDetails
+        $sessionId = null;
+        if (is_string($sessionIdOrIncludeProduct)) {
+            $sessionId = $sessionIdOrIncludeProduct;
+        } elseif (is_bool($sessionIdOrIncludeProduct)) {
+            $includeProductDetails = $sessionIdOrIncludeProduct;
+        }
         
         if ($includeProductDetails) {
             $relationships[] = 'items.product.addonModifiers';
@@ -35,11 +49,18 @@ class CartRepository
             $relationships[] = 'items.product';
         }
         
-        return Cart::with($relationships)
-            ->where('customer_id', $customerId)
-            ->whereNull('abandoned_at')
-            ->latest()
-            ->first();
+        $query = Cart::with($relationships)
+            ->whereNull('abandoned_at');
+
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
+        } elseif ($sessionId) {
+            $query->where('session_id', $sessionId);
+        } else {
+            return null;
+        }
+
+        return $query->latest()->first();
     }
 
     /**

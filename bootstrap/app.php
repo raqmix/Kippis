@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // API locale middleware
         $middleware->alias([
             'api.locale' => \App\Http\Middleware\SetApiLocale::class,
+            'kiosk.auth' => \App\Http\Middleware\KioskAuth::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

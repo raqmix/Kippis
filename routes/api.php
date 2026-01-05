@@ -131,6 +131,32 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/tickets/{id}', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'show']);
     });
 
+    // ==================== KIOSK APIs ====================
+    Route::middleware('kiosk.auth')->prefix('v1/kiosk')->group(function () {
+        // Catalog
+        Route::get('/home', [\App\Http\Controllers\Api\V1\Kiosk\KioskCatalogController::class, 'home']);
+        Route::get('/categories', [\App\Http\Controllers\Api\V1\Kiosk\KioskCatalogController::class, 'categories']);
+        Route::get('/products', [\App\Http\Controllers\Api\V1\Kiosk\KioskCatalogController::class, 'products']);
+        Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\Kiosk\KioskCatalogController::class, 'product']);
+
+        // Cart
+        Route::post('/cart/init', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'init']);
+        Route::get('/cart', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'index']);
+        Route::post('/cart/items', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'addItem']);
+        Route::patch('/cart/items/{id}', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'updateItem']);
+        Route::delete('/cart/items/{id}', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'removeItem']);
+        Route::post('/cart/apply-promo', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'applyPromo']);
+        Route::post('/cart/remove-promo', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'removePromo']);
+        Route::post('/cart/abandon', [\App\Http\Controllers\Api\V1\Kiosk\KioskCartController::class, 'abandon']);
+
+        // Orders
+        Route::post('/orders/checkout', [\App\Http\Controllers\Api\V1\Kiosk\KioskOrderController::class, 'checkout']);
+
+        // Payment Methods
+        Route::get('/payment-methods', [\App\Http\Controllers\Api\V1\Kiosk\KioskPaymentMethodController::class, 'index']);
+        Route::get('/payment-methods/{id}', [\App\Http\Controllers\Api\V1\Kiosk\KioskPaymentMethodController::class, 'show']);
+    });
+
     // ==================== LEGACY ROUTES (for backward compatibility) ====================
     // Keep old routes working but redirect to new structure
     Route::get('/v1/home', [\App\Http\Controllers\Api\V1\HomeController::class, 'index']);
