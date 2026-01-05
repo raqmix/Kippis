@@ -34,10 +34,12 @@ class OrderRepository
             'items_snapshot' => $cart->items->map(function ($item) {
                 return [
                     'product_id' => $item->product_id,
-                    'product_name' => $item->product->getName(app()->getLocale()),
+                    'item_type' => $item->item_type ?? 'product',
+                    'name' => $item->name ?? ($item->product ? $item->product->getName(app()->getLocale()) : 'Unknown'),
                     'quantity' => $item->quantity,
                     'price' => $item->price,
                     'modifiers' => $item->modifiers_snapshot,
+                    'configuration' => $item->configuration,
                 ];
             })->toArray(),
             'modifiers_snapshot' => $cart->items->pluck('modifiers_snapshot')->toArray(),
