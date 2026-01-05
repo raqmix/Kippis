@@ -62,7 +62,7 @@ class OrderController extends Controller
             return apiError('UNAUTHORIZED', 'unauthorized', 401);
         }
 
-        $cart = $this->cartRepository->findActiveCart($customer->id, null);
+        $cart = $this->cartRepository->findActiveCart($customer->id);
 
         if (!$cart || $cart->items->isEmpty()) {
             return apiError('CART_EMPTY', 'cart_empty', 400);

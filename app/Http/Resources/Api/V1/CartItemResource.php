@@ -44,12 +44,10 @@ class CartItemResource extends JsonResource
                     'description_en' => $this->product->getDescription('en'),
                     'image' => $this->product->image ? asset('storage/' . $this->product->image) : null,
                     'base_price' => (float) $this->product->base_price,
-                    'category' => $this->product->whenLoaded('category', function () {
-                        return [
-                            'id' => $this->product->category->id,
-                            'name' => $this->product->category->getName(app()->getLocale()),
-                        ];
-                    }),
+                    'category' => $this->product->relationLoaded('category') && $this->product->category ? [
+                        'id' => $this->product->category->id,
+                        'name' => $this->product->category->getName(app()->getLocale()),
+                    ] : null,
                     'external_source' => $this->product->external_source,
                     'allowed_addons' => $this->product->addonModifiers->map(function ($modifier) {
                         return [

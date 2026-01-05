@@ -47,13 +47,13 @@ class CartController extends Controller
     }
 
     /**
-     * Get or create active cart for customer or session.
+     * Get or create active cart for authenticated customer.
      * If cart not found, creates a new cart using store_id from request or first active store.
      */
-    private function getOrCreateCart(?int $customerId, ?string $sessionId, ?int $storeId = null)
+    private function getOrCreateCart(int $customerId, ?int $storeId = null)
     {
         // Try to find existing cart
-        $cart = $this->cartRepository->findActiveCart($customerId, $sessionId);
+        $cart = $this->cartRepository->findActiveCart($customerId);
         
         if ($cart) {
             return $cart;
@@ -76,7 +76,7 @@ class CartController extends Controller
         // Create new cart
         $cart = $this->cartRepository->create([
             'customer_id' => $customerId,
-            'session_id' => $sessionId,
+            'session_id' => null,
             'store_id' => $storeId,
         ]);
 
@@ -92,8 +92,7 @@ class CartController extends Controller
      *   "success": true,
      *   "message": "cart_initialized",
      *   "data": {
-     *     "cart_id": 123,
-     *     "session_id": "abc123xyz"
+     *     "cart_id": 123
      *   }
      * }
      */
@@ -104,17 +103,15 @@ class CartController extends Controller
         ]);
 
         $customer = auth('api')->user();
-        $sessionId = $customer ? null : session()->getId();
 
         $cart = $this->cartRepository->create([
-            'customer_id' => $customer?->id,
-            'session_id' => $sessionId,
+            'customer_id' => $customer->id,
+            'session_id' => null,
             'store_id' => $request->input('store_id'),
         ]);
 
         return apiSuccess([
             'cart_id' => $cart->id,
-            'session_id' => $sessionId,
         ], 'cart_initialized', 201);
     }
 
@@ -177,11 +174,10 @@ class CartController extends Controller
     public function index(Request $request): JsonResponse
     {
         $customer = auth('api')->user();
-        $sessionId = session()->getId();
         
         $includeProduct = $request->boolean('include_product', false);
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId, $includeProduct);
+        $cart = $this->cartRepository->findActiveCart($customer->id, $includeProduct);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -385,9 +381,8 @@ class CartController extends Controller
             ]);
 
             $customer = auth('api')->user();
-            $sessionId = session()->getId();
 
-            $cart = $this->getOrCreateCart($customer?->id, $sessionId, $request->input('store_id'));
+            $cart = $this->getOrCreateCart($customer->id, $request->input('store_id'));
 
             if (!$cart) {
                 return apiError('STORE_NOT_AVAILABLE', 'No active store available for cart creation', 400);
@@ -422,9 +417,8 @@ class CartController extends Controller
         $validated = $request->validate($addMixRequest->rules());
 
         $customer = auth('api')->user();
-        $sessionId = session()->getId();
 
-        $cart = $this->getOrCreateCart($customer?->id, $sessionId, $validated['store_id'] ?? null);
+        $cart = $this->getOrCreateCart($customer->id, $validated['store_id'] ?? null);
 
         if (!$cart) {
             return apiError('STORE_NOT_AVAILABLE', 'No active store available for cart creation', 400);
@@ -505,9 +499,8 @@ class CartController extends Controller
         ]);
 
         $customer = auth('api')->user();
-        $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+        $cart = $this->cartRepository->findActiveCart($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -540,12 +533,11 @@ class CartController extends Controller
      *   }
      * }
      */
-    public function removeItem($id): JsonResponse
+    public function removeItem(Request $request, $id): JsonResponse
     {
         $customer = auth('api')->user();
-        $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+        $cart = $this->cartRepository->findActiveCart($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -592,9 +584,8 @@ class CartController extends Controller
         ]);
 
         $customer = auth('api')->user();
-        $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+        $cart = $this->cartRepository->findActiveCart($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -642,9 +633,8 @@ class CartController extends Controller
     public function removePromo(): JsonResponse
     {
         $customer = auth('api')->user();
-        $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+        $cart = $this->cartRepository->findActiveCart($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -671,9 +661,8 @@ class CartController extends Controller
     public function abandon(): JsonResponse
     {
         $customer = auth('api')->user();
-        $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart($customer?->id, $sessionId);
+        $cart = $this->cartRepository->findActiveCart($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);

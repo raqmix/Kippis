@@ -19,11 +19,12 @@ class CartRepository
     }
 
     /**
-     * Find active cart for customer or session.
+     * Find active cart for customer.
      *
+     * @param int $customerId The customer ID
      * @param bool $includeProductDetails If true, loads product with addonModifiers and category
      */
-    public function findActiveCart(?int $customerId = null, ?string $sessionId = null, bool $includeProductDetails = false): ?Cart
+    public function findActiveCart(int $customerId, bool $includeProductDetails = false): ?Cart
     {
         $relationships = ['items', 'promoCode', 'store'];
         
@@ -34,18 +35,11 @@ class CartRepository
             $relationships[] = 'items.product';
         }
         
-        $query = Cart::with($relationships)
-            ->whereNull('abandoned_at');
-
-        if ($customerId) {
-            $query->where('customer_id', $customerId);
-        } elseif ($sessionId) {
-            $query->where('session_id', $sessionId);
-        } else {
-            return null;
-        }
-
-        return $query->latest()->first();
+        return Cart::with($relationships)
+            ->where('customer_id', $customerId)
+            ->whereNull('abandoned_at')
+            ->latest()
+            ->first();
     }
 
     /**

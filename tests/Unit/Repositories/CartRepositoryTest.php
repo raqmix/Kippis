@@ -48,7 +48,7 @@ class CartRepositoryTest extends TestCase
             'abandoned_at' => null,
         ]);
 
-        $found = $this->repository->findActiveCart($customer->id, null);
+        $found = $this->repository->findActiveCart($customer->id);
 
         $this->assertNotNull($found);
         $this->assertEquals($cart->id, $found->id);

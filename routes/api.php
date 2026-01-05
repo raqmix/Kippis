@@ -69,7 +69,7 @@ Route::middleware('api.locale')->group(function () {
     });
 
     // ==================== CART APIs ====================
-    Route::prefix('v1/cart')->group(function () {
+    Route::middleware('auth:api')->prefix('v1/cart')->group(function () {
         Route::post('/init', [\App\Http\Controllers\Api\V1\CartController::class, 'init']);
         Route::get('/', [\App\Http\Controllers\Api\V1\CartController::class, 'index']);
         Route::post('/items', [\App\Http\Controllers\Api\V1\CartController::class, 'addItem']);
