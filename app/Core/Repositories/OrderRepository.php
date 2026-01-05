@@ -3,6 +3,7 @@
 namespace App\Core\Repositories;
 
 use App\Core\Models\Order;
+use App\Core\Models\PaymentMethod;
 use App\Core\Models\PromoCodeUsage;
 use App\Events\OrderCreated;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -14,13 +15,16 @@ class OrderRepository
      * Create order from cart.
      * 
      * @param \App\Core\Models\Cart $cart
-     * @param string $paymentMethod
+     * @param int $paymentMethodId Payment method ID from payment_methods table
      * @param int|null $storeId Optional store ID. If provided, overrides the cart's store_id.
      * @return Order
      */
-    public function createFromCart(\App\Core\Models\Cart $cart, string $paymentMethod, ?int $storeId = null): Order
+    public function createFromCart(\App\Core\Models\Cart $cart, int $paymentMethodId, ?int $storeId = null): Order
     {
         $pickupCode = strtoupper(Str::random(6));
+
+        // Get payment method details
+        $paymentMethod = PaymentMethod::findOrFail($paymentMethodId);
 
         $order = Order::create([
             'store_id' => $storeId ?? $cart->store_id,
@@ -29,7 +33,8 @@ class OrderRepository
             'total' => $cart->total,
             'subtotal' => $cart->subtotal,
             'discount' => $cart->discount,
-            'payment_method' => $paymentMethod,
+            'payment_method' => $paymentMethod->code, // Keep for backward compatibility
+            'payment_method_id' => $paymentMethodId,
             'pickup_code' => $pickupCode,
             'items_snapshot' => $cart->items->map(function ($item) {
                 return [

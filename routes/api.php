@@ -89,6 +89,7 @@ Route::middleware('api.locale')->group(function () {
     // ==================== ORDERS APIs ====================
     Route::middleware('auth:api')->prefix('v1/orders')->group(function () {
         Route::post('/checkout', [\App\Http\Controllers\Api\V1\OrderController::class, 'checkout']);
+        Route::get('/last', [\App\Http\Controllers\Api\V1\OrderController::class, 'lastOrder']);
         Route::get('/', [\App\Http\Controllers\Api\V1\OrderController::class, 'index']);
         Route::get('/{id}/pdf', [\App\Http\Controllers\Api\V1\OrderController::class, 'downloadPdf']);
         Route::get('/{id}/tracking', [\App\Http\Controllers\Api\V1\OrderController::class, 'tracking']);

@@ -20,7 +20,15 @@ class OrderResource extends JsonResource
             'total' => (float) $this->total,
             'subtotal' => (float) $this->subtotal,
             'discount' => (float) $this->discount,
-            'payment_method' => $this->payment_method,
+            'payment_method' => $this->payment_method, // Keep for backward compatibility
+            'payment_method_id' => $this->payment_method_id,
+            'payment_method_details' => $this->when($this->relationLoaded('paymentMethod') && $this->paymentMethod, function () {
+                return [
+                    'id' => $this->paymentMethod->id,
+                    'name' => $this->paymentMethod->name,
+                    'code' => $this->paymentMethod->code,
+                ];
+            }),
             'pickup_code' => $this->pickup_code,
             'items' => $this->items_snapshot,
             'modifiers' => $this->modifiers_snapshot,
