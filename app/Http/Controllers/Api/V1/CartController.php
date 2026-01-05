@@ -597,6 +597,14 @@ class CartController extends Controller
             return apiError('INVALID_PROMO_CODE', 'invalid_promo_code', 400);
         }
 
+        // Ensure cart is recalculated first to get accurate subtotal
+        $this->cartRepository->recalculate($cart);
+        $cart->refresh();
+        
+        // Ensure cart subtotal is calculated before validation
+        $this->cartRepository->recalculate($cart);
+        $cart->refresh();
+        
         if ($cart->subtotal < $promoCode->minimum_order_amount) {
             return apiError('MINIMUM_ORDER_NOT_MET', 'minimum_order_not_met', 400);
         }

@@ -113,7 +113,12 @@ class CartRepository
      */
     public function applyPromoCode(Cart $cart, PromoCode $promoCode): bool
     {
-        return $cart->update(['promo_code_id' => $promoCode->id]);
+        $result = $cart->update(['promo_code_id' => $promoCode->id]);
+        
+        // Refresh the cart to ensure the promo_code_id is loaded
+        $cart->refresh();
+        
+        return $result;
     }
 
     /**
