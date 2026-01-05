@@ -28,6 +28,7 @@ class OrderController extends Controller
      * @authenticated
      * 
      * @bodyParam payment_method string required Payment method. Options: `cash`, `card`, `online`. Example: cash
+     * @bodyParam store_id integer optional Store ID for the order. If not provided, uses the cart's store_id. Example: 1
      * 
      * @response 201 {
      *   "success": true,
@@ -55,6 +56,7 @@ class OrderController extends Controller
     {
         $request->validate([
             'payment_method' => 'required|string|in:cash,card,online',
+            'store_id' => 'nullable|exists:stores,id',
         ]);
 
         $customer = auth('api')->user();
@@ -72,7 +74,8 @@ class OrderController extends Controller
         $this->cartRepository->recalculate($cart);
         $cart->refresh();
 
-        $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method'));
+        $storeId = $request->input('store_id') ?? $cart->store_id;
+        $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method'), $storeId);
 
         $this->cartRepository->abandon($cart);
 

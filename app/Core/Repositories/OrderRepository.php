@@ -12,13 +12,18 @@ class OrderRepository
 {
     /**
      * Create order from cart.
+     * 
+     * @param \App\Core\Models\Cart $cart
+     * @param string $paymentMethod
+     * @param int|null $storeId Optional store ID. If provided, overrides the cart's store_id.
+     * @return Order
      */
-    public function createFromCart(\App\Core\Models\Cart $cart, string $paymentMethod): Order
+    public function createFromCart(\App\Core\Models\Cart $cart, string $paymentMethod, ?int $storeId = null): Order
     {
         $pickupCode = strtoupper(Str::random(6));
 
         $order = Order::create([
-            'store_id' => $cart->store_id,
+            'store_id' => $storeId ?? $cart->store_id,
             'customer_id' => $cart->customer_id,
             'status' => 'received',
             'total' => $cart->total,
