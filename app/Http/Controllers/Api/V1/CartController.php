@@ -123,9 +123,11 @@ class CartController extends Controller
      * @response 200 {
      *   "success": true,
      *   "data": {
-     *     "id": 123,
+     *     "id": null,
      *     "items": [],
+     *     "promo_code": null,
      *     "subtotal": 0,
+     *     "discount": 0,
      *     "total": 0
      *   }
      * }
@@ -164,12 +166,6 @@ class CartController extends Controller
      *     "total": 12.00
      *   }
      * }
-     *
-     * @response 404 {
-     *   "success": false,
-     *   "error": "CART_NOT_FOUND",
-     *   "message": "cart_not_found"
-     * }
      */
     public function index(Request $request): JsonResponse
     {
@@ -180,7 +176,15 @@ class CartController extends Controller
         $cart = $this->cartRepository->findActiveCart($customer->id, $includeProduct);
 
         if (!$cart) {
-            return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
+            // Return empty cart structure instead of error
+            return apiSuccess([
+                'id' => null,
+                'items' => [],
+                'promo_code' => null,
+                'subtotal' => 0,
+                'discount' => 0,
+                'total' => 0,
+            ]);
         }
 
         // Recalculate totals to ensure they are up to date
