@@ -27,7 +27,7 @@ class OrderController extends Controller
      * 
      * @authenticated
      * 
-     * @bodyParam payment_method string required Payment method. Options: `cash`, `card`, `online`. Example: cash
+     * @bodyParam payment_method_id integer required Payment method ID from payment_methods table. Example: 1
      * @bodyParam store_id integer optional Store ID for the order. If not provided, uses the cart's store_id. Example: 1
      * 
      * @response 201 {
@@ -55,7 +55,7 @@ class OrderController extends Controller
     public function checkout(Request $request): JsonResponse
     {
         $request->validate([
-            'payment_method' => 'required|string|in:cash,card,online',
+            'payment_method_id' => 'required|integer|exists:payment_methods,id',
             'store_id' => 'nullable|exists:stores,id',
         ]);
 
@@ -75,7 +75,7 @@ class OrderController extends Controller
         $cart->refresh();
 
         $storeId = $request->input('store_id') ?? $cart->store_id;
-        $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method'), $storeId);
+        $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method_id'), $storeId);
 
         $this->cartRepository->abandon($cart);
 
@@ -358,5 +358,43 @@ class OrderController extends Controller
 
         // Return PDF download response with proper headers for mobile compatibility
         return $pdf->download($filename);
+    }
+
+    /**
+     * Get last order for the authenticated customer
+     * 
+     * @authenticated
+     * 
+     * @response 200 {
+     *   "success": true,
+     *   "data": {
+     *     "id": 123,
+     *     "pickup_code": "ABC123",
+     *     "status": "completed",
+     *     "total": 75.50,
+     *     "items": []
+     *   }
+     * }
+     * 
+     * @response 404 {
+     *   "success": false,
+     *   "error": "ORDER_NOT_FOUND",
+     *   "message": "order_not_found"
+     * }
+     */
+    public function lastOrder(): JsonResponse
+    {
+        $customer = auth('api')->user();
+        
+        $order = \App\Core\Models\Order::where('customer_id', $customer->id)
+            ->with(['store', 'promoCode', 'paymentMethod'])
+            ->latest()
+            ->first();
+
+        if (!$order) {
+            return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
+        }
+
+        return apiSuccess(new OrderResource($order));
     }
 }

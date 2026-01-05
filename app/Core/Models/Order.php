@@ -29,6 +29,7 @@ class Order extends Model
         'tax',
         'discount',
         'payment_method',
+        'payment_method_id',
         'pickup_code',
         'items_snapshot',
         'modifiers_snapshot',
@@ -72,6 +73,14 @@ class Order extends Model
     public function promoCode(): BelongsTo
     {
         return $this->belongsTo(PromoCode::class);
+    }
+
+    /**
+     * Get the payment method used in this order.
+     */
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class);
     }
 
     /**
