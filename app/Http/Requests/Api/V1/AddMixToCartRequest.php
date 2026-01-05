@@ -41,4 +41,16 @@ class AddMixToCartRequest extends FormRequest
             'store_id' => 'nullable|exists:stores,id',
         ];
     }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'configuration.extras.*.exists' => 'The selected extra must be a valid product ID. Extras must be product IDs, not modifier IDs.',
+        ];
+    }
 }
