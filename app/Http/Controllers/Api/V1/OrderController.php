@@ -6,6 +6,7 @@ use App\Core\Repositories\CartRepository;
 use App\Core\Repositories\OrderRepository;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\OrderResource;
+use App\Services\CartService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ class OrderController extends Controller
 {
     public function __construct(
         private OrderRepository $orderRepository,
-        private CartRepository $cartRepository
+        private CartRepository $cartRepository,
+        private CartService $cartService
     ) {
     }
 
@@ -281,19 +283,79 @@ class OrderController extends Controller
 
         $itemsAdded = 0;
         foreach ($order->items_snapshot as $item) {
-            // Verify product still exists and is active
-            $product = \App\Core\Models\Product::find($item['product_id']);
-            if (!$product || !$product->is_active) {
-                continue; // Skip inactive or deleted products
-            }
+            $itemType = $item['item_type'] ?? 'product';
+            
+            if ($itemType === 'product') {
+                // Handle product items
+                $product = \App\Core\Models\Product::find($item['product_id']);
+                if (!$product || !$product->is_active) {
+                    continue; // Skip inactive or deleted products
+                }
 
-            $this->cartRepository->addItem(
-                $cart,
-                $item['product_id'],
-                $item['quantity'],
-                $item['modifiers'] ?? []
-            );
-            $itemsAdded++;
+                // Extract addons from configuration if present, otherwise use modifiers
+                $addons = [];
+                if (isset($item['configuration']['addons']) && is_array($item['configuration']['addons'])) {
+                    $addons = $item['configuration']['addons'];
+                } elseif (isset($item['modifiers']) && is_array($item['modifiers'])) {
+                    // Legacy format: convert modifiers to addons format
+                    $addons = array_map(function ($modifier) {
+                        if (is_array($modifier) && isset($modifier['modifier_id'])) {
+                            return [
+                                'modifier_id' => $modifier['modifier_id'],
+                                'level' => $modifier['level'] ?? 1,
+                            ];
+                        } elseif (is_array($modifier) && isset($modifier['id'])) {
+                            return [
+                                'modifier_id' => $modifier['id'],
+                                'level' => $modifier['level'] ?? 1,
+                            ];
+                        } elseif (is_numeric($modifier)) {
+                            return [
+                                'modifier_id' => $modifier,
+                                'level' => 1,
+                            ];
+                        }
+                        return null;
+                    }, $item['modifiers']);
+                    $addons = array_filter($addons); // Remove nulls
+                }
+
+                $this->cartService->addProductToCart(
+                    $cart,
+                    $product,
+                    $item['quantity'],
+                    $addons,
+                    $item['note'] ?? null
+                );
+                $itemsAdded++;
+            } elseif (in_array($itemType, ['mix', 'creator_mix'])) {
+                // Handle mix and creator_mix items
+                $configuration = $item['configuration'] ?? [];
+                
+                // Verify base product exists if base_id is set
+                if (isset($configuration['base_id'])) {
+                    $baseProduct = \App\Core\Models\Product::find($configuration['base_id']);
+                    if (!$baseProduct || !$baseProduct->is_active) {
+                        continue; // Skip if base product is inactive or deleted
+                    }
+                }
+
+                try {
+                    $this->cartService->addMixToCart(
+                        $cart,
+                        $itemType,
+                        $configuration,
+                        $item['quantity'],
+                        $item['ref_id'] ?? null,
+                        $item['name'] ?? null,
+                        $item['note'] ?? null
+                    );
+                    $itemsAdded++;
+                } catch (\Exception $e) {
+                    // Skip items that fail validation (e.g., invalid modifiers, extras, etc.)
+                    continue;
+                }
+            }
         }
 
         if ($itemsAdded === 0) {
@@ -358,6 +420,43 @@ class OrderController extends Controller
 
         // Return PDF download response with proper headers for mobile compatibility
         return $pdf->download($filename);
+    }
+
+    /**
+     * Get active order for the authenticated customer
+     * 
+     * Returns the most recent active order (status: received, mixing, or ready) for the authenticated customer.
+     * 
+     * @authenticated
+     * 
+     * @response 200 {
+     *   "success": true,
+     *   "data": {
+     *     "id": 123,
+     *     "pickup_code": "ABC123",
+     *     "status": "mixing",
+     *     "total": 75.50,
+     *     "items": []
+     *   }
+     * }
+     * 
+     * @response 404 {
+     *   "success": false,
+     *   "error": "ORDER_NOT_FOUND",
+     *   "message": "no_active_order"
+     * }
+     */
+    public function activeOrder(): JsonResponse
+    {
+        $customer = auth('api')->user();
+        
+        $order = $this->orderRepository->findActiveOrderForCustomer($customer->id);
+
+        if (!$order) {
+            return apiError('ORDER_NOT_FOUND', 'no_active_order', 404);
+        }
+
+        return apiSuccess(new OrderResource($order));
     }
 
     /**

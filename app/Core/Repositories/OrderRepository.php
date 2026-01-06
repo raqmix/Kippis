@@ -149,6 +149,18 @@ class OrderRepository
     }
 
     /**
+     * Find active order for customer (most recent active order).
+     */
+    public function findActiveOrderForCustomer(int $customerId): ?Order
+    {
+        return Order::where('customer_id', $customerId)
+            ->active()
+            ->with(['store', 'promoCode', 'paymentMethod'])
+            ->latest()
+            ->first();
+    }
+
+    /**
      * Update order status.
      */
     public function updateStatus(Order $order, string $status): bool
