@@ -31,20 +31,42 @@ class ProductResource extends JsonResource
                 ];
             }),
             'external_source' => $this->external_source,
-            'allowed_addons' => $this->addonModifiers->map(function ($modifier) {
+            'modifiers' => $this->getModifiersGroupedByType(),
+        ];
+    }
+
+    /**
+     * Get modifiers grouped by type.
+     *
+     * @return array<string, array>
+     */
+    private function getModifiersGroupedByType(): array
+    {
+        $modifiers = $this->addonModifiers->groupBy('type');
+
+        $result = [
+            'size' => [],
+            'smothing' => [],
+            'customize_modifires' => [],
+            'extra' => [],
+        ];
+
+        foreach (['size', 'smothing', 'customize_modifires', 'extra'] as $type) {
+            $typeModifiers = $modifiers->get($type, collect());
+            $result[$type] = $typeModifiers->map(function ($modifier) {
                 return [
                     'id' => $modifier->id,
-                    'modifier_id' => $modifier->id,
-                    'name' => $modifier->getName(app()->getLocale()),
                     'type' => $modifier->type,
+                    'name' => $modifier->getName(app()->getLocale()),
+                    'name_ar' => $modifier->getName('ar'),
+                    'name_en' => $modifier->getName('en'),
                     'max_level' => $modifier->max_level,
                     'price' => (float) $modifier->price,
-                    'is_required' => (bool) ($modifier->pivot->is_required ?? false),
-                    'min_select' => $modifier->pivot->min_select ?? null,
-                    'max_select' => $modifier->pivot->max_select ?? null,
                 ];
-            })->values(),
-        ];
+            })->values()->all();
+        }
+
+        return $result;
     }
 }
 
