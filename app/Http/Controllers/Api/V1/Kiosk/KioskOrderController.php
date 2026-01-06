@@ -23,9 +23,14 @@ class KioskOrderController extends Controller
     /**
      * Checkout cart and create guest order for kiosk
      *
-     * Creates an order from the current session-based cart. Order will have customer_id = null (guest order).
+     * Creates an order from locally managed cart items. Order will have customer_id = null (guest order).
      *
      * @bodyParam payment_method string required Payment method. Options: `cash`, `card`, `online`. Example: cash
+     * @bodyParam items array required Array of cart items. Each item should have: product_id, item_type, name, quantity, price, modifiers (optional), configuration (optional), note (optional)
+     * @bodyParam subtotal float required Cart subtotal
+     * @bodyParam discount float required Cart discount (from promo code if applicable)
+     * @bodyParam total float required Cart total
+     * @bodyParam promo_code string optional Promo code to apply
      *
      * @response 201 {
      *   "success": true,
@@ -39,55 +44,63 @@ class KioskOrderController extends Controller
      *
      * @response 400 {
      *   "success": false,
-     *   "error": "CART_EMPTY",
-     *   "message": "cart_empty"
-     * }
-     *
-     * @response 404 {
-     *   "success": false,
-     *   "error": "CART_NOT_FOUND",
-     *   "message": "cart_not_found"
+     *   "error": "VALIDATION_ERROR",
+     *   "message": "Validation failed."
      * }
      */
     public function checkout(Request $request): JsonResponse
     {
         $request->validate([
             'payment_method' => 'required|string|in:cash,card,online',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'nullable|integer|exists:products,id',
+            'items.*.item_type' => 'required|string|in:product,mix,creator_mix',
+            'items.*.name' => 'required|string|max:255',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.price' => 'required|numeric|min:0',
+            'items.*.modifiers' => 'nullable|array',
+            'items.*.configuration' => 'nullable|array',
+            'items.*.note' => 'nullable|string|max:1000',
+            'subtotal' => 'required|numeric|min:0',
+            'discount' => 'required|numeric|min:0',
+            'total' => 'required|numeric|min:0',
+            'promo_code' => 'nullable|string|max:50',
         ]);
 
         $store = $request->attributes->get('kiosk_store');
-        $sessionId = session()->getId();
+        $items = $request->input('items');
+        $paymentMethod = $request->input('payment_method');
+        $subtotal = (float) $request->input('subtotal');
+        $discount = (float) $request->input('discount');
+        $total = (float) $request->input('total');
+        $promoCode = $request->input('promo_code');
 
-        // Get session-based cart
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId);
-
-        if (!$cart) {
-            return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
-        }
-
-        // Ensure cart belongs to authenticated store
-        if ($cart->store_id !== $store->id) {
-            return apiError('CART_STORE_MISMATCH', 'Cart belongs to a different store', 403);
-        }
-
-        if ($cart->items->isEmpty()) {
+        if (empty($items)) {
             return apiError('CART_EMPTY', 'cart_empty', 400);
         }
 
-        // Recalculate cart totals before creating order to ensure they are accurate
-        $this->cartRepository->recalculate($cart);
-        $cart->refresh();
+        try {
+            // Create guest order directly from items
+            $order = $this->orderRepository->createFromItems(
+                $store->id,
+                $items,
+                $paymentMethod,
+                $subtotal,
+                $discount,
+                $total,
+                $promoCode
+            );
 
-        // Create guest order (customer_id will be null)
-        $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method'));
-
-        $this->cartRepository->abandon($cart);
-
-        return apiSuccess([
-            'order_id' => $order->id,
-            'pickup_code' => $order->pickup_code,
-            'total' => (float) $order->total,
-        ], 'order_created', 201);
+            return apiSuccess([
+                'order_id' => $order->id,
+                'pickup_code' => $order->pickup_code,
+                'total' => (float) $order->total,
+            ], 'order_created', 201);
+        } catch (\InvalidArgumentException $e) {
+            return apiError('INVALID_DATA', $e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return apiError('ERROR', $e->getMessage(), 500);
+        }
     }
 }
 

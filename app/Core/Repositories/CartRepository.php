@@ -25,19 +25,33 @@ class CartRepository
      * - findActiveCart($customerId, $includeProductDetails) - old pattern for authenticated users
      * - findActiveCart($customerId, $sessionId, $includeProductDetails) - new pattern for both
      * - findActiveCart(null, $sessionId, $includeProductDetails) - new pattern for guest carts
+     * - findActiveCart(null, $sessionId, $includeProductDetails, $storeId) - kiosk pattern with store filter
      *
      * @param int|null $customerId The customer ID (null for guest carts)
      * @param bool|string|null $sessionIdOrIncludeProduct The session ID (string) OR includeProductDetails (bool) for backward compatibility
-     * @param bool $includeProductDetails If true, loads product with addonModifiers and category
+     * @param bool|int|null $includeProductDetailsOrStoreId If bool, treat as includeProductDetails. If int, treat as storeId (when sessionId is provided as string). If null and 4th param is int, use 4th param as storeId
+     * @param int|null $storeId Optional store ID to filter by (for kiosk)
      */
-    public function findActiveCart(?int $customerId = null, $sessionIdOrIncludeProduct = false, bool $includeProductDetails = false): ?Cart
+    public function findActiveCart(?int $customerId = null, $sessionIdOrIncludeProduct = false, $includeProductDetailsOrStoreId = false, ?int $storeId = null): ?Cart
     {
         $relationships = ['items', 'promoCode', 'store'];
         
         // Handle backward compatibility: if second param is bool, treat it as includeProductDetails
         $sessionId = null;
+        $includeProductDetails = false;
+        
         if (is_string($sessionIdOrIncludeProduct)) {
             $sessionId = $sessionIdOrIncludeProduct;
+            // Third param could be bool (includeProduct) or int (storeId)
+            if (is_bool($includeProductDetailsOrStoreId)) {
+                $includeProductDetails = $includeProductDetailsOrStoreId;
+            } elseif (is_int($includeProductDetailsOrStoreId)) {
+                $storeId = $includeProductDetailsOrStoreId;
+            }
+            // If third param is null and fourth param is provided, use fourth param as storeId
+            if ($includeProductDetailsOrStoreId === null && $storeId !== null) {
+                // storeId already set from 4th param
+            }
         } elseif (is_bool($sessionIdOrIncludeProduct)) {
             $includeProductDetails = $sessionIdOrIncludeProduct;
         }
@@ -58,6 +72,11 @@ class CartRepository
             $query->where('session_id', $sessionId);
         } else {
             return null;
+        }
+        
+        // Filter by store_id if provided (for kiosk)
+        if ($storeId !== null) {
+            $query->where('store_id', $storeId);
         }
 
         return $query->latest()->first();

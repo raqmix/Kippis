@@ -44,18 +44,18 @@ class KioskCartController extends Controller
     }
 
     /**
-     * Get or create active cart for session.
+     * Get or create active cart for session and store.
      */
     private function getOrCreateCart(string $sessionId, int $storeId)
     {
-        // Try to find existing cart
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId);
+        // Try to find existing cart for this session AND store
+        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $storeId);
         
         if ($cart) {
             return $cart;
         }
 
-        // Create new session-based cart
+        // Create new session-based cart for this store
         $cart = $this->cartRepository->create([
             'customer_id' => null,
             'session_id' => $sessionId,
@@ -116,7 +116,7 @@ class KioskCartController extends Controller
         
         $includeProduct = $request->boolean('include_product', false);
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId, $includeProduct);
+        $cart = $this->cartRepository->findActiveCart(null, $sessionId, $includeProduct ? true : null, $store->id);
 
         if (!$cart) {
             // Return empty cart structure
@@ -132,13 +132,24 @@ class KioskCartController extends Controller
 
         // Ensure cart belongs to authenticated store
         if ($cart->store_id !== $store->id) {
-            return apiError('CART_STORE_MISMATCH', 'Cart belongs to a different store', 403);
+            // Abandon the old cart and return empty cart
+            $this->cartRepository->abandon($cart);
+            return apiSuccess([
+                'id' => null,
+                'items' => [],
+                'promo_code' => null,
+                'subtotal' => 0,
+                'discount' => 0,
+                'total' => 0,
+            ]);
         }
 
         // Recalculate totals to ensure they are up to date
         $this->cartRepository->recalculate($cart);
+        $cart->refresh();
+        $cart->load($this->getCartRelationships($includeProduct));
 
-        return apiSuccess(new CartResource($cart->fresh($this->getCartRelationships($includeProduct))));
+        return apiSuccess(new CartResource($cart));
     }
 
     /**
@@ -195,10 +206,14 @@ class KioskCartController extends Controller
             );
 
             $this->cartRepository->recalculate($cart);
+            $cart->refresh();
 
             $includeProduct = $request->boolean('include_product', false);
+            // Reload cart with relationships
+            $cart->load($this->getCartRelationships($includeProduct));
+            
             return apiSuccess(
-                new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+                new CartResource($cart), 
                 'item_added', 
                 201
             );
@@ -251,10 +266,14 @@ class KioskCartController extends Controller
             }
 
             $this->cartRepository->recalculate($cart);
+            $cart->refresh();
 
             $includeProduct = $request->boolean('include_product', false);
+            // Reload cart with relationships
+            $cart->load($this->getCartRelationships($includeProduct));
+            
             return apiSuccess(
-                new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
+                new CartResource($cart),
                 'item_added',
                 201
             );
@@ -290,24 +309,22 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId);
+        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
         }
 
-        // Ensure cart belongs to authenticated store
-        if ($cart->store_id !== $store->id) {
-            return apiError('CART_STORE_MISMATCH', 'Cart belongs to a different store', 403);
-        }
-
         $cartItem = $cart->items()->findOrFail($id);
         $this->cartRepository->updateItem($cartItem, ['quantity' => $request->input('quantity')]);
         $this->cartRepository->recalculate($cart);
+        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
+        
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart), 
             'item_updated'
         );
     }
@@ -333,24 +350,22 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId);
+        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
         }
 
-        // Ensure cart belongs to authenticated store
-        if ($cart->store_id !== $store->id) {
-            return apiError('CART_STORE_MISMATCH', 'Cart belongs to a different store', 403);
-        }
-
         $cartItem = $cart->items()->findOrFail($id);
         $this->cartRepository->removeItem($cartItem);
         $this->cartRepository->recalculate($cart);
+        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
+        
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart), 
             'item_removed'
         );
     }
@@ -409,10 +424,13 @@ class KioskCartController extends Controller
         // For guest carts (kiosk), skip customer validation
         $this->cartRepository->applyPromoCode($cart, $promoCode);
         $this->cartRepository->recalculate($cart);
+        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
+        
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart), 
             'promo_applied'
         );
     }
@@ -437,23 +455,21 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId);
+        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
         }
 
-        // Ensure cart belongs to authenticated store
-        if ($cart->store_id !== $store->id) {
-            return apiError('CART_STORE_MISMATCH', 'Cart belongs to a different store', 403);
-        }
-
         $this->cartRepository->removePromoCode($cart);
         $this->cartRepository->recalculate($cart);
+        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
+        
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart), 
             'promo_removed'
         );
     }
@@ -471,15 +487,10 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId);
+        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
-        }
-
-        // Ensure cart belongs to authenticated store
-        if ($cart->store_id !== $store->id) {
-            return apiError('CART_STORE_MISMATCH', 'Cart belongs to a different store', 403);
         }
 
         $this->cartRepository->abandon($cart);

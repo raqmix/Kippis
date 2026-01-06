@@ -13,7 +13,7 @@ class OrderRepository
 {
     /**
      * Create order from cart.
-     * 
+     *
      * @param \App\Core\Models\Cart $cart
      * @param int $paymentMethodId Payment method ID from payment_methods table
      * @param int|null $storeId Optional store ID. If provided, overrides the cart's store_id.
@@ -75,6 +75,88 @@ class OrderRepository
     }
 
     /**
+     * Create order directly from items array (for kiosk local cart).
+     *
+     * @param int $storeId
+     * @param array $items Array of items with: product_id, item_type, name, quantity, price, modifiers, configuration, note
+     * @param string $paymentMethodCode Payment method code (cash, card, online)
+     * @param float $subtotal Calculated subtotal
+     * @param float $discount Calculated discount (from promo code if applicable)
+     * @param float $total Calculated total
+     * @param string|null $promoCode Optional promo code to apply
+     * @return Order
+     */
+    public function createFromItems(
+        int $storeId,
+        array $items,
+        string $paymentMethodCode,
+        float $subtotal,
+        float $discount,
+        float $total,
+        ?string $promoCode = null
+    ): Order {
+        $pickupCode = strtoupper(Str::random(6));
+
+        // Get payment method by code
+        $paymentMethod = PaymentMethod::where('code', $paymentMethodCode)->first();
+        if (!$paymentMethod) {
+            throw new \InvalidArgumentException("Invalid payment method: {$paymentMethodCode}");
+        }
+
+        // Find promo code if provided
+        $promoCodeModel = null;
+        if ($promoCode) {
+            $promoCodeModel = \App\Core\Models\PromoCode::where('code', strtoupper($promoCode))
+                ->valid()
+                ->first();
+
+            // If promo code found, validate minimum order amount
+            if ($promoCodeModel && $subtotal < $promoCodeModel->minimum_order_amount) {
+                throw new \InvalidArgumentException("Minimum order amount not met for promo code");
+            }
+        }
+
+        $order = Order::create([
+            'store_id' => $storeId,
+            'customer_id' => null, // Guest order for kiosk
+            'status' => 'received',
+            'total' => $total,
+            'subtotal' => $subtotal,
+            'discount' => $discount,
+            'payment_method' => $paymentMethodCode, // Keep for backward compatibility
+            'payment_method_id' => $paymentMethod->id,
+            'pickup_code' => $pickupCode,
+            'items_snapshot' => array_map(function ($item) {
+                return [
+                    'product_id' => $item['product_id'] ?? null,
+                    'item_type' => $item['item_type'] ?? 'product',
+                    'name' => $item['name'] ?? 'Unknown',
+                    'quantity' => $item['quantity'] ?? 1,
+                    'price' => $item['price'] ?? 0.0,
+                    'modifiers' => $item['modifiers'] ?? null,
+                    'configuration' => $item['configuration'] ?? null,
+                    'note' => $item['note'] ?? null,
+                ];
+            }, $items),
+            'modifiers_snapshot' => array_map(function ($item) {
+                return $item['modifiers'] ?? null;
+            }, $items),
+            'promo_code_id' => $promoCodeModel?->id,
+            'promo_discount' => $discount,
+        ]);
+
+        // Increment promo code usage count (for guest orders, don't track customer usage)
+        if ($promoCodeModel) {
+            $promoCodeModel->increment('used_count');
+        }
+
+        // Dispatch event for real-time notification
+        event(new OrderCreated($order));
+
+        return $order;
+    }
+
+    /**
      * Get paginated orders for customer.
      */
     public function getPaginatedForCustomer(int $customerId, array $filters = [], int $perPage = 15): LengthAwarePaginator
@@ -121,18 +203,18 @@ class OrderRepository
         // Sorting
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
-        
+
         // Validate sort_by
         $allowedSorts = ['created_at', 'total', 'status', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
             $sortBy = 'created_at';
         }
-        
+
         // Validate sort_order must be 'asc' or 'desc'
         if (!in_array(strtolower($sortOrder), ['asc', 'desc'])) {
             $sortOrder = 'desc';
         }
-        
+
         $query->orderBy($sortBy, $sortOrder);
 
         return $query->paginate($perPage);
