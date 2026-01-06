@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Core\Enums\OrderStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,9 +15,14 @@ class OrderResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // Map status from enum to translated label
+        $statusEnum = OrderStatus::tryFrom($this->status);
+        $statusLabel = $statusEnum ? $statusEnum->label() : $this->status;
+
         return [
             'id' => $this->id,
             'status' => $this->status,
+            'status_label' => $statusLabel,
             'total' => (float) $this->total,
             'subtotal' => (float) $this->subtotal,
             'discount' => (float) $this->discount,
