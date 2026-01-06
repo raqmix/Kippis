@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Core\Enums\OrderStatus;
 use App\Core\Repositories\CartRepository;
 use App\Core\Repositories\OrderRepository;
 use App\Http\Controllers\Controller;
@@ -200,11 +201,38 @@ class OrderController extends Controller
      *   "success": true,
      *   "data": {
      *     "status": "completed",
+     *     "status_label": "Completed",
      *     "pickup_code": "ABC123",
      *     "status_history": [
      *       {
      *         "status": "received",
-     *         "at": "2025-12-21T10:00:00Z"
+     *         "status_label": "Received",
+     *         "at": "2025-12-21T10:00:00Z",
+     *         "completed": true
+     *       },
+     *       {
+     *         "status": "mixing",
+     *         "status_label": "Mixing",
+     *         "at": "2025-12-21T10:15:00Z",
+     *         "completed": true
+     *       },
+     *       {
+     *         "status": "ready",
+     *         "status_label": "Ready",
+     *         "at": "2025-12-21T10:30:00Z",
+     *         "completed": true
+     *       },
+     *       {
+     *         "status": "completed",
+     *         "status_label": "Completed",
+     *         "at": "2025-12-21T10:45:00Z",
+     *         "completed": true
+     *       },
+     *       {
+     *         "status": "cancelled",
+     *         "status_label": "Cancelled",
+     *         "at": null,
+     *         "completed": false
      *       }
      *     ]
      *   }
@@ -225,12 +253,86 @@ class OrderController extends Controller
             return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
         }
 
+        // Map current status
+        $currentStatusEnum = OrderStatus::tryFrom($order->status);
+        $currentStatusLabel = $currentStatusEnum ? $currentStatusEnum->label() : $order->status;
+
+        // Build status history with all possible statuses
+        $statusHistory = [];
+        
+        // Define normal progression order (cancelled can happen at any point)
+        $normalProgression = [
+            OrderStatus::RECEIVED->value,
+            OrderStatus::MIXING->value,
+            OrderStatus::READY->value,
+            OrderStatus::COMPLETED->value,
+        ];
+
+        $isCancelled = $order->status === OrderStatus::CANCELLED->value;
+        
+        // Determine which statuses are completed
+        $completedStatuses = [];
+        if ($isCancelled) {
+            // If cancelled, only received and cancelled are completed
+            $completedStatuses = [OrderStatus::RECEIVED->value, OrderStatus::CANCELLED->value];
+        } else {
+            // For normal progression, all statuses up to current are completed
+            $currentIndex = array_search($order->status, $normalProgression);
+            if ($currentIndex !== false) {
+                $completedStatuses = array_slice($normalProgression, 0, $currentIndex + 1);
+            }
+        }
+
+        // Build history for normal progression statuses
+        foreach ($normalProgression as $index => $statusValue) {
+            $statusEnum = OrderStatus::tryFrom($statusValue);
+            $statusLabel = $statusEnum ? $statusEnum->label() : $statusValue;
+            $isCompleted = in_array($statusValue, $completedStatuses);
+            
+            // Calculate timestamp: received at created_at, others estimated
+            $statusTime = null;
+            if ($isCompleted) {
+                if ($statusValue === OrderStatus::RECEIVED->value) {
+                    $statusTime = $order->created_at;
+                } else {
+                    // Estimate based on time difference
+                    $timeDiff = $order->updated_at->diffInSeconds($order->created_at);
+                    $completedCount = count($completedStatuses);
+                    if ($completedCount > 1) {
+                        $estimatedSeconds = ($timeDiff / ($completedCount - 1)) * $index;
+                        $statusTime = $order->created_at->copy()->addSeconds($estimatedSeconds);
+                    } else {
+                        // Fallback: use updated_at if only one status completed
+                        $statusTime = $order->updated_at;
+                    }
+                }
+            }
+
+            $statusHistory[] = [
+                'status' => $statusValue,
+                'status_label' => $statusLabel,
+                'at' => $statusTime ? $statusTime->toIso8601String() : null,
+                'completed' => $isCompleted,
+            ];
+        }
+
+        // Add cancelled status (always last)
+        $cancelledEnum = OrderStatus::CANCELLED;
+        $cancelledCompleted = in_array(OrderStatus::CANCELLED->value, $completedStatuses);
+        $cancelledTime = $cancelledCompleted ? $order->updated_at : null;
+
+        $statusHistory[] = [
+            'status' => OrderStatus::CANCELLED->value,
+            'status_label' => $cancelledEnum->label(),
+            'at' => $cancelledTime ? $cancelledTime->toIso8601String() : null,
+            'completed' => $cancelledCompleted,
+        ];
+
         return apiSuccess([
             'status' => $order->status,
+            'status_label' => $currentStatusLabel,
             'pickup_code' => $order->pickup_code,
-            'status_history' => [
-                ['status' => 'received', 'at' => $order->created_at->toIso8601String()],
-            ],
+            'status_history' => $statusHistory,
         ]);
     }
 
