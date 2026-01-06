@@ -45,13 +45,9 @@ class KioskCatalogController extends Controller
         
         $filters = [
             'source' => 'all',
-            'is_active' => '1',
-            'q' => $request->query('q'),
-            'sort_by' => $request->query('sort_by', 'created_at'),
-            'sort_order' => $request->query('sort_order', 'desc'),
         ];
 
-        $categories = $this->categoryRepository->getAll($filters);
+        $categories = $this->categoryRepository->getAllActive($filters);
 
         return apiSuccess(CategoryResource::collection($categories));
     }
@@ -81,6 +77,7 @@ class KioskCatalogController extends Controller
     {
         $store = $request->attributes->get('kiosk_store');
         
+        // Use getPaginated for products to support filtering and sorting
         $filters = [
             'store_id' => $store->id,
             'category_id' => $request->query('category_id'),
@@ -93,9 +90,20 @@ class KioskCatalogController extends Controller
             'sort_order' => $request->query('sort_order', 'desc'),
         ];
 
-        $products = $this->productRepository->getAll($filters);
+        $perPage = min($request->query('per_page', 100), 100);
+        $products = $this->productRepository->getPaginated($filters, $perPage);
 
-        return apiSuccess(ProductResource::collection($products));
+        return apiSuccess(
+            ProductResource::collection($products),
+            null,
+            200,
+            [
+                'current_page' => $products->currentPage(),
+                'per_page' => $products->perPage(),
+                'total' => $products->total(),
+                'last_page' => $products->lastPage(),
+            ]
+        );
     }
 
     /**
@@ -172,11 +180,9 @@ class KioskCatalogController extends Controller
 
         // Get featured products for the store
         $filters = [
-            'store_id' => $store->id,
-            'is_active' => '1',
             'source' => 'all',
         ];
-        $products = $this->productRepository->getAll($filters);
+        $products = $this->productRepository->getAllActive($filters);
         $productsResource = ProductResource::collection($products->take(10));
 
         return apiSuccess([
