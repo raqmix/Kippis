@@ -181,7 +181,7 @@ class OrderController extends Controller
     public function show($id): JsonResponse
     {
         $customer = auth('api')->user();
-        $order = $this->orderRepository->findByIdForCustomer($id, $customer->id);
+        $order = $this->orderRepository->findByIdForCustomer((int) $id, $customer->id);
 
         if (!$order) {
             return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
@@ -247,7 +247,7 @@ class OrderController extends Controller
     public function tracking($id): JsonResponse
     {
         $customer = auth('api')->user();
-        $order = $this->orderRepository->findByIdForCustomer($id, $customer->id);
+        $order = $this->orderRepository->findByIdForCustomer((int) $id, $customer->id);
 
         if (!$order) {
             return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
@@ -366,7 +366,7 @@ class OrderController extends Controller
     public function reorder($id): JsonResponse
     {
         $customer = auth('api')->user();
-        $order = $this->orderRepository->findByIdForCustomer($id, $customer->id);
+        $order = $this->orderRepository->findByIdForCustomer((int) $id, $customer->id);
 
         if (!$order) {
             return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
@@ -496,7 +496,7 @@ class OrderController extends Controller
     public function downloadPdf($id): Response|JsonResponse
     {
         $customer = auth('api')->user();
-        $order = $this->orderRepository->findByIdForCustomer($id, $customer->id);
+        $order = $this->orderRepository->findByIdForCustomer((int) $id, $customer->id);
 
         if (!$order) {
             return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
