@@ -26,81 +26,110 @@ class MixController extends Controller
     /**
      * Get mix builder options
      *
-     * Returns all available bases and modifiers grouped by type (size, smothing, customize_modifires, extra).
-     * Bases are products marked as `product_kind = mix_base`.
+     * Returns product details for the first base product associated with the builder,
+     * including all available modifiers as allowed_addons.
+     * Uses the same format as /api/v1/catalog/products/:id.
      *
-     * @queryParam builder_id integer optional Filter bases by specific builder ID. Example: 1
+     * @queryParam builder_id integer required Filter bases by specific builder ID. Example: 1
      *
      * @response 200 {
      *   "success": true,
      *   "data": {
-     *     "bases": [
+     *     "id": 54,
+     *     "name": "Chocolate Cake",
+     *     "name_ar": "كعكة الشوكولاتة",
+     *     "name_en": "Chocolate Cake",
+     *     "description": "Rich chocolate cake slice",
+     *     "description_ar": "شريحة كعكة شوكولاتة غنية",
+     *     "description_en": "Rich chocolate cake slice",
+     *     "image": null,
+     *     "base_price": 30,
+     *     "category": {
+     *       "id": 5,
+     *       "name": "Desserts"
+     *     },
+     *     "external_source": "local",
+     *     "allowed_addons": [
      *       {
-     *         "id": 1,
-     *         "name": "Base Name",
-     *         "image": "url",
-     *         "description": "Description",
-     *         "base_price": 15.00
+     *         "id": 49,
+     *         "modifier_id": 49,
+     *         "name": "Size",
+     *         "type": "size",
+     *         "max_level": null,
+     *         "price": 0,
+     *         "is_required": true,
+     *         "min_select": null,
+     *         "max_select": null
      *       }
-     *     ],
-     *     "modifiers": {
-     *       "size": [
-     *         {
-     *           "id": 1,
-     *           "name": "S",
-     *           "price": 0.00
-     *         }
-     *       ],
-     *       "smothing": [],
-     *       "customize_modifires": [],
-     *       "extra": []
-     *     }
+     *     ]
      *   }
      * }
      */
     public function options(Request $request): JsonResponse
     {
         $builderId = $request->query('builder_id');
-        
-        // Get bases (mix_base products)
-        $basesQuery = Product::active()->mixBases();
-        
-        // Filter by builder if provided
-        if ($builderId) {
-            $baseIds = MixBuilderBase::where(function ($query) use ($builderId) {
-                $query->where('mix_builder_id', $builderId)
-                      ->orWhereNull('mix_builder_id'); // Global bases (null) available to all
-            })->pluck('product_id');
-            
-            $basesQuery->whereIn('id', $baseIds);
-        }
-        
-        $bases = $basesQuery->get()->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->getName(app()->getLocale()),
-                'name_ar' => $product->getName('ar'),
-                'name_en' => $product->getName('en'),
-                'image' => $product->image ? asset('storage/' . $product->image) : null,
-                'description' => $product->getDescription(app()->getLocale()),
-                'description_ar' => $product->getDescription('ar'),
-                'description_en' => $product->getDescription('en'),
-                'base_price' => (float) $product->base_price,
-            ];
-        });
 
-        // Get modifiers grouped by type
+        if (!$builderId) {
+            return apiError('BUILDER_ID_REQUIRED', 'builder_id parameter is required', 400);
+        }
+
+        // Get the first base product for this builder
+        $baseIds = MixBuilderBase::where(function ($query) use ($builderId) {
+            $query->where('mix_builder_id', $builderId)
+                  ->orWhereNull('mix_builder_id'); // Global bases (null) available to all
+        })->pluck('product_id');
+
+        $product = Product::with('category')
+            ->active()
+            ->mixBases()
+            ->whereIn('id', $baseIds)
+            ->first();
+
+        if (!$product) {
+            return apiError('NO_BASE_FOUND', 'No base product found for the specified builder_id', 404);
+        }
+
+        // Get all modifiers grouped by type and flatten them into allowed_addons
         $modifiers = $this->modifierRepository->getGroupedByType();
 
-        $modifiersData = [];
+        $allowedAddons = collect();
         foreach (['size', 'smothing', 'customize_modifires', 'extra'] as $type) {
-            $modifiersData[$type] = ModifierResource::collection($modifiers[$type] ?? collect());
+            $typeModifiers = $modifiers[$type] ?? collect();
+            foreach ($typeModifiers as $modifier) {
+                $allowedAddons->push([
+                    'id' => $modifier->id,
+                    'modifier_id' => $modifier->id,
+                    'name' => $modifier->getName(app()->getLocale()),
+                    'type' => $modifier->type,
+                    'max_level' => $modifier->max_level,
+                    'price' => (float) $modifier->price,
+                    'is_required' => false, // Default to false for mix builder modifiers
+                    'min_select' => null,
+                    'max_select' => null,
+                ]);
+            }
         }
 
-        return apiSuccess([
-            'bases' => $bases,
-            'modifiers' => $modifiersData,
-        ]);
+        // Build response in the same format as ProductResource
+        $data = [
+            'id' => $product->id,
+            'name' => $product->getName(app()->getLocale()),
+            'name_ar' => $product->getName('ar'),
+            'name_en' => $product->getName('en'),
+            'description' => $product->getDescription(app()->getLocale()),
+            'description_ar' => $product->getDescription('ar'),
+            'description_en' => $product->getDescription('en'),
+            'image' => $product->image ? asset('storage/' . $product->image) : null,
+            'base_price' => (float) $product->base_price,
+            'category' => $product->category ? [
+                'id' => $product->category->id,
+                'name' => $product->category->getName(app()->getLocale()),
+            ] : null,
+            'external_source' => $product->external_source,
+            'allowed_addons' => $allowedAddons->values()->all(),
+        ];
+
+        return apiSuccess($data);
     }
 
     /**

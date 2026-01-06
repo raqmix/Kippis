@@ -82,8 +82,8 @@ class ProductController extends Controller
     /**
      * Get single product by ID
      *
-     * Returns product details including allowed addons (modifiers assigned to this product).
-     * Addons can be selected when adding the product to cart.
+     * Returns product details including modifiers grouped by type (size, smothing, customize_modifires, extra).
+     * Modifiers can be selected when adding the product to cart.
      *
      * @urlParam id required The ID of the product. Example: 1
      *
@@ -94,19 +94,22 @@ class ProductController extends Controller
      *     "name": "Product Name",
      *     "base_price": 25.50,
      *     "description": "Product description",
-     *     "allowed_addons": [
-     *       {
-     *         "id": 5,
-     *         "modifier_id": 5,
-     *         "name": "Extra Sweetness",
-     *         "type": "sweetness",
-     *         "max_level": 5,
-     *         "price": 1.50,
-     *         "is_required": false,
-     *         "min_select": 0,
-     *         "max_select": 5
-     *       }
-     *     ]
+     *     "modifiers": {
+     *       "size": [
+     *         {
+     *           "id": 49,
+     *           "type": "size",
+     *           "name": "Size",
+     *           "name_ar": "الحجم",
+     *           "name_en": "Size",
+     *           "max_level": null,
+     *           "price": 0
+     *         }
+     *       ],
+     *       "smothing": [],
+     *       "customize_modifires": [],
+     *       "extra": []
+     *     }
      *   }
      * }
      *
