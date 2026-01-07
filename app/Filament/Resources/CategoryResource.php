@@ -165,12 +165,12 @@ class CategoryResource extends Resource
                 Tables\Columns\ImageColumn::make('image')
                     ->label(__('system.image'))
                     ->circular(),
-                Tables\Columns\TextColumn::make('name')
+                Tables\Columns\TextColumn::make('name_json')
                     ->label(__('system.name'))
                     ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
                     ->searchable(query: fn ($query, string $search) => $query->where('name_json->en', 'like', "%{$search}%")->orWhere('name_json->ar', 'like', "%{$search}%"))
                     ->sortable(query: fn ($query, string $direction) => $query->orderByRaw("JSON_EXTRACT(name_json, '$.en') {$direction}")),
-                Tables\Columns\TextColumn::make('description')
+                Tables\Columns\TextColumn::make('description_json')
                     ->label(__('system.description'))
                     ->getStateUsing(fn ($record) => Str::limit($record->getDescription(app()->getLocale()), 50))
                     ->toggleable(),
