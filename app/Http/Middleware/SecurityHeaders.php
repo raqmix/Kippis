@@ -10,6 +10,11 @@ class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Skip security headers for Filament asset routes to avoid interfering with asset serving
+        if ($this->isFilamentAssetRoute($request)) {
+            return $next($request);
+        }
+
         $response = $next($request);
 
         // Use headers->set() which works for all response types including BinaryFileResponse
@@ -22,6 +27,21 @@ class SecurityHeaders
         $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
         return $response;
+    }
+
+    /**
+     * Check if the request is for a Filament asset route
+     */
+    protected function isFilamentAssetRoute(Request $request): bool
+    {
+        $path = $request->path();
+        
+        // Check for Filament asset routes (CSS, JS, fonts, etc.)
+        return str_starts_with($path, 'css/') 
+            || str_starts_with($path, 'js/')
+            || str_starts_with($path, 'fonts/')
+            || str_contains($path, '/assets/')
+            || str_contains($path, 'filament/');
     }
 }
 
