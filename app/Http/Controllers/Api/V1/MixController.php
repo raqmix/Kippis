@@ -69,9 +69,7 @@ class MixController extends Controller
     {
         $builderId = $request->query('builder_id');
 
-        if (!$builderId) {
-            return apiError('BUILDER_ID_REQUIRED', 'builder_id parameter is required', 400);
-        }
+
 
         // Get the first base product for this builder
         $baseIds = MixBuilderBase::where(function ($query) use ($builderId) {
