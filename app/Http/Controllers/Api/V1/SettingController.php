@@ -33,7 +33,7 @@ class SettingController extends Controller
      *       "app_version": "1.0.0"
      *     },
      *     "payment": {
-     *       "currency": "SAR",
+     *       "currency": "EGP",
      *       "tax_rate": 15
      *     }
      *   }

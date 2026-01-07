@@ -49,7 +49,7 @@ class RecentOrdersWidget extends BaseWidget
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total')
                     ->label(__('system.total'))
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label(__('system.created_at'))

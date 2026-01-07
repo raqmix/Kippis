@@ -41,12 +41,12 @@ class SalesStatsWidget extends BaseWidget
             : 0;
 
         return [
-            Stat::make(__('system.today_sales'), number_format($todaySales, 2) . ' SAR')
+            Stat::make(__('system.today_sales'), number_format($todaySales, 2) . ' EGP')
                 ->description($todayOrders . ' ' . __('system.orders_today'))
                 ->descriptionIcon('heroicon-m-arrow-trending-up')
                 ->color('success')
                 ->icon('heroicon-o-currency-dollar'),
-            Stat::make(__('system.this_month_sales'), number_format($thisMonthSales, 2) . ' SAR')
+            Stat::make(__('system.this_month_sales'), number_format($thisMonthSales, 2) . ' EGP')
                 ->description($thisMonthOrders . ' ' . __('system.orders_this_month'))
                 ->descriptionIcon($growth >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
                 ->color($growth >= 0 ? 'success' : 'danger')

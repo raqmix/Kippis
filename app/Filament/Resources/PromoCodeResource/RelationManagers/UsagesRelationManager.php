@@ -31,7 +31,7 @@ class UsagesRelationManager extends RelationManager
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('discount_amount')
                     ->label(__('system.discount_amount'))
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('used_at')
                     ->label(__('system.used_at'))

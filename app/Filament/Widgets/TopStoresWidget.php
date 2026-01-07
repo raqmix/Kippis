@@ -50,7 +50,7 @@ class TopStoresWidget extends BaseWidget
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_revenue')
                     ->label(__('system.total_revenue'))
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
             ])
             ->defaultSort('total_revenue', 'desc')

@@ -90,7 +90,7 @@ class PromoCodeResource extends Resource
                             ->label(__('system.discount_value'))
                             ->numeric()
                             ->required()
-                            ->suffix(fn ($get) => $get('discount_type') === 'percentage' ? '%' : 'SAR')
+                            ->suffix(fn ($get) => $get('discount_type') === 'percentage' ? '%' : 'EGP')
                             ->step(0.01),
                         Forms\Components\DateTimePicker::make('valid_from')
                             ->label(__('system.valid_from'))
@@ -110,7 +110,7 @@ class PromoCodeResource extends Resource
                         Forms\Components\TextInput::make('minimum_order_amount')
                             ->label(__('system.minimum_order_amount'))
                             ->numeric()
-                            ->prefix('SAR')
+                            ->prefix('EGP')
                             ->default(0)
                             ->step(0.01),
                         Forms\Components\Toggle::make('active')
@@ -151,7 +151,7 @@ class PromoCodeResource extends Resource
                 Tables\Columns\TextColumn::make('discount_type')
                     ->label(__('system.discount_type'))
                     ->badge()
-                    ->formatStateUsing(fn ($state, $record) => $record->discount_value . ($state === 'percentage' ? '%' : ' SAR'))
+                    ->formatStateUsing(fn ($state, $record) => $record->discount_value . ($state === 'percentage' ? '%' : ' EGP'))
                     ->color(fn (string $state): string => match ($state) {
                         'percentage' => 'info',
                         'fixed' => 'success',

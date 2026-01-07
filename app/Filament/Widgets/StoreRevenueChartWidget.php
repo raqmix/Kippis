@@ -74,7 +74,7 @@ class StoreRevenueChartWidget extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label' => 'Revenue (SAR)',
+                    'label' => 'Revenue (EGP)',
                     'data' => $revenueData,
                     'backgroundColor' => $colors,
                     'borderColor' => array_map(function($color) {
@@ -99,7 +99,7 @@ class StoreRevenueChartWidget extends ChartWidget
                 'y' => [
                     'beginAtZero' => true,
                     'ticks' => [
-                        'callback' => 'function(value) { return value.toLocaleString() + " SAR"; }',
+                        'callback' => 'function(value) { return value.toLocaleString() + " EGP"; }',
                     ],
                 ],
                 'x' => [
@@ -115,7 +115,7 @@ class StoreRevenueChartWidget extends ChartWidget
                 ],
                 'tooltip' => [
                     'callbacks' => [
-                        'label' => 'function(context) { return context.parsed.y.toLocaleString() + " SAR"; }',
+                        'label' => 'function(context) { return context.parsed.y.toLocaleString() + " EGP"; }',
                     ],
                 ],
             ],

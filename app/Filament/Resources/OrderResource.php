@@ -87,7 +87,7 @@ class OrderResource extends Resource
                             ->dehydrated(),
                         Forms\Components\TextInput::make('total')
                             ->label(__('system.total'))
-                            ->prefix('SAR')
+                            ->prefix('EGP')
                             ->disabled()
                             ->dehydrated(),
                     ])
@@ -124,7 +124,7 @@ class OrderResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total')
                     ->label(__('system.total'))
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->label(__('system.payment_method'))
