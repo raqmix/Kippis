@@ -41,7 +41,10 @@ class FoodicsClient
     {
         try {
             $token = $this->authService->getAccessToken();
-            $baseUrl = config('foodics.base_url', 'https://api.foodics.com');
+            // Get base URL from current mode
+            $mode = config('foodics.mode', 'live');
+            $baseUrls = config('foodics.base_urls', []);
+            $baseUrl = $baseUrls[$mode] ?? config('foodics.base_url') ?? 'https://api.foodics.com';
             $url = rtrim($baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
             $query = $queryParams ? $queryParams->toQuery() : [];

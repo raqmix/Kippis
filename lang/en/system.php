@@ -10,12 +10,12 @@ return [
     'payment_methods' => 'Payment Methods',
     'activity_logs' => 'Activity Logs',
     'security_logs' => 'Security Logs',
-    
+
     // Notifications
     'notifications' => 'Notifications',
     'no_notifications' => 'No notifications',
     'all_caught_up' => 'You\'re all caught up!',
-    
+
     // Filament Notification Messages
     'login_successful' => 'Login Successful',
     'welcome_back' => 'Welcome back, :name!',
@@ -57,7 +57,7 @@ return [
     'admin' => 'Admin',
     'ticket' => 'Ticket',
     'security' => 'Security',
-    
+
     'basic_information' => 'Basic Information',
     'security_settings' => 'Security Settings',
     'access_control' => 'Access Control',
@@ -68,13 +68,13 @@ return [
     '2fa_enabled' => '2FA Enabled',
     'allowed_ips' => 'Allowed IPs',
     'failed_attempts' => 'Failed Attempts',
-    
+
     'page_information' => 'Page Information',
     'translations' => 'Translations',
     'faq' => 'FAQ',
     'terms' => 'Terms & Conditions',
     'privacy' => 'Privacy Policy',
-    
+
     'ticket_information' => 'Ticket Information',
     'contact_information' => 'Contact Information',
     'contact_information_description' => 'Enter the contact details of the ticket creator',
@@ -109,7 +109,7 @@ return [
     'medium' => 'Medium',
     'high' => 'High',
     'critical' => 'Critical',
-    
+
     'channel_information' => 'Channel Information',
     'credentials' => 'Credentials',
     'credentials_encrypted' => 'Credentials are encrypted',
@@ -119,15 +119,15 @@ return [
     'webhook' => 'Webhook',
     'api' => 'API',
     'inactive' => 'Inactive',
-    
+
     'payment_method_information' => 'Payment Method Information',
     'channel' => 'Channel',
     'configuration' => 'Configuration',
-    
+
     'role_information' => 'Role Information',
     'permission_information' => 'Permission Information',
     'permissions_count' => 'Permissions Count',
-    
+
     'activity_details' => 'Activity Details',
     'event_details' => 'Event Details',
     'admin' => 'Admin',
@@ -140,7 +140,7 @@ return [
     'login' => 'Login',
     'logout' => 'Logout',
     'resolved' => 'Resolved',
-    
+
     'monday' => 'Monday',
     'tuesday' => 'Tuesday',
     'wednesday' => 'Wednesday',
@@ -148,14 +148,14 @@ return [
     'friday' => 'Friday',
     'saturday' => 'Saturday',
     'sunday' => 'Sunday',
-    
+
     'language' => 'Language',
     'language_settings' => 'Language Settings',
     'language_settings_description' => 'Choose your preferred language for the system interface',
     'language_updated_successfully' => 'Language updated successfully',
     'settings_saved_successfully' => 'Settings saved successfully',
     'updated_at' => 'Last Updated',
-    
+
     'phone' => 'Phone',
     'whatsapp' => 'WhatsApp',
     'app_name' => 'Application Name',
@@ -173,7 +173,7 @@ return [
     'group' => 'Group',
     'changes_have_been_applied' => 'Your changes have been applied successfully.',
     'language_changes_applied' => 'Language preference has been updated.',
-    
+
     // Customer Management
     'customer' => 'Customer',
     'customers' => 'Customers',
@@ -185,7 +185,7 @@ return [
     'is_verified' => 'Is Verified',
     'avatar' => 'Avatar',
     'deleted_at' => 'Deleted At',
-    
+
     // Store Management
     'store' => 'Store',
     'stores' => 'Stores',
@@ -234,6 +234,23 @@ return [
     'sync_completed' => 'Sync Completed',
     'synced_count' => 'Synced: :count',
     'updated_count' => 'Updated: :count',
+    'foodics_test' => 'Foodics API Test',
+    'sandbox_mode' => 'Sandbox Mode',
+    'live_mode' => 'Live Mode',
+    'test_connection' => 'Test Connection',
+    'test_both_connections' => 'Test Both Connections',
+    'test_sandbox_connection' => 'Test your sandbox API credentials',
+    'test_live_connection' => 'Test your live API credentials',
+    'connection_successful' => 'Connection Successful',
+    'connection_failed' => 'Connection Failed',
+    'base_url' => 'Base URL',
+    'client_id' => 'Client ID',
+    'client_secret' => 'Client Secret',
+    'configured' => 'Configured',
+    'not_configured' => 'Not Configured',
+    'response_time' => 'Response Time',
+    'token' => 'Token',
+    'status_code' => 'Status Code',
 
     // Modifiers
     'modifier' => 'Modifier',
