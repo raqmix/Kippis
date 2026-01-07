@@ -30,7 +30,7 @@ class FoodicsSyncService
             while ($hasMore) {
                 $response = $this->foodicsClient->get('v5/categories', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
-                    'filters' => ['per_page' => 50],
+                    'per_page' => 50,
                 ]));
 
                 if (!$response->ok) {
@@ -125,7 +125,7 @@ class FoodicsSyncService
             while ($hasMore) {
                 $response = $this->foodicsClient->get('v5/products', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
-                    'filters' => ['per_page' => 50],
+                    'per_page' => 50,
                 ]));
 
                 if (!$response->ok) {

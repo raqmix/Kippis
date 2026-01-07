@@ -9,6 +9,7 @@ class FoodicsToken extends Model
     protected $table = 'foodics_tokens';
 
     protected $fillable = [
+        'mode',
         'access_token',
         'refresh_token',
         'expires_in',
@@ -38,13 +39,18 @@ class FoodicsToken extends Model
     }
 
     /**
-     * Get the current valid token.
+     * Get the current valid token for a specific mode.
      *
+     * @param string|null $mode 'sandbox' or 'live', null to use config default
      * @return self|null
      */
-    public static function getCurrent(): ?self
+    public static function getCurrent(?string $mode = null): ?self
     {
-        $token = self::latest()->first();
+        $mode = $mode ?? config('foodics.mode', 'live');
+        
+        $token = self::where('mode', $mode)
+            ->latest()
+            ->first();
 
         if (!$token || $token->isExpired()) {
             return null;

@@ -251,6 +251,16 @@ return [
     'response_time' => 'Response Time',
     'token' => 'Token',
     'status_code' => 'Status Code',
+    'bearer_token' => 'Bearer Token',
+    'enter_bearer_token' => 'Enter Bearer Token',
+    'save_token' => 'Save Token',
+    'token_preview' => 'Token Preview',
+    'no_token_configured' => 'No token configured',
+    'token_saved_successfully' => 'Token Saved Successfully',
+    'sandbox_token_updated' => 'Sandbox token has been updated',
+    'live_token_updated' => 'Live token has been updated',
+    'failed_to_save_token' => 'Failed to Save Token',
+    'expires' => 'Expires',
 
     // Modifiers
     'modifier' => 'Modifier',

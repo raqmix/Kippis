@@ -6,6 +6,7 @@ class FoodicsQueryParamsDTO
 {
     public function __construct(
         public ?int $page = null,
+        public ?int $perPage = null,
         public array $include = [],
         public array $filters = [],
         public ?string $sort = null,
@@ -24,6 +25,11 @@ class FoodicsQueryParamsDTO
         // Pagination
         if ($this->page !== null) {
             $query['page'] = $this->page;
+        }
+        
+        // Per page (items per page)
+        if ($this->perPage !== null) {
+            $query['per_page'] = $this->perPage;
         }
         
         // Includes
@@ -54,6 +60,7 @@ class FoodicsQueryParamsDTO
     {
         return new self(
             page: $data['page'] ?? null,
+            perPage: $data['per_page'] ?? $data['perPage'] ?? null,
             include: $data['include'] ?? [],
             filters: $data['filters'] ?? [],
             sort: $data['sort'] ?? null,

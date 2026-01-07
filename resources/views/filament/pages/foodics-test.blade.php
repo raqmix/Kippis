@@ -33,32 +33,57 @@
                         {{-- Configuration Status --}}
                         @php
                             $sandboxConfig = $this->getSandboxConfigStatus();
+                            $sandboxTokenRecord = \App\Integrations\Foodics\Models\FoodicsToken::where('mode', 'sandbox')->latest()->first();
                         @endphp
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                 <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.base_url') }}</div>
                                 <div class="text-sm font-mono text-gray-900 dark:text-white mt-1">{{ $sandboxConfig['base_url'] }}</div>
                             </div>
                             <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.client_id') }}</div>
+                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.bearer_token') }}</div>
                                 <div class="text-sm text-gray-900 dark:text-white mt-1 flex items-center gap-2">
-                                    @if($sandboxConfig['client_id_set'])
+                                    @if($sandboxTokenRecord && $sandboxTokenRecord->access_token)
                                         <span class="text-green-500">✓</span> {{ __('system.configured') }}
+                                        @if($sandboxTokenRecord->expires_at && $sandboxTokenRecord->expires_at->isFuture())
+                                            <span class="text-xs text-gray-500">({{ __('system.expires') }}: {{ $sandboxTokenRecord->expires_at->format('Y-m-d H:i') }})</span>
+                                        @endif
                                     @else
                                         <span class="text-red-500">✗</span> {{ __('system.not_configured') }}
                                     @endif
                                 </div>
                             </div>
-                            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.client_secret') }}</div>
-                                <div class="text-sm text-gray-900 dark:text-white mt-1 flex items-center gap-2">
-                                    @if($sandboxConfig['client_secret_set'])
-                                        <span class="text-green-500">✓</span> {{ __('system.configured') }}
-                                    @else
-                                        <span class="text-red-500">✗</span> {{ __('system.not_configured') }}
-                                    @endif
-                                </div>
+                        </div>
+
+                        {{-- Token Configuration --}}
+                        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                {{ __('system.bearer_token') }}
                             </div>
+                            <div class="flex gap-2">
+                                <input
+                                    type="password"
+                                    wire:model="sandboxToken"
+                                    placeholder="{{ __('system.enter_bearer_token') }}"
+                                    class="flex-1 rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                />
+                                <x-filament::button
+                                    wire:click="saveSandboxToken"
+                                    color="primary"
+                                    size="sm"
+                                >
+                                    {{ __('system.save_token') }}
+                                </x-filament::button>
+                            </div>
+                            @if($sandboxToken)
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    {{ __('system.token_preview') }}: {{ substr($sandboxToken, 0, 20) }}...
+                                </div>
+                            @else
+                                <div class="text-xs text-red-500 dark:text-red-400 mt-2">
+                                    {{ __('system.no_token_configured') }}
+                                </div>
+                            @endif
                         </div>
 
                         {{-- Test Results --}}
@@ -138,32 +163,57 @@
                         {{-- Configuration Status --}}
                         @php
                             $liveConfig = $this->getLiveConfigStatus();
+                            $liveTokenRecord = \App\Integrations\Foodics\Models\FoodicsToken::where('mode', 'live')->latest()->first();
                         @endphp
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                 <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.base_url') }}</div>
                                 <div class="text-sm font-mono text-gray-900 dark:text-white mt-1">{{ $liveConfig['base_url'] }}</div>
                             </div>
                             <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.client_id') }}</div>
+                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.bearer_token') }}</div>
                                 <div class="text-sm text-gray-900 dark:text-white mt-1 flex items-center gap-2">
-                                    @if($liveConfig['client_id_set'])
+                                    @if($liveTokenRecord && $liveTokenRecord->access_token)
                                         <span class="text-green-500">✓</span> {{ __('system.configured') }}
+                                        @if($liveTokenRecord->expires_at && $liveTokenRecord->expires_at->isFuture())
+                                            <span class="text-xs text-gray-500">({{ __('system.expires') }}: {{ $liveTokenRecord->expires_at->format('Y-m-d H:i') }})</span>
+                                        @endif
                                     @else
                                         <span class="text-red-500">✗</span> {{ __('system.not_configured') }}
                                     @endif
                                 </div>
                             </div>
-                            <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('system.client_secret') }}</div>
-                                <div class="text-sm text-gray-900 dark:text-white mt-1 flex items-center gap-2">
-                                    @if($liveConfig['client_secret_set'])
-                                        <span class="text-green-500">✓</span> {{ __('system.configured') }}
-                                    @else
-                                        <span class="text-red-500">✗</span> {{ __('system.not_configured') }}
-                                    @endif
-                                </div>
+                        </div>
+
+                        {{-- Token Configuration --}}
+                        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                {{ __('system.bearer_token') }}
                             </div>
+                            <div class="flex gap-2">
+                                <input
+                                    type="password"
+                                    wire:model="liveToken"
+                                    placeholder="{{ __('system.enter_bearer_token') }}"
+                                    class="flex-1 rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                />
+                                <x-filament::button
+                                    wire:click="saveLiveToken"
+                                    color="primary"
+                                    size="sm"
+                                >
+                                    {{ __('system.save_token') }}
+                                </x-filament::button>
+                            </div>
+                            @if($liveToken)
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    {{ __('system.token_preview') }}: {{ substr($liveToken, 0, 20) }}...
+                                </div>
+                            @else
+                                <div class="text-xs text-red-500 dark:text-red-400 mt-2">
+                                    {{ __('system.no_token_configured') }}
+                                </div>
+                            @endif
                         </div>
 
                         {{-- Test Results --}}

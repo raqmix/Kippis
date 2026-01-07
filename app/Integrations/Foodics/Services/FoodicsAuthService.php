@@ -11,94 +11,57 @@ use Illuminate\Support\Facades\Log;
 class FoodicsAuthService
 {
     /**
-     * Get valid access token (refresh if needed).
-     *
-     * @return string
-     * @throws FoodicsUnauthorizedException
-     */
-    public function getAccessToken(?string $mode = null): string
-    {
-        $token = FoodicsToken::getCurrent();
-
-        if ($token && !$token->isExpired()) {
-            return $token->access_token;
-        }
-
-        return $this->refreshToken($mode);
-    }
-
-    /**
-     * Get new access token from Foodics using OAuth2.
+     * Get valid access token from database.
      *
      * @param string|null $mode 'sandbox' or 'live', null to use config default
      * @return string
      * @throws FoodicsUnauthorizedException
      */
-    public function refreshToken(?string $mode = null): string
+    public function getAccessToken(?string $mode = null): string
     {
         $mode = $mode ?? config('foodics.mode', 'live');
-        $clientId = $this->getClientId($mode);
-        $clientSecret = $this->getClientSecret($mode);
-        $baseUrl = $this->getBaseUrl($mode);
-        $grantType = config('foodics.oauth.grant_type', 'client_credentials');
-        $scopes = FoodicsScopes::required();
+        $token = FoodicsToken::getCurrent($mode);
 
-        if (!$clientId || !$clientSecret) {
-            throw new FoodicsUnauthorizedException('Foodics credentials not configured.');
+        if (!$token) {
+            throw new FoodicsUnauthorizedException("No token found for {$mode} mode. Please configure the token in Foodics Test page.");
         }
 
-        try {
-            $payload = [
-                'grant_type' => $grantType,
-                'client_id' => $clientId,
-                'client_secret' => $clientSecret,
-            ];
-
-            // Add scopes if configured
-            if (!empty($scopes)) {
-                $payload['scope'] = implode(' ', $scopes);
-            }
-
-            $response = Http::timeout(config('foodics.timeout', 30))
-                ->post("{$baseUrl}/oauth/token", $payload);
-
-            if ($response->failed()) {
-                Log::error('Foodics token refresh failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-
-                throw new FoodicsUnauthorizedException('Failed to authenticate with Foodics.');
-            }
-
-            $data = $response->json();
-
-            // Store token (replace old tokens)
-            FoodicsToken::truncate();
-
-            $expiresIn = $data['expires_in'] ?? 3600;
-            FoodicsToken::create([
-                'access_token' => $data['access_token'],
-                'refresh_token' => $data['refresh_token'] ?? null,
-                'expires_in' => $expiresIn,
-                'expires_at' => now()->addSeconds($expiresIn),
-                'token_type' => $data['token_type'] ?? 'Bearer',
-            ]);
-
-            return $data['access_token'];
-        } catch (FoodicsUnauthorizedException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            Log::error('Foodics token refresh exception', [
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new FoodicsUnauthorizedException('Failed to authenticate with Foodics: ' . $e->getMessage());
+        if ($token->isExpired()) {
+            throw new FoodicsUnauthorizedException("Token expired for {$mode} mode. Please update the token in Foodics Test page.");
         }
+
+        return $token->access_token;
     }
 
     /**
-     * Test authentication with a specific mode (without storing token).
+     * Store a token in the database for a specific mode.
+     *
+     * @param string $token The bearer token
+     * @param string $mode 'sandbox' or 'live'
+     * @param int|null $expiresIn Optional expiration time in seconds
+     * @return FoodicsToken
+     */
+    public function storeToken(string $token, string $mode, ?int $expiresIn = null): FoodicsToken
+    {
+        // Delete existing tokens for this mode
+        FoodicsToken::where('mode', $mode)->delete();
+
+        $expiresAt = null;
+        if ($expiresIn) {
+            $expiresAt = now()->addSeconds($expiresIn);
+        }
+
+        return FoodicsToken::create([
+            'mode' => $mode,
+            'access_token' => $token,
+            'expires_in' => $expiresIn,
+            'expires_at' => $expiresAt,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
+    /**
+     * Test API connection with stored token for a specific mode.
      *
      * @param string $mode 'sandbox' or 'live'
      * @return array
@@ -106,36 +69,20 @@ class FoodicsAuthService
     public function testAuthentication(string $mode): array
     {
         try {
-            $clientId = $this->getClientId($mode);
-            $clientSecret = $this->getClientSecret($mode);
+            $token = $this->getAccessToken($mode);
             $baseUrl = $this->getBaseUrl($mode);
-            $grantType = config('foodics.oauth.grant_type', 'client_credentials');
-            $scopes = FoodicsScopes::required();
 
-            if (!$clientId || !$clientSecret) {
-                return [
-                    'success' => false,
-                    'message' => 'Credentials not configured for ' . $mode . ' mode',
-                    'error' => 'Missing credentials',
-                    'mode' => $mode,
-                    'base_url' => $baseUrl,
-                ];
-            }
-
+            // Test with a simple API call (e.g., get categories)
             $startTime = microtime(true);
 
-            $payload = [
-                'grant_type' => $grantType,
-                'client_id' => $clientId,
-                'client_secret' => $clientSecret,
-            ];
-
-            if (!empty($scopes)) {
-                $payload['scope'] = implode(' ', $scopes);
-            }
-
             $response = Http::timeout(config('foodics.timeout', 30))
-                ->post("{$baseUrl}/oauth/token", $payload);
+                ->withHeaders([
+                    'Authorization' => "Bearer {$token}",
+                    'Accept' => 'application/json',
+                ])
+                ->get("{$baseUrl}/v5/categories", [
+                    'per_page' => 1,
+                ]);
 
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
@@ -143,7 +90,7 @@ class FoodicsAuthService
                 $errorBody = $response->json();
                 return [
                     'success' => false,
-                    'message' => $errorBody['message'] ?? 'Authentication failed',
+                    'message' => $errorBody['message'] ?? 'API request failed',
                     'error' => 'HTTP ' . $response->status(),
                     'status_code' => $response->status(),
                     'response_body' => $errorBody,
@@ -154,17 +101,22 @@ class FoodicsAuthService
             }
 
             $data = $response->json();
-            $token = $data['access_token'] ?? null;
 
             return [
                 'success' => true,
-                'message' => 'Authentication successful',
-                'token_preview' => $token ? (substr($token, 0, 20) . '...') : 'N/A',
-                'token_type' => $data['token_type'] ?? 'Bearer',
-                'expires_in' => $data['expires_in'] ?? null,
+                'message' => 'API connection successful',
+                'token_preview' => substr($token, 0, 20) . '...',
                 'duration_ms' => $duration,
                 'mode' => $mode,
                 'base_url' => $baseUrl,
+                'response_data' => $data['data'] ?? [],
+            ];
+        } catch (FoodicsUnauthorizedException $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error' => 'Token error',
+                'mode' => $mode,
             ];
         } catch (\Exception $e) {
             return [

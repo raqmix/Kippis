@@ -2,12 +2,17 @@
 
 namespace App\Filament\Pages;
 
+use App\Integrations\Foodics\Models\FoodicsToken;
 use App\Integrations\Foodics\Services\FoodicsAuthService;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Gate;
 
-class FoodicsTest extends Page
+class FoodicsTest extends Page implements HasForms
 {
+    use InteractsWithForms;
+
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
 
     protected static string $view = 'filament.pages.foodics-test';
@@ -34,9 +39,19 @@ class FoodicsTest extends Page
     public ?array $liveResult = null;
     public bool $isTesting = false;
 
+    public ?string $sandboxToken = null;
+    public ?string $liveToken = null;
+
     public function mount(): void
     {
         $this->testMode = config('foodics.mode', 'live');
+
+        // Load existing tokens
+        $sandboxTokenRecord = FoodicsToken::where('mode', 'sandbox')->latest()->first();
+        $liveTokenRecord = FoodicsToken::where('mode', 'live')->latest()->first();
+
+        $this->sandboxToken = $sandboxTokenRecord?->access_token;
+        $this->liveToken = $liveTokenRecord?->access_token;
     }
 
     public function testSandbox(): void
@@ -83,6 +98,58 @@ class FoodicsTest extends Page
     {
         $this->testSandbox();
         $this->testLive();
+    }
+
+    public function saveSandboxToken(): void
+    {
+        $this->validate([
+            'sandboxToken' => 'required|string',
+        ]);
+
+        try {
+            $authService = app(FoodicsAuthService::class);
+            $authService->storeToken($this->sandboxToken, 'sandbox');
+
+            // Reload token to show updated value
+            $tokenRecord = FoodicsToken::where('mode', 'sandbox')->latest()->first();
+            $this->sandboxToken = $tokenRecord?->access_token;
+
+            notify()->success(
+                __('system.token_saved_successfully'),
+                __('system.sandbox_token_updated')
+            );
+        } catch (\Exception $e) {
+            notify()->danger(
+                __('system.failed_to_save_token'),
+                $e->getMessage()
+            );
+        }
+    }
+
+    public function saveLiveToken(): void
+    {
+        $this->validate([
+            'liveToken' => 'required|string',
+        ]);
+
+        try {
+            $authService = app(FoodicsAuthService::class);
+            $authService->storeToken($this->liveToken, 'live');
+
+            // Reload token to show updated value
+            $tokenRecord = FoodicsToken::where('mode', 'live')->latest()->first();
+            $this->liveToken = $tokenRecord?->access_token;
+
+            notify()->success(
+                __('system.token_saved_successfully'),
+                __('system.live_token_updated')
+            );
+        } catch (\Exception $e) {
+            notify()->danger(
+                __('system.failed_to_save_token'),
+                $e->getMessage()
+            );
+        }
     }
 
     public function getSandboxConfigStatus(): array
