@@ -26,11 +26,10 @@ class MixController extends Controller
     /**
      * Get mix builder options
      *
-     * Returns product details for the first base product associated with the builder,
-     * including all available modifiers as allowed_addons.
+     * Returns product details for the first base product, including all available modifiers grouped by type.
      * Uses the same format as /api/v1/catalog/products/:id.
      *
-     * @queryParam builder_id integer required Filter bases by specific builder ID. Example: 1
+     * @queryParam builder_id integer optional Filter bases by specific builder ID. Example: 1
      *
      * @response 200 {
      *   "success": true,
@@ -49,19 +48,22 @@ class MixController extends Controller
      *       "name": "Desserts"
      *     },
      *     "external_source": "local",
-     *     "allowed_addons": [
-     *       {
-     *         "id": 49,
-     *         "modifier_id": 49,
-     *         "name": "Size",
-     *         "type": "size",
-     *         "max_level": null,
-     *         "price": 0,
-     *         "is_required": true,
-     *         "min_select": null,
-     *         "max_select": null
-     *       }
-     *     ]
+     *     "modifiers": {
+     *       "size": [
+     *         {
+     *           "id": 49,
+     *           "type": "size",
+     *           "name": "Size",
+     *           "name_ar": "الحجم",
+     *           "name_en": "Size",
+     *           "max_level": null,
+     *           "price": 0
+     *         }
+     *       ],
+     *       "smothing": [],
+     *       "customize_modifires": [],
+     *       "extra": []
+     *     }
      *   }
      * }
      */
@@ -69,45 +71,49 @@ class MixController extends Controller
     {
         $builderId = $request->query('builder_id');
 
-        if (!$builderId) {
-            return apiError('BUILDER_ID_REQUIRED', 'builder_id parameter is required', 400);
+        // Get base products query
+        $basesQuery = Product::with('category')
+            ->active()
+            ->mixBases();
+
+        // Filter by builder if provided
+        if ($builderId) {
+            $baseIds = MixBuilderBase::where(function ($query) use ($builderId) {
+                $query->where('mix_builder_id', $builderId)
+                      ->orWhereNull('mix_builder_id'); // Global bases (null) available to all
+            })->pluck('product_id');
+
+            $basesQuery->whereIn('id', $baseIds);
         }
 
-        // Get the first base product for this builder
-        $baseIds = MixBuilderBase::where(function ($query) use ($builderId) {
-            $query->where('mix_builder_id', $builderId)
-                  ->orWhereNull('mix_builder_id'); // Global bases (null) available to all
-        })->pluck('product_id');
-
-        $product = Product::with('category')
-            ->active()
-            ->mixBases()
-            ->whereIn('id', $baseIds)
-            ->first();
+        // Get the first base product
+        $product = $basesQuery->first();
 
         if (!$product) {
-            return apiError('NO_BASE_FOUND', 'No base product found for the specified builder_id', 404);
+            $message = $builderId
+                ? 'No base product found for the specified builder_id'
+                : 'No base products found';
+            return apiError('NO_BASE_FOUND', $message, 404);
         }
 
-        // Get all modifiers grouped by type and flatten them into allowed_addons
+        // Get all modifiers grouped by type
         $modifiers = $this->modifierRepository->getGroupedByType();
 
-        $allowedAddons = collect();
+        // Build modifiers object grouped by type
+        $modifiersData = [];
         foreach (['size', 'smothing', 'customize_modifires', 'extra'] as $type) {
             $typeModifiers = $modifiers[$type] ?? collect();
-            foreach ($typeModifiers as $modifier) {
-                $allowedAddons->push([
+            $modifiersData[$type] = $typeModifiers->map(function ($modifier) {
+                return [
                     'id' => $modifier->id,
-                    'modifier_id' => $modifier->id,
-                    'name' => $modifier->getName(app()->getLocale()),
                     'type' => $modifier->type,
+                    'name' => $modifier->getName(app()->getLocale()),
+                    'name_ar' => $modifier->getName('ar'),
+                    'name_en' => $modifier->getName('en'),
                     'max_level' => $modifier->max_level,
                     'price' => (float) $modifier->price,
-                    'is_required' => false, // Default to false for mix builder modifiers
-                    'min_select' => null,
-                    'max_select' => null,
-                ]);
-            }
+                ];
+            })->values()->all();
         }
 
         // Build response in the same format as ProductResource
@@ -126,7 +132,7 @@ class MixController extends Controller
                 'name' => $product->category->getName(app()->getLocale()),
             ] : null,
             'external_source' => $product->external_source,
-            'allowed_addons' => $allowedAddons->values()->all(),
+            'modifiers' => $modifiersData,
         ];
 
         return apiSuccess($data);
