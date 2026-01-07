@@ -109,7 +109,7 @@ class ModifierResource extends Resource
                         Forms\Components\TextInput::make('price')
                             ->label(__('system.price'))
                             ->numeric()
-                            ->prefix('SAR')
+                            ->prefix('EGP')
                             ->required()
                             ->default(0)
                             ->step(0.01),
@@ -152,7 +152,7 @@ class ModifierResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('price')
                     ->label(__('system.price'))
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label(__('system.is_active'))

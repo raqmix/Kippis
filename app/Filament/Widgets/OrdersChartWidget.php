@@ -64,7 +64,7 @@ class OrdersChartWidget extends ChartWidget
                     'yAxisID' => 'y',
                 ],
                 [
-                    'label' => 'Revenue (SAR)',
+                    'label' => 'Revenue (EGP)',
                     'data' => $salesData,
                     'borderColor' => 'rgb(34, 197, 94)',
                     'backgroundColor' => 'rgba(34, 197, 94, 0.1)',
@@ -99,7 +99,7 @@ class OrdersChartWidget extends ChartWidget
                     'position' => 'right',
                     'title' => [
                         'display' => true,
-                        'text' => 'Revenue (SAR)',
+                        'text' => 'Revenue (EGP)',
                     ],
                     'grid' => [
                         'drawOnChartArea' => false,

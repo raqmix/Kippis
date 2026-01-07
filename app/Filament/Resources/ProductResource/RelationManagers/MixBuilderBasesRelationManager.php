@@ -42,7 +42,7 @@ class MixBuilderBasesRelationManager extends RelationManager
                     ->sortable(),
                 Tables\Columns\TextColumn::make('product.base_price')
                     ->label('Base Price')
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Created At')

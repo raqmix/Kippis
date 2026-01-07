@@ -145,7 +145,7 @@ class ProductResource extends Resource
                         Forms\Components\TextInput::make('base_price')
                             ->label(__('system.base_price'))
                             ->numeric()
-                            ->prefix('SAR')
+                            ->prefix('EGP')
                             ->required()
                             ->step(0.01),
                         Forms\Components\Toggle::make('is_active')
@@ -218,7 +218,7 @@ class ProductResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('base_price')
                     ->label(__('system.base_price'))
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label(__('system.is_active'))

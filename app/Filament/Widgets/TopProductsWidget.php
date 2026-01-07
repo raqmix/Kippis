@@ -64,7 +64,7 @@ class TopProductsWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('total_revenue')
                     ->label(__('system.total_revenue'))
                     ->getStateUsing(fn ($record) => $statsMap->get($record->id)['total_revenue'] ?? 0)
-                    ->money('SAR')
+                    ->money('EGP')
                     ->sortable(),
             ])
             ->heading(__('system.top_products'));
