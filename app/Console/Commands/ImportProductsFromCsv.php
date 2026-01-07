@@ -110,8 +110,11 @@ class ImportProductsFromCsv extends Command
                         continue;
                     }
 
+                    // Get category ID (will be 0 in dry-run mode for new categories)
+                    $categoryId = $category->id ?? 0;
+
                     // Prepare product data
-                    $productData = $this->prepareProductData($row, $category->id);
+                    $productData = $this->prepareProductData($row, $categoryId);
 
                     // Check if product exists
                     $foodicsId = $row['id'] ?? null;
@@ -250,7 +253,7 @@ class ImportProductsFromCsv extends Command
 
         // Create new category if not found
         if ($dryRun) {
-            return new Category([
+            $category = new Category([
                 'name_json' => [
                     'en' => $categoryName,
                     'ar' => $categoryName, // Fallback to English if no Arabic translation
@@ -258,6 +261,9 @@ class ImportProductsFromCsv extends Command
                 'is_active' => true,
                 'external_source' => 'local',
             ]);
+            // Set a placeholder ID for dry-run mode
+            $category->id = 0;
+            return $category;
         }
 
         return Category::create([
