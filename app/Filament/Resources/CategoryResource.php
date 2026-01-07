@@ -12,6 +12,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 
 class CategoryResource extends Resource
 {
@@ -167,11 +168,11 @@ class CategoryResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->label(__('system.name'))
                     ->formatStateUsing(fn ($record) => $record->getName(app()->getLocale()))
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(query: fn ($query, string $search) => $query->where('name_json->en', 'like', "%{$search}%")->orWhere('name_json->ar', 'like', "%{$search}%"))
+                    ->sortable(query: fn ($query, string $direction) => $query->orderByRaw("JSON_EXTRACT(name_json, '$.en') {$direction}")),
                 Tables\Columns\TextColumn::make('description')
                     ->label(__('system.description'))
-                    ->formatStateUsing(fn ($record) => \Str::limit($record->getDescription(app()->getLocale()), 50))
+                    ->formatStateUsing(fn ($record) => Str::limit($record->getDescription(app()->getLocale()), 50))
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label(__('system.is_active'))
