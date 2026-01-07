@@ -35,8 +35,10 @@ class CategoryRepository
             }
         }
 
-        // Only get categories that have products
-        $query->whereHas('products');
+        // Only get categories that have active products
+        $query->whereHas('products', function ($q) {
+            $q->where('is_active', true);
+        });
 
         // Search
         if (isset($filters['q']) && $filters['q']) {
@@ -88,8 +90,10 @@ class CategoryRepository
             }
         }
 
-        // Only get categories that have products
-        $query->whereHas('products');
+        // Only get categories that have active products
+        $query->whereHas('products', function ($q) {
+            $q->where('is_active', true);
+        });
 
         return $query->get();
     }
