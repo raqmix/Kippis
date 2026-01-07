@@ -12,6 +12,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 
 class ProductResource extends Resource
 {
@@ -186,14 +187,18 @@ class ProductResource extends Resource
                 Tables\Columns\ImageColumn::make('image')
                     ->label(__('system.image'))
                     ->circular(),
-                Tables\Columns\TextColumn::make('name_json.en')
+                Tables\Columns\TextColumn::make('name')
                     ->label(__('system.name'))
-                    ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
+                    ->formatStateUsing(fn ($record) => $record->getName(app()->getLocale()))
                     ->searchable(query: fn ($query, string $search) => $query->where('name_json->en', 'like', "%{$search}%")->orWhere('name_json->ar', 'like', "%{$search}%"))
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('category.name_json.en')
+                    ->sortable(query: fn ($query, string $direction) => $query->orderByRaw("JSON_EXTRACT(name_json, '$.en') {$direction}")),
+                Tables\Columns\TextColumn::make('description')
+                    ->label(__('system.description'))
+                    ->formatStateUsing(fn ($record) => Str::limit($record->getDescription(app()->getLocale()), 50))
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('category.name')
                     ->label(__('system.category'))
-                    ->getStateUsing(fn ($record) => $record->category?->getName(app()->getLocale()))
+                    ->formatStateUsing(fn ($record) => $record->category?->getName(app()->getLocale()))
                     ->searchable(query: fn ($query, string $search) => $query->whereHas('category', fn ($q) => $q->where('name_json->en', 'like', "%{$search}%")->orWhere('name_json->ar', 'like', "%{$search}%")))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('product_kind')
