@@ -13,7 +13,7 @@ class FoodicsTest extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
+    protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-arrow-path';
 
     protected static string $view = 'filament.pages.foodics-test';
 
