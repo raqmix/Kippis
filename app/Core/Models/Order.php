@@ -30,6 +30,7 @@ class Order extends Model
         'discount',
         'payment_method',
         'payment_method_id',
+        'pos_code',
         'pickup_code',
         'items_snapshot',
         'modifiers_snapshot',

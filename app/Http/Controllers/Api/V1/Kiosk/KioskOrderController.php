@@ -50,8 +50,14 @@ class KioskOrderController extends Controller
      */
     public function checkout(Request $request): JsonResponse
     {
+        // First validate payment_method to know if we need pos_code
         $request->validate([
             'payment_method' => 'required|string|in:cash,card,online',
+        ]);
+        
+        $paymentMethod = $request->input('payment_method');
+        
+        $rules = [
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'nullable|integer|exists:products,id',
             'items.*.item_type' => 'required|string|in:product,mix,creator_mix',
@@ -65,7 +71,16 @@ class KioskOrderController extends Controller
             'discount' => 'required|numeric|min:0',
             'total' => 'required|numeric|min:0',
             'promo_code' => 'nullable|string|max:50',
-        ]);
+        ];
+        
+        // POS code is required for cash payments
+        if ($paymentMethod === 'cash') {
+            $rules['pos_code'] = 'required|string|size:4|regex:/^[0-9]{4}$/';
+        } else {
+            $rules['pos_code'] = 'nullable|string|size:4|regex:/^[0-9]{4}$/';
+        }
+        
+        $request->validate($rules);
 
         $store = $request->attributes->get('kiosk_store');
         $items = $request->input('items');
@@ -74,6 +89,7 @@ class KioskOrderController extends Controller
         $discount = (float) $request->input('discount');
         $total = (float) $request->input('total');
         $promoCode = $request->input('promo_code');
+        $posCode = $request->input('pos_code'); // 4-digit code for cash payments
 
         if (empty($items)) {
             return apiError('CART_EMPTY', 'cart_empty', 400);
@@ -88,7 +104,8 @@ class KioskOrderController extends Controller
                 $subtotal,
                 $discount,
                 $total,
-                $promoCode
+                $promoCode,
+                $posCode
             );
 
             return apiSuccess([

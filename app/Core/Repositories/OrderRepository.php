@@ -93,7 +93,8 @@ class OrderRepository
         float $subtotal,
         float $discount,
         float $total,
-        ?string $promoCode = null
+        ?string $promoCode = null,
+        ?string $posCode = null
     ): Order {
         $pickupCode = strtoupper(Str::random(6));
 
@@ -116,15 +117,20 @@ class OrderRepository
             }
         }
 
+        // For cash payments with POS code, set status to pending_payment
+        // Order will be updated to 'received' when cashier confirms payment
+        $status = ($paymentMethodCode === 'cash' && $posCode) ? 'pending_payment' : 'received';
+        
         $order = Order::create([
             'store_id' => $storeId,
             'customer_id' => null, // Guest order for kiosk
-            'status' => 'received',
+            'status' => $status,
             'total' => $total,
             'subtotal' => $subtotal,
             'discount' => $discount,
             'payment_method' => $paymentMethodCode, // Keep for backward compatibility
             'payment_method_id' => $paymentMethod->id,
+            'pos_code' => $posCode, // 4-digit code for cash POS processing
             'pickup_code' => $pickupCode,
             'items_snapshot' => array_map(function ($item) {
                 return [
