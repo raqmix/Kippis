@@ -16,12 +16,17 @@ class FoodicsSyncService
 
     /**
      * Sync categories from Foodics.
+     *
+     * @param string|null $mode 'sandbox' or 'live', null to use config default
      */
-    public function syncCategories(): array
+    public function syncCategories(?string $mode = null): array
     {
         $synced = 0;
         $updated = 0;
         $errors = [];
+        
+        // Default to sandbox for testing
+        $mode = $mode ?? config('foodics.mode', 'sandbox');
 
         try {
             $page = 1;
@@ -31,7 +36,7 @@ class FoodicsSyncService
                 $response = $this->foodicsClient->get('v5/categories', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
                     'per_page' => 50,
-                ]));
+                ]), $mode);
 
                 if (!$response->ok) {
                     $errorMessage = "Failed to fetch categories page {$page}";
@@ -136,12 +141,17 @@ class FoodicsSyncService
 
     /**
      * Sync products from Foodics.
+     *
+     * @param string|null $mode 'sandbox' or 'live', null to use config default
      */
-    public function syncProducts(): array
+    public function syncProducts(?string $mode = null): array
     {
         $synced = 0;
         $updated = 0;
         $errors = [];
+        
+        // Default to sandbox for testing
+        $mode = $mode ?? config('foodics.mode', 'sandbox');
 
         try {
             $page = 1;
@@ -151,7 +161,7 @@ class FoodicsSyncService
                 $response = $this->foodicsClient->get('v5/products', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
                     'per_page' => 50,
-                ]));
+                ]), $mode);
 
                 if (!$response->ok) {
                     $errors[] = "Failed to fetch products page {$page}";

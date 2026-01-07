@@ -33,16 +33,17 @@ class FoodicsClient
      *
      * @param string $endpoint
      * @param FoodicsQueryParamsDTO|null $queryParams
+     * @param string|null $mode 'sandbox' or 'live', null to use config default
      * @param int $retryCount
      * @return FoodicsResponseDTO
      * @throws FoodicsException
      */
-    public function get(string $endpoint, ?FoodicsQueryParamsDTO $queryParams = null, int $retryCount = 0): FoodicsResponseDTO
+    public function get(string $endpoint, ?FoodicsQueryParamsDTO $queryParams = null, ?string $mode = null, int $retryCount = 0): FoodicsResponseDTO
     {
         try {
-            $token = $this->authService->getAccessToken();
+            $mode = $mode ?? config('foodics.mode', 'live');
+            $token = $this->authService->getAccessToken($mode);
             // Get base URL from current mode
-            $mode = config('foodics.mode', 'live');
             $baseUrls = config('foodics.base_urls', []);
             $baseUrl = $baseUrls[$mode] ?? config('foodics.base_url') ?? 'https://api.foodics.com';
             $url = rtrim($baseUrl, '/') . '/' . ltrim($endpoint, '/');
@@ -71,11 +72,8 @@ class FoodicsClient
 
             // Handle specific status codes
             if ($statusCode === 401) {
-                if ($retryCount === 0) {
-                    $this->authService->refreshToken();
-                    return $this->get($endpoint, $queryParams, $retryCount + 1);
-                }
-                throw new FoodicsUnauthorizedException();
+                // Token refresh not implemented - tokens are managed manually via Foodics Test page
+                throw new FoodicsUnauthorizedException("Unauthorized. Please check your token in Foodics Test page for {$mode} mode.");
             }
 
             if ($statusCode === 403) {
@@ -100,7 +98,7 @@ class FoodicsClient
                 
                 if ($retryCount < $maxRetries) {
                     sleep($retryDelay * ($retryCount + 1));
-                    return $this->get($endpoint, $queryParams, $retryCount + 1);
+                    return $this->get($endpoint, $queryParams, $mode, $retryCount + 1);
                 }
                 throw new FoodicsRateLimitException();
             }
@@ -115,7 +113,7 @@ class FoodicsClient
                 
                 if ($retryCount < $maxRetries) {
                     sleep($retryDelay * ($retryCount + 1));
-                    return $this->get($endpoint, $queryParams, $retryCount + 1);
+                    return $this->get($endpoint, $queryParams, $mode, $retryCount + 1);
                 }
                 throw new FoodicsMaintenanceException();
             }
