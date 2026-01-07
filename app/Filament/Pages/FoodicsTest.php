@@ -6,6 +6,7 @@ use App\Integrations\Foodics\Models\FoodicsToken;
 use App\Integrations\Foodics\Services\FoodicsAuthService;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Gate;
 
@@ -117,15 +118,17 @@ class FoodicsTest extends Page implements HasForms
             $tokenRecord = FoodicsToken::where('mode', 'sandbox')->latest()->first();
             $this->sandboxToken = $tokenRecord?->access_token;
 
-            notify()->success(
-                __('system.token_saved_successfully'),
-                __('system.sandbox_token_updated')
-            );
+            Notification::make()
+                ->title(__('system.token_saved_successfully'))
+                ->body(__('system.sandbox_token_updated'))
+                ->success()
+                ->send();
         } catch (\Exception $e) {
-            notify()->danger(
-                __('system.failed_to_save_token'),
-                $e->getMessage()
-            );
+            Notification::make()
+                ->title(__('system.failed_to_save_token'))
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
         }
     }
 
@@ -143,15 +146,17 @@ class FoodicsTest extends Page implements HasForms
             $tokenRecord = FoodicsToken::where('mode', 'live')->latest()->first();
             $this->liveToken = $tokenRecord?->access_token;
 
-            notify()->success(
-                __('system.token_saved_successfully'),
-                __('system.live_token_updated')
-            );
+            Notification::make()
+                ->title(__('system.token_saved_successfully'))
+                ->body(__('system.live_token_updated'))
+                ->success()
+                ->send();
         } catch (\Exception $e) {
-            notify()->danger(
-                __('system.failed_to_save_token'),
-                $e->getMessage()
-            );
+            Notification::make()
+                ->title(__('system.failed_to_save_token'))
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
         }
     }
 

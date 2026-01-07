@@ -24,11 +24,33 @@ class ListCategories extends ListRecords
                     $service = app(\App\Core\Services\FoodicsSyncService::class);
                     $result = $service->syncCategories();
                     
-                    \Filament\Notifications\Notification::make()
-                        ->title(__('system.sync_completed'))
-                        ->body(__('system.synced_count', ['count' => $result['synced']]) . ' ' . __('system.updated_count', ['count' => $result['updated']]))
-                        ->success()
-                        ->send();
+                    $synced = $result['synced'] ?? 0;
+                    $updated = $result['updated'] ?? 0;
+                    $errors = $result['errors'] ?? [];
+                    
+                    if (!empty($errors)) {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.sync_completed_with_errors'))
+                            ->body(
+                                __('system.synced_count', ['count' => $synced]) . ' ' . 
+                                __('system.updated_count', ['count' => $updated]) . 
+                                (count($errors) > 0 ? "\n\nErrors: " . implode('; ', array_slice($errors, 0, 3)) : '')
+                            )
+                            ->warning()
+                            ->send();
+                    } elseif ($synced === 0 && $updated === 0) {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.sync_completed'))
+                            ->body(__('system.no_categories_found'))
+                            ->info()
+                            ->send();
+                    } else {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.sync_completed'))
+                            ->body(__('system.synced_count', ['count' => $synced]) . ' ' . __('system.updated_count', ['count' => $updated]))
+                            ->success()
+                            ->send();
+                    }
                 }),
         ];
     }

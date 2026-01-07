@@ -34,12 +34,29 @@ class FoodicsSyncService
                 ]));
 
                 if (!$response->ok) {
-                    $errors[] = "Failed to fetch categories page {$page}";
+                    $errorMessage = "Failed to fetch categories page {$page}";
+                    if ($response->error) {
+                        $errorMessage .= ": " . ($response->error->message ?? 'Unknown error');
+                    }
+                    $errors[] = $errorMessage;
+                    Log::error('Foodics categories sync failed', [
+                        'page' => $page,
+                        'status_code' => $response->status_code,
+                        'error' => $response->error,
+                        'response_data' => $response->data,
+                    ]);
                     break;
                 }
 
                 $data = $response->data ?? [];
                 $categories = $data['data'] ?? [];
+                
+                Log::info('Foodics categories sync page', [
+                    'page' => $page,
+                    'categories_count' => count($categories),
+                    'has_data' => !empty($data),
+                    'data_keys' => array_keys($data),
+                ]);
 
                 foreach ($categories as $categoryItem) {
                     try {
@@ -91,6 +108,14 @@ class FoodicsSyncService
                     $hasMore = $currentPage < $lastPage;
                     $page++;
                 } else {
+                    // If no pagination data and no categories found, stop
+                    if (empty($categories)) {
+                        Log::info('Foodics categories sync: No more categories and no pagination data', [
+                            'page' => $page,
+                            'total_synced' => $synced,
+                            'total_updated' => $updated,
+                        ]);
+                    }
                     $hasMore = false;
                 }
             }
