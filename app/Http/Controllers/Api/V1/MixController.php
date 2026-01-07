@@ -125,7 +125,7 @@ class MixController extends Controller
             'description' => $product->getDescription(app()->getLocale()),
             'description_ar' => $product->getDescription('ar'),
             'description_en' => $product->getDescription('en'),
-            'image' => $product->image ? asset('storage/' . $product->image) : null,
+            'image' => $this->getImageUrl($product->image),
             'base_price' => (float) $product->base_price,
             'category' => $product->category ? [
                 'id' => $product->category->id,
@@ -203,5 +203,26 @@ class MixController extends Controller
         }
 
         return apiSuccess(['total' => $result['total'], 'breakdown' => $result['breakdown']]);
+    }
+
+    /**
+     * Get the image URL, handling both local and external (Foodics) images.
+     *
+     * @param string|null $image
+     * @return string|null
+     */
+    private function getImageUrl(?string $image): ?string
+    {
+        if (!$image) {
+            return null;
+        }
+
+        // If the image is already a full URL (starts with http:// or https://), return as is
+        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')) {
+            return $image;
+        }
+
+        // Otherwise, it's a local image, prepend storage path
+        return asset('storage/' . $image);
     }
 }

@@ -42,7 +42,7 @@ class CartItemResource extends JsonResource
                     'description' => $this->product->getDescription(app()->getLocale()),
                     'description_ar' => $this->product->getDescription('ar'),
                     'description_en' => $this->product->getDescription('en'),
-                    'image' => $this->product->image ? asset('storage/' . $this->product->image) : null,
+                    'image' => $this->getImageUrl($this->product->image),
                     'base_price' => (float) $this->product->base_price,
                     'category' => $this->product->relationLoaded('category') && $this->product->category ? [
                         'id' => $this->product->category->id,
@@ -69,7 +69,7 @@ class CartItemResource extends JsonResource
                     return [
                         'id' => $this->product->id,
                         'name' => $this->product->getName(app()->getLocale()),
-                        'image' => $this->product->image ? asset('storage/' . $this->product->image) : null,
+                        'image' => $this->getImageUrl($this->product->image),
                     ];
                 });
             }
@@ -93,6 +93,27 @@ class CartItemResource extends JsonResource
         }
 
         return $base;
+    }
+
+    /**
+     * Get the image URL, handling both local and external (Foodics) images.
+     *
+     * @param string|null $image
+     * @return string|null
+     */
+    private function getImageUrl(?string $image): ?string
+    {
+        if (!$image) {
+            return null;
+        }
+
+        // If the image is already a full URL (starts with http:// or https://), return as is
+        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')) {
+            return $image;
+        }
+
+        // Otherwise, it's a local image, prepend storage path
+        return asset('storage/' . $image);
     }
 }
 

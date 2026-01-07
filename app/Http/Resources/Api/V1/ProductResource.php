@@ -22,7 +22,7 @@ class ProductResource extends JsonResource
             'description' => $this->getDescription(app()->getLocale()),
             'description_ar' => $this->getDescription('ar'),
             'description_en' => $this->getDescription('en'),
-            'image' => $this->image ? asset('storage/' . $this->image) : null,
+            'image' => $this->getImageUrl(),
             'base_price' => (float) $this->base_price,
             'category' => $this->whenLoaded('category', function () {
                 return [
@@ -67,6 +67,26 @@ class ProductResource extends JsonResource
         }
 
         return $result;
+    }
+
+    /**
+     * Get the image URL, handling both local and external (Foodics) images.
+     *
+     * @return string|null
+     */
+    private function getImageUrl(): ?string
+    {
+        if (!$this->image) {
+            return null;
+        }
+
+        // If the image is already a full URL (starts with http:// or https://), return as is
+        if (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')) {
+            return $this->image;
+        }
+
+        // Otherwise, it's a local image, prepend storage path
+        return asset('storage/' . $this->image);
     }
 }
 
