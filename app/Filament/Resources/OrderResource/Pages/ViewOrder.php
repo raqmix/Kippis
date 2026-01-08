@@ -178,11 +178,9 @@ class ViewOrder extends ViewRecord
                 
                 Components\Section::make(__('system.order_items'))
                     ->schema([
-                        Forms\Components\Textarea::make('items_display')
+                        Forms\Components\Placeholder::make('items_display')
                             ->label('')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->formatStateUsing(function () {
+                            ->content(function () {
                                 $items = $this->record->items_snapshot ?? [];
                                 if (empty($items) || !is_array($items)) {
                                     return __('system.no_items');
@@ -265,9 +263,7 @@ class ViewOrder extends ViewRecord
                                 
                                 return new \Illuminate\Support\HtmlString($html);
                             })
-                            ->rows(20)
-                            ->columnSpanFull()
-                            ->extraAttributes(['style' => 'font-family: system-ui, -apple-system, sans-serif;']),
+                            ->columnSpanFull(),
                     ]),
                 
                 Components\Section::make(__('system.order_totals'))
