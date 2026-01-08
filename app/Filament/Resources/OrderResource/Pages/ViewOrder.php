@@ -72,7 +72,7 @@ class ViewOrder extends ViewRecord
         ];
     }
 
-    protected function form(Schema $schema): Schema
+    public function form(Schema $schema): Schema
     {
         return $schema
             ->schema([
