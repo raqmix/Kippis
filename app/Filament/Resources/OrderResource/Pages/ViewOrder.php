@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\OrderResource\Pages;
 
+use App\Core\Models\Product;
 use App\Filament\Resources\OrderResource;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions;
@@ -9,6 +10,7 @@ use Filament\Forms;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class ViewOrder extends ViewRecord
 {
@@ -139,11 +141,13 @@ class ViewOrder extends ViewRecord
                             ->label(__('system.store_name'))
                             ->disabled()
                             ->dehydrated()
+                            ->formatStateUsing(fn () => $this->record->store ? $this->record->store->name : 'N/A')
                             ->default('N/A'),
                         Forms\Components\Textarea::make('store.address')
                             ->label(__('system.address'))
                             ->disabled()
                             ->dehydrated()
+                            ->formatStateUsing(fn () => $this->record->store && $this->record->store->address ? $this->record->store->address : 'N/A')
                             ->default('N/A')
                             ->rows(2),
                     ])
@@ -184,34 +188,86 @@ class ViewOrder extends ViewRecord
                                     return __('system.no_items');
                                 }
                                 
-                                $output = '';
+                                $locale = app()->getLocale();
+                                $html = '<div style="font-family: system-ui, -apple-system, sans-serif;">';
+                                
                                 foreach ($items as $index => $item) {
-                                    $output .= "\n" . str_repeat('=', 60) . "\n";
-                                    $output .= "Item #" . ($index + 1) . ": " . ($item['product_name'] ?? 'Product') . "\n";
-                                    $output .= str_repeat('-', 60) . "\n";
-                                    $output .= "Quantity: " . ($item['quantity'] ?? 1) . "\n";
-                                    $output .= "Unit Price: " . number_format($item['price'] ?? 0, 2) . " EGP\n";
+                                    $productName = $item['name'] ?? ($item['product_name'] ?? __('system.product') . ' #' . ($index + 1));
+                                    $productId = $item['product_id'] ?? null;
+                                    $productImage = null;
                                     
-                                    if (isset($item['modifiers']) && is_array($item['modifiers']) && count($item['modifiers']) > 0) {
-                                        $output .= "\nModifiers:\n";
-                                        foreach ($item['modifiers'] as $modifier) {
-                                            if (is_array($modifier) && isset($modifier['name'])) {
-                                                $modifierPrice = isset($modifier['price']) && $modifier['price'] > 0 
-                                                    ? ' (+' . number_format($modifier['price'], 2) . ' EGP)' 
-                                                    : '';
-                                                $output .= "  • " . $modifier['name'] . $modifierPrice . "\n";
-                                            }
+                                    // Try to get product image if product_id exists
+                                    if ($productId) {
+                                        $product = Product::find($productId);
+                                        if ($product && $product->image) {
+                                            $productImage = Storage::disk('public')->url($product->image);
                                         }
                                     }
                                     
-                                    $itemTotal = ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
-                                    $output .= "\nItem Total: " . number_format($itemTotal, 2) . " EGP\n";
+                                    $quantity = $item['quantity'] ?? 1;
+                                    $unitPrice = $item['price'] ?? 0;
+                                    $itemTotal = $unitPrice * $quantity;
+                                    
+                                    $html .= '<div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; background: linear-gradient(to right, #ffffff, #f9fafb); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">';
+                                    $html .= '<div style="display: flex; gap: 16px; align-items: start;">';
+                                    
+                                    // Product Image
+                                    if ($productImage) {
+                                        $html .= '<div style="flex-shrink: 0;">';
+                                        $html .= '<img src="' . htmlspecialchars($productImage) . '" alt="' . htmlspecialchars($productName) . '" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #e5e7eb;">';
+                                        $html .= '</div>';
+                                    }
+                                    
+                                    // Product Details
+                                    $html .= '<div style="flex: 1; min-width: 0;">';
+                                    $html .= '<h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #111827;">' . htmlspecialchars($productName) . '</h3>';
+                                    
+                                    // Modifiers
+                                    if (isset($item['modifiers']) && is_array($item['modifiers']) && count($item['modifiers']) > 0) {
+                                        $html .= '<div style="margin-top: 12px; padding-left: 12px; border-left: 3px solid #3b82f6;">';
+                                        $html .= '<p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 500; color: #6b7280;">' . __('system.modifiers') . ':</p>';
+                                        $html .= '<ul style="margin: 0; padding-left: 20px; list-style-type: disc;">';
+                                        foreach ($item['modifiers'] as $modifier) {
+                                            if (is_array($modifier) && isset($modifier['name'])) {
+                                                $modifierPrice = isset($modifier['price']) && $modifier['price'] > 0 
+                                                    ? ' <span style="color: #059669;">(+' . number_format($modifier['price'], 2) . ' EGP)</span>' 
+                                                    : '';
+                                                $html .= '<li style="margin: 4px 0; font-size: 14px; color: #374151;">' . htmlspecialchars($modifier['name']) . $modifierPrice . '</li>';
+                                            }
+                                        }
+                                        $html .= '</ul>';
+                                        $html .= '</div>';
+                                    }
+                                    
+                                    $html .= '</div>';
+                                    
+                                    // Price Info
+                                    $html .= '<div style="flex-shrink: 0; text-align: right; min-width: 150px;">';
+                                    $html .= '<div style="margin-bottom: 8px;">';
+                                    $html .= '<p style="margin: 0; font-size: 13px; color: #6b7280;">' . __('system.quantity') . '</p>';
+                                    $html .= '<p style="margin: 4px 0 0 0; font-size: 16px; font-weight: 600; color: #111827;">' . $quantity . '</p>';
+                                    $html .= '</div>';
+                                    $html .= '<div style="margin-bottom: 8px;">';
+                                    $html .= '<p style="margin: 0; font-size: 13px; color: #6b7280;">' . __('system.unit_price') . '</p>';
+                                    $html .= '<p style="margin: 4px 0 0 0; font-size: 16px; font-weight: 600; color: #111827;">' . number_format($unitPrice, 2) . ' EGP</p>';
+                                    $html .= '</div>';
+                                    $html .= '<div style="padding-top: 8px; border-top: 2px solid #3b82f6; margin-top: 8px;">';
+                                    $html .= '<p style="margin: 0; font-size: 13px; color: #6b7280; font-weight: 500;">' . __('system.total') . '</p>';
+                                    $html .= '<p style="margin: 4px 0 0 0; font-size: 20px; font-weight: 700; color: #2563eb;">' . number_format($itemTotal, 2) . ' EGP</p>';
+                                    $html .= '</div>';
+                                    $html .= '</div>';
+                                    
+                                    $html .= '</div>';
+                                    $html .= '</div>';
                                 }
                                 
-                                return trim($output);
+                                $html .= '</div>';
+                                
+                                return new \Illuminate\Support\HtmlString($html);
                             })
-                            ->rows(15)
-                            ->columnSpanFull(),
+                            ->rows(20)
+                            ->columnSpanFull()
+                            ->extraAttributes(['style' => 'font-family: system-ui, -apple-system, sans-serif;']),
                     ]),
                 
                 Components\Section::make(__('system.order_totals'))
