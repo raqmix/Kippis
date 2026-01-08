@@ -5,10 +5,10 @@ namespace App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Resources\OrderResource;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions;
-use Filament\Infolists\Components\Section;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Infolist;
+use Filament\Forms;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components;
+use Filament\Schemas\Schema;
 
 class ViewOrder extends ViewRecord
 {
@@ -72,187 +72,154 @@ class ViewOrder extends ViewRecord
         ];
     }
 
-    public function infolist(Infolist $infolist): Infolist
+    protected function form(Schema $schema): Schema
     {
-        return $infolist
+        return $schema
             ->schema([
-                Section::make(__('system.order_information'))
+                Components\Section::make(__('system.order_information'))
                     ->schema([
-                        TextEntry::make('id')
+                        Forms\Components\TextInput::make('id')
                             ->label(__('system.order_id'))
-                            ->badge()
-                            ->color('primary'),
-                        TextEntry::make('pickup_code')
+                            ->disabled()
+                            ->dehydrated(),
+                        Forms\Components\TextInput::make('pickup_code')
                             ->label(__('system.pickup_code'))
-                            ->badge()
-                            ->color('success')
+                            ->disabled()
+                            ->dehydrated()
                             ->copyable(),
-                        TextEntry::make('status')
+                        Forms\Components\Select::make('status')
                             ->label(__('system.status'))
-                            ->badge()
-                            ->color(fn (string $state): string => match ($state) {
-                                'received' => 'info',
-                                'mixing' => 'warning',
-                                'ready' => 'success',
-                                'completed' => 'gray',
-                                'cancelled' => 'danger',
-                                default => 'gray',
-                            })
-                            ->formatStateUsing(fn (string $state): string => match ($state) {
+                            ->options([
                                 'received' => __('system.received'),
                                 'mixing' => __('system.mixing'),
                                 'ready' => __('system.ready'),
                                 'completed' => __('system.completed'),
                                 'cancelled' => __('system.cancelled'),
-                                default => $state,
-                            }),
-                        TextEntry::make('created_at')
+                            ])
+                            ->disabled()
+                            ->dehydrated(),
+                        Forms\Components\DateTimePicker::make('created_at')
                             ->label(__('system.order_date'))
-                            ->dateTime()
-                            ->icon('heroicon-o-calendar'),
-                        TextEntry::make('updated_at')
+                            ->disabled()
+                            ->dehydrated(),
+                        Forms\Components\DateTimePicker::make('updated_at')
                             ->label(__('system.last_updated'))
-                            ->dateTime()
-                            ->icon('heroicon-o-clock'),
+                            ->disabled()
+                            ->dehydrated(),
                     ])
                     ->columns(3),
                 
-                Section::make(__('system.customer_information'))
+                Components\Section::make(__('system.customer_information'))
                     ->schema([
-                        TextEntry::make('customer.name')
+                        Forms\Components\TextInput::make('customer.name')
                             ->label(__('system.customer_name'))
+                            ->disabled()
+                            ->dehydrated()
                             ->default('N/A'),
-                        TextEntry::make('customer.phone')
+                        Forms\Components\TextInput::make('customer_phone')
                             ->label(__('system.phone'))
-                            ->formatStateUsing(fn ($record) => $record && $record->customer 
-                                ? ($record->customer->country_code ?? '') . ($record->customer->phone ?? 'N/A')
+                            ->disabled()
+                            ->dehydrated()
+                            ->formatStateUsing(fn () => $this->record->customer 
+                                ? ($this->record->customer->country_code ?? '') . ($this->record->customer->phone ?? 'N/A')
                                 : 'N/A')
                             ->default('N/A'),
-                        TextEntry::make('customer.email')
+                        Forms\Components\TextInput::make('customer.email')
                             ->label(__('system.email'))
+                            ->disabled()
+                            ->dehydrated()
                             ->default('N/A'),
                     ])
                     ->columns(3)
                     ->visible(fn () => $this->record->customer),
                 
-                Section::make(__('system.store_information'))
+                Components\Section::make(__('system.store_information'))
                     ->schema([
-                        TextEntry::make('store.name')
+                        Forms\Components\TextInput::make('store.name')
                             ->label(__('system.store_name'))
+                            ->disabled()
+                            ->dehydrated()
                             ->default('N/A'),
-                        TextEntry::make('store.address')
+                        Forms\Components\Textarea::make('store.address')
                             ->label(__('system.address'))
-                            ->default('N/A'),
+                            ->disabled()
+                            ->dehydrated()
+                            ->default('N/A')
+                            ->rows(2),
                     ])
                     ->columns(2)
                     ->visible(fn () => $this->record->store),
                 
-                Section::make(__('system.payment_information'))
+                Components\Section::make(__('system.payment_information'))
                     ->schema([
-                        TextEntry::make('payment_method')
+                        Forms\Components\TextInput::make('payment_method')
                             ->label(__('system.payment_method'))
-                            ->badge()
-                            ->color('info')
+                            ->disabled()
+                            ->dehydrated()
                             ->formatStateUsing(fn ($state) => ucfirst($state ?? 'N/A')),
-                        TextEntry::make('paymentMethod.name')
+                        Forms\Components\TextInput::make('paymentMethod.name')
                             ->label(__('system.payment_method_name'))
+                            ->disabled()
+                            ->dehydrated()
                             ->default('N/A')
                             ->visible(fn () => $this->record->paymentMethod),
-                        TextEntry::make('paymentMethod.code')
+                        Forms\Components\TextInput::make('paymentMethod.code')
                             ->label(__('system.payment_method_code'))
-                            ->badge()
-                            ->color('gray')
+                            ->disabled()
+                            ->dehydrated()
                             ->default('N/A')
                             ->visible(fn () => $this->record->paymentMethod),
                     ])
                     ->columns(3),
                 
-                Section::make(__('system.order_items'))
+                Components\Section::make(__('system.order_items'))
                     ->schema([
-                        TextEntry::make('items_snapshot')
-                            ->label('')
-                            ->formatStateUsing(function ($state) {
-                                if (empty($state) || !is_array($state)) {
-                                    return __('system.no_items');
-                                }
-                                
-                                $html = '<div class="space-y-4">';
-                                foreach ($state as $index => $item) {
-                                    $html .= '<div class="border rounded-lg p-4 bg-gray-50">';
-                                    $html .= '<div class="flex justify-between items-start mb-2">';
-                                    $html .= '<div class="flex-1">';
-                                    $html .= '<h4 class="font-semibold text-lg">' . ($item['product_name'] ?? 'Product #' . ($index + 1)) . '</h4>';
-                                    
-                                    // Show modifiers if available
-                                    if (isset($item['modifiers']) && is_array($item['modifiers']) && count($item['modifiers']) > 0) {
-                                        $html .= '<div class="mt-2 ml-4">';
-                                        $html .= '<p class="text-sm font-medium text-gray-600 mb-1">' . __('system.modifiers') . ':</p>';
-                                        $html .= '<ul class="list-disc list-inside space-y-1">';
-                                        foreach ($item['modifiers'] as $modifier) {
-                                            if (is_array($modifier) && isset($modifier['name'])) {
-                                                $modifierPrice = isset($modifier['price']) && $modifier['price'] > 0 
-                                                    ? ' (+' . number_format($modifier['price'], 2) . ' EGP)' 
-                                                    : '';
-                                                $html .= '<li class="text-sm text-gray-700">' . $modifier['name'] . $modifierPrice . '</li>';
-                                            }
-                                        }
-                                        $html .= '</ul>';
-                                        $html .= '</div>';
-                                    }
-                                    
-                                    $html .= '</div>';
-                                    $html .= '<div class="text-right">';
-                                    $html .= '<p class="text-sm text-gray-600">' . __('system.quantity') . ': <span class="font-semibold">' . ($item['quantity'] ?? 1) . '</span></p>';
-                                    $html .= '<p class="text-sm text-gray-600">' . __('system.unit_price') . ': <span class="font-semibold">' . number_format($item['price'] ?? 0, 2) . ' EGP</span></p>';
-                                    $itemTotal = ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
-                                    $html .= '<p class="text-lg font-bold text-primary-600 mt-1">' . __('system.total') . ': ' . number_format($itemTotal, 2) . ' EGP</p>';
-                                    $html .= '</div>';
-                                    $html .= '</div>';
-                                    $html .= '</div>';
-                                }
-                                $html .= '</div>';
-                                
-                                return new \Illuminate\Support\HtmlString($html);
-                            })
+                        Forms\Components\View::make('filament.components.order-items-display')
+                            ->viewData([
+                                'items' => $this->record->items_snapshot ?? [],
+                            ])
                             ->columnSpanFull(),
                     ]),
                 
-                Section::make(__('system.order_totals'))
+                Components\Section::make(__('system.order_totals'))
                     ->schema([
-                        TextEntry::make('subtotal')
+                        Forms\Components\TextInput::make('subtotal')
                             ->label(__('system.subtotal'))
-                            ->money('EGP')
-                            ->icon('heroicon-o-calculator'),
-                        TextEntry::make('discount')
+                            ->prefix('EGP')
+                            ->disabled()
+                            ->dehydrated(),
+                        Forms\Components\TextInput::make('discount')
                             ->label(__('system.discount'))
-                            ->money('EGP')
-                            ->icon('heroicon-o-tag')
+                            ->prefix('EGP')
+                            ->disabled()
+                            ->dehydrated()
                             ->visible(fn () => $this->record->discount > 0)
                             ->formatStateUsing(fn ($state) => '- ' . number_format($state, 2)),
-                        TextEntry::make('promoCode.code')
+                        Forms\Components\TextInput::make('promoCode.code')
                             ->label(__('system.promo_code'))
-                            ->badge()
-                            ->color('success')
+                            ->disabled()
+                            ->dehydrated()
                             ->default('N/A')
                             ->visible(fn () => $this->record->promoCode),
-                        TextEntry::make('promo_discount')
+                        Forms\Components\TextInput::make('promo_discount')
                             ->label(__('system.promo_discount'))
-                            ->money('EGP')
-                            ->icon('heroicon-o-gift')
+                            ->prefix('EGP')
+                            ->disabled()
+                            ->dehydrated()
                             ->visible(fn () => $this->record->promo_discount > 0)
                             ->formatStateUsing(fn ($state) => '- ' . number_format($state, 2)),
-                        TextEntry::make('tax')
+                        Forms\Components\TextInput::make('tax')
                             ->label(__('system.tax'))
-                            ->money('EGP')
-                            ->icon('heroicon-o-receipt-percent')
+                            ->prefix('EGP')
+                            ->disabled()
+                            ->dehydrated()
                             ->visible(fn () => $this->record->tax > 0),
-                        TextEntry::make('total')
+                        Forms\Components\TextInput::make('total')
                             ->label(__('system.total'))
-                            ->money('EGP')
-                            ->icon('heroicon-o-currency-dollar')
-                            ->size('lg')
-                            ->weight('bold')
-                            ->color('success'),
+                            ->prefix('EGP')
+                            ->disabled()
+                            ->dehydrated()
+                            ->extraAttributes(['class' => 'text-lg font-bold']),
                     ])
                     ->columns(3),
             ]);
