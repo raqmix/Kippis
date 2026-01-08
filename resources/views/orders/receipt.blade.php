@@ -224,7 +224,13 @@
             @endif
             <div class="info-row">
                 <span class="info-label">Payment Method:</span>
-                <span class="info-value">{{ ucfirst($order->payment_method) }}</span>
+                <span class="info-value">
+                    @if($order->paymentMethod)
+                        {{ $order->paymentMethod->name }} ({{ $order->paymentMethod->code }})
+                    @else
+                        {{ ucfirst($order->payment_method) }}
+                    @endif
+                </span>
             </div>
         </div>
         
