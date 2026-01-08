@@ -34,6 +34,21 @@ class ViewOrder extends ViewRecord
                 ->action(function () {
                     $order = $this->record->load(['store', 'customer', 'promoCode', 'paymentMethod']);
                     
+                    // Ensure all data is UTF-8 encoded
+                    $order->items_snapshot = array_map(function ($item) {
+                        if (isset($item['name'])) {
+                            $item['name'] = mb_convert_encoding($item['name'], 'UTF-8', 'UTF-8');
+                        }
+                        if (isset($item['modifiers']) && is_array($item['modifiers'])) {
+                            foreach ($item['modifiers'] as &$modifier) {
+                                if (isset($modifier['name'])) {
+                                    $modifier['name'] = mb_convert_encoding($modifier['name'], 'UTF-8', 'UTF-8');
+                                }
+                            }
+                        }
+                        return $item;
+                    }, $order->items_snapshot ?? []);
+                    
                     $pdf = Pdf::loadView('orders.receipt', [
                         'order' => $order,
                         'store' => $order->store,
@@ -43,8 +58,13 @@ class ViewOrder extends ViewRecord
 
                     $pdf->setPaper('a4', 'portrait');
                     $pdf->setOption('enable-local-file-access', true);
+                    $pdf->setOption('isHtml5ParserEnabled', true);
+                    $pdf->setOption('isRemoteEnabled', false);
 
                     $filename = 'order-' . $order->id . '-' . $order->pickup_code . '.pdf';
+                    
+                    // Ensure filename is UTF-8 safe
+                    $filename = mb_convert_encoding($filename, 'UTF-8', 'UTF-8');
 
                     return $pdf->download($filename);
                 }),
