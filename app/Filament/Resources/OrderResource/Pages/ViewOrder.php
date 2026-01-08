@@ -174,10 +174,43 @@ class ViewOrder extends ViewRecord
                 
                 Components\Section::make(__('system.order_items'))
                     ->schema([
-                        Forms\Components\View::make('filament.components.order-items-display')
-                            ->viewData([
-                                'items' => $this->record->items_snapshot ?? [],
-                            ])
+                        Forms\Components\Textarea::make('items_display')
+                            ->label('')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->formatStateUsing(function () {
+                                $items = $this->record->items_snapshot ?? [];
+                                if (empty($items) || !is_array($items)) {
+                                    return __('system.no_items');
+                                }
+                                
+                                $output = '';
+                                foreach ($items as $index => $item) {
+                                    $output .= "\n" . str_repeat('=', 60) . "\n";
+                                    $output .= "Item #" . ($index + 1) . ": " . ($item['product_name'] ?? 'Product') . "\n";
+                                    $output .= str_repeat('-', 60) . "\n";
+                                    $output .= "Quantity: " . ($item['quantity'] ?? 1) . "\n";
+                                    $output .= "Unit Price: " . number_format($item['price'] ?? 0, 2) . " EGP\n";
+                                    
+                                    if (isset($item['modifiers']) && is_array($item['modifiers']) && count($item['modifiers']) > 0) {
+                                        $output .= "\nModifiers:\n";
+                                        foreach ($item['modifiers'] as $modifier) {
+                                            if (is_array($modifier) && isset($modifier['name'])) {
+                                                $modifierPrice = isset($modifier['price']) && $modifier['price'] > 0 
+                                                    ? ' (+' . number_format($modifier['price'], 2) . ' EGP)' 
+                                                    : '';
+                                                $output .= "  • " . $modifier['name'] . $modifierPrice . "\n";
+                                            }
+                                        }
+                                    }
+                                    
+                                    $itemTotal = ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
+                                    $output .= "\nItem Total: " . number_format($itemTotal, 2) . " EGP\n";
+                                }
+                                
+                                return trim($output);
+                            })
+                            ->rows(15)
                             ->columnSpanFull(),
                     ]),
                 
