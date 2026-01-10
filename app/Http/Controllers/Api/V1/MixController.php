@@ -26,28 +26,23 @@ class MixController extends Controller
     /**
      * Get mix builder options
      *
-     * Returns product details for the first base product, including all available modifiers grouped by type.
-     * Uses the same format as /api/v1/catalog/products/:id.
+     * Returns all available base products and modifiers grouped by type.
      *
      * @queryParam builder_id integer optional Filter bases by specific builder ID. Example: 1
      *
      * @response 200 {
      *   "success": true,
      *   "data": {
-     *     "id": 54,
-     *     "name": "Chocolate Cake",
-     *     "name_ar": "كعكة الشوكولاتة",
-     *     "name_en": "Chocolate Cake",
-     *     "description": "Rich chocolate cake slice",
-     *     "description_ar": "شريحة كعكة شوكولاتة غنية",
-     *     "description_en": "Rich chocolate cake slice",
-     *     "image": null,
-     *     "base_price": 30,
-     *     "category": {
-     *       "id": 5,
-     *       "name": "Desserts"
-     *     },
-     *     "external_source": "local",
+     *     "bases": [
+     *       {
+     *         "id": 54,
+     *         "name": "Chocolate Cake",
+     *         "name_ar": "كعكة الشوكولاتة",
+     *         "name_en": "Chocolate Cake",
+     *         "image": null,
+     *         "base_price": 30
+     *       }
+     *     ],
      *     "modifiers": {
      *       "size": [
      *         {
@@ -83,17 +78,34 @@ class MixController extends Controller
                       ->orWhereNull('mix_builder_id'); // Global bases (null) available to all
             })->pluck('product_id');
 
-            $basesQuery->whereIn('id', $baseIds);
-        }
-
-        // Get the first base product
-        $product = $basesQuery->first();
-
-        if (!$product) {
-            $message = $builderId
-                ? 'No base product found for the specified builder_id'
-                : 'No base products found';
-            return apiError('NO_BASE_FOUND', $message, 404);
+            if ($baseIds->isEmpty()) {
+                // If no bases found for this builder, return empty bases array
+                $bases = [];
+            } else {
+                $basesQuery->whereIn('id', $baseIds);
+                $bases = $basesQuery->get()->map(function ($product) {
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->getName(app()->getLocale()),
+                        'name_ar' => $product->getName('ar'),
+                        'name_en' => $product->getName('en'),
+                        'image' => $this->getImageUrl($product->image),
+                        'base_price' => (float) $product->base_price,
+                    ];
+                })->values()->all();
+            }
+        } else {
+            // Get all base products if no builder_id specified
+            $bases = $basesQuery->get()->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->getName(app()->getLocale()),
+                    'name_ar' => $product->getName('ar'),
+                    'name_en' => $product->getName('en'),
+                    'image' => $this->getImageUrl($product->image),
+                    'base_price' => (float) $product->base_price,
+                ];
+            })->values()->all();
         }
 
         // Get all modifiers grouped by type
@@ -116,22 +128,9 @@ class MixController extends Controller
             })->values()->all();
         }
 
-        // Build response in the same format as ProductResource
+        // Build response with bases array and modifiers
         $data = [
-            'id' => $product->id,
-            'name' => $product->getName(app()->getLocale()),
-            'name_ar' => $product->getName('ar'),
-            'name_en' => $product->getName('en'),
-            'description' => $product->getDescription(app()->getLocale()),
-            'description_ar' => $product->getDescription('ar'),
-            'description_en' => $product->getDescription('en'),
-            'image' => $this->getImageUrl($product->image),
-            'base_price' => (float) $product->base_price,
-            'category' => $product->category ? [
-                'id' => $product->category->id,
-                'name' => $product->category->getName(app()->getLocale()),
-            ] : null,
-            'external_source' => $product->external_source,
+            'bases' => $bases ?? [], // Ensure bases is always an array, never null
             'modifiers' => $modifiersData,
         ];
 
