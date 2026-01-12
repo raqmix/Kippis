@@ -7,7 +7,6 @@ use App\Core\Models\PaymentMethod;
 use App\Core\Models\PromoCodeUsage;
 use App\Events\OrderCreated;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Str;
 
 class OrderRepository
 {
@@ -21,7 +20,7 @@ class OrderRepository
      */
     public function createFromCart(\App\Core\Models\Cart $cart, int $paymentMethodId, ?int $storeId = null): Order
     {
-        $pickupCode = strtoupper(Str::random(6));
+        $pickupCode = $this->generatePickupCode();
 
         // Get payment method details
         $paymentMethod = PaymentMethod::findOrFail($paymentMethodId);
@@ -96,7 +95,7 @@ class OrderRepository
         ?string $promoCode = null,
         ?string $posCode = null
     ): Order {
-        $pickupCode = strtoupper(Str::random(6));
+        $pickupCode = $this->generatePickupCode();
 
         // Get payment method by code
         $paymentMethod = PaymentMethod::where('code', $paymentMethodCode)->first();
@@ -254,6 +253,20 @@ class OrderRepository
     public function updateStatus(Order $order, string $status): bool
     {
         return $order->update(['status' => $status]);
+    }
+
+    /**
+     * Generate a unique 4-digit pickup code.
+     *
+     * @return string
+     */
+    private function generatePickupCode(): string
+    {
+        do {
+            $code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        } while (Order::where('pickup_code', $code)->whereIn('status', ['received', 'mixing', 'ready'])->exists());
+
+        return $code;
     }
 }
 

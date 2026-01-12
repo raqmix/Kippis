@@ -8,7 +8,6 @@ use App\Core\Models\Store;
 use App\Core\Models\Product;
 use App\Core\Models\PromoCode;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class OrderSeeder extends Seeder
 {
@@ -138,7 +137,7 @@ class OrderSeeder extends Seeder
             'discount' => round($discount, 2),
             'total' => round($total, 2),
             'payment_method' => $paymentMethod,
-            'pickup_code' => strtoupper(Str::random(6)),
+            'pickup_code' => str_pad((string) rand(0, 9999), 4, '0', STR_PAD_LEFT),
             'items_snapshot' => $items,
             'modifiers_snapshot' => [],
             'promo_code_id' => $promoCode?->id,

@@ -53,7 +53,7 @@ class OrderFactory extends Factory
             'discount' => $discount,
             'total' => $total,
             'payment_method' => $this->faker->randomElement($paymentMethods),
-            'pickup_code' => strtoupper($this->faker->bothify('??####')),
+            'pickup_code' => str_pad((string) $this->faker->numberBetween(0, 9999), 4, '0', STR_PAD_LEFT),
             'items_snapshot' => $items,
             'modifiers_snapshot' => [],
             'promo_code_id' => $this->faker->boolean(30) ? PromoCode::factory() : null,
