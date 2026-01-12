@@ -110,26 +110,149 @@ class CartRepository
      * Unified add item API. Accepts payload with item_type and configuration. Price must be provided
      * or computed by caller (e.g., MixPriceCalculator) before calling this method.
      *
+     * If an identical item exists (same product_id, item_type, and configuration), the quantity
+     * will be incremented instead of creating a duplicate.
+     *
      * $payload keys: item_type, ref_id, name, price, quantity, configuration (array), note (string)
      */
     public function addItemUnified(Cart $cart, array $payload): CartItem
     {
         return \DB::transaction(function () use ($cart, $payload) {
+            $productId = $payload['product_id'] ?? null;
+            $itemType = $payload['item_type'] ?? 'product';
+            $configuration = $payload['configuration'] ?? null;
+            $quantity = $payload['quantity'] ?? 1;
+
+            // Check if an identical item already exists in the cart
+            $existingItem = $this->findExistingCartItem($cart, $productId, $itemType, $configuration);
+
+            if ($existingItem) {
+                // Update quantity of existing item
+                $existingItem->quantity += $quantity;
+                $existingItem->save();
+                return $existingItem;
+            }
+
+            // Create new item if no match found
             $data = [
                 'cart_id' => $cart->id,
-                'product_id' => $payload['product_id'] ?? null,
-                'quantity' => $payload['quantity'] ?? 1,
+                'product_id' => $productId,
+                'quantity' => $quantity,
                 'price' => $payload['price'] ?? 0.0,
                 'modifiers_snapshot' => $payload['modifiers_snapshot'] ?? null,
-                'item_type' => $payload['item_type'] ?? 'product',
+                'item_type' => $itemType,
                 'ref_id' => $payload['ref_id'] ?? null,
                 'name' => $payload['name'] ?? null,
-                'configuration' => $payload['configuration'] ?? null,
+                'configuration' => $configuration,
                 'note' => $payload['note'] ?? null,
             ];
 
             return CartItem::create($data);
         });
+    }
+
+    /**
+     * Find an existing cart item that matches the given criteria.
+     *
+     * Items are considered identical if they have the same:
+     * - product_id (for products)
+     * - item_type
+     * - configuration (including addons)
+     *
+     * @param Cart $cart
+     * @param int|null $productId
+     * @param string $itemType
+     * @param array|null $configuration
+     * @return CartItem|null
+     */
+    private function findExistingCartItem(Cart $cart, ?int $productId, string $itemType, ?array $configuration): ?CartItem
+    {
+        $query = $cart->items()
+            ->where('item_type', $itemType);
+
+        if ($itemType === 'product' && $productId) {
+            $query->where('product_id', $productId);
+        }
+
+        $items = $query->get();
+
+        foreach ($items as $item) {
+            if ($this->configurationsMatch($item->configuration, $configuration)) {
+                return $item;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Compare two configurations to determine if they are identical.
+     *
+     * @param mixed $config1
+     * @param mixed $config2
+     * @return bool
+     */
+    private function configurationsMatch($config1, $config2): bool
+    {
+        // Normalize both configurations
+        $normalized1 = $this->normalizeConfiguration($config1);
+        $normalized2 = $this->normalizeConfiguration($config2);
+
+        // Both null or empty means match
+        if (empty($normalized1) && empty($normalized2)) {
+            return true;
+        }
+
+        // One empty, one not means no match
+        if (empty($normalized1) || empty($normalized2)) {
+            return false;
+        }
+
+        // Compare as JSON for deep equality
+        return json_encode($normalized1) === json_encode($normalized2);
+    }
+
+    /**
+     * Normalize a configuration array for comparison.
+     *
+     * @param mixed $configuration
+     * @return array|null
+     */
+    private function normalizeConfiguration($configuration): ?array
+    {
+        if (is_null($configuration)) {
+            return null;
+        }
+
+        // Handle JSON string
+        if (is_string($configuration)) {
+            $configuration = json_decode($configuration, true);
+        }
+
+        if (!is_array($configuration) || empty($configuration)) {
+            return null;
+        }
+
+        // Sort addons by modifier_id for consistent comparison
+        if (isset($configuration['addons']) && is_array($configuration['addons'])) {
+            usort($configuration['addons'], function ($a, $b) {
+                return ($a['modifier_id'] ?? 0) <=> ($b['modifier_id'] ?? 0);
+            });
+        }
+
+        // Sort modifiers by id for consistent comparison (for mix items)
+        if (isset($configuration['modifiers']) && is_array($configuration['modifiers'])) {
+            usort($configuration['modifiers'], function ($a, $b) {
+                return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
+            });
+        }
+
+        // Sort extras for consistent comparison
+        if (isset($configuration['extras']) && is_array($configuration['extras'])) {
+            sort($configuration['extras']);
+        }
+
+        return $configuration;
     }
 
     /**
