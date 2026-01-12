@@ -185,9 +185,9 @@
     <div class="receipt-container">
         <div class="header">
             <h1>Order Receipt</h1>
-            <p>{{ $store->name ?? 'Kippis Store' }}</p>
+            <p>{{ htmlspecialchars($store->name ?? 'Kippis Store', ENT_QUOTES, 'UTF-8') }}</p>
             @if($store?->address)
-                <p>{{ $store->address }}</p>
+                <p>{{ htmlspecialchars($store->address, ENT_QUOTES, 'UTF-8') }}</p>
             @endif
         </div>
         
@@ -213,18 +213,24 @@
             @if($customer)
                 <div class="info-row">
                     <span class="info-label">Customer:</span>
-                    <span class="info-value">{{ $customer->name ?? 'N/A' }}</span>
+                    <span class="info-value">{{ htmlspecialchars($customer->name ?? 'N/A', ENT_QUOTES, 'UTF-8') }}</span>
                 </div>
                 @if($customer->phone ?? null)
                     <div class="info-row">
                         <span class="info-label">Phone:</span>
-                        <span class="info-value">{{ ($customer->country_code ?? '') . ($customer->phone ?? '') }}</span>
+                        <span class="info-value">{{ htmlspecialchars(($customer->country_code ?? '') . ($customer->phone ?? ''), ENT_QUOTES, 'UTF-8') }}</span>
                     </div>
                 @endif
             @endif
             <div class="info-row">
                 <span class="info-label">Payment Method:</span>
-                <span class="info-value">{{ ucfirst($order->payment_method) }}</span>
+                <span class="info-value">
+                    @if($order->paymentMethod)
+                        {{ htmlspecialchars($order->paymentMethod->name, ENT_QUOTES, 'UTF-8') }} ({{ htmlspecialchars($order->paymentMethod->code, ENT_QUOTES, 'UTF-8') }})
+                    @else
+                        {{ htmlspecialchars(ucfirst($order->payment_method), ENT_QUOTES, 'UTF-8') }}
+                    @endif
+                </span>
             </div>
         </div>
         
@@ -243,11 +249,11 @@
                     @foreach($order->items_snapshot as $item)
                         <tr>
                             <td>
-                                <strong>{{ $item['product_name'] ?? 'Product' }}</strong>
+                                <strong>{{ htmlspecialchars($item['name'] ?? $item['product_name'] ?? 'Product', ENT_QUOTES, 'UTF-8') }}</strong>
                                 @if(isset($item['modifiers']) && is_array($item['modifiers']) && count($item['modifiers']) > 0)
                                     @foreach($item['modifiers'] as $modifier)
                                         @if(is_array($modifier) && isset($modifier['name']))
-                                            <div class="modifier-item">+ {{ $modifier['name'] }}
+                                            <div class="modifier-item">+ {{ htmlspecialchars($modifier['name'], ENT_QUOTES, 'UTF-8') }}
                                                 @if(isset($modifier['price']) && $modifier['price'] > 0)
                                                     ({{ number_format($modifier['price'], 2) }})
                                                 @endif
@@ -274,7 +280,7 @@
                 <div class="total-row">
                     <span>Discount:
                         @if($order->promoCode?->code)
-                            ({{ $order->promoCode->code }})
+                            ({{ htmlspecialchars($order->promoCode->code, ENT_QUOTES, 'UTF-8') }})
                         @endif
                     </span>
                     <span>-{{ number_format($order->discount, 2) }}</span>

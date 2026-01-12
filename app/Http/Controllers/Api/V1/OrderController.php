@@ -503,7 +503,7 @@ class OrderController extends Controller
         }
 
         // Load relationships
-        $order->load(['store', 'customer', 'promoCode']);
+        $order->load(['store', 'customer', 'promoCode', 'paymentMethod']);
 
         // Generate PDF
         $pdf = Pdf::loadView('orders.receipt', [
