@@ -19,7 +19,7 @@ class ViewOrder extends ViewRecord
     public function mount(int | string $record): void
     {
         parent::mount($record);
-        
+
         // Load all necessary relationships
         $this->record->load(['store', 'customer', 'promoCode', 'paymentMethod']);
     }
@@ -95,7 +95,7 @@ class ViewOrder extends ViewRecord
                             ->dehydrated(),
                     ])
                     ->columns(3),
-                
+
                 Components\Section::make(__('system.customer_information'))
                     ->schema([
                         Forms\Components\TextInput::make('customer.name')
@@ -107,7 +107,7 @@ class ViewOrder extends ViewRecord
                             ->label(__('system.phone'))
                             ->disabled()
                             ->dehydrated()
-                            ->formatStateUsing(fn () => $this->record->customer 
+                            ->formatStateUsing(fn () => $this->record->customer
                                 ? ($this->record->customer->country_code ?? '') . ($this->record->customer->phone ?? 'N/A')
                                 : 'N/A')
                             ->default('N/A'),
@@ -119,7 +119,7 @@ class ViewOrder extends ViewRecord
                     ])
                     ->columns(3)
                     ->visible(fn () => $this->record->customer),
-                
+
                 Components\Section::make(__('system.store_information'))
                     ->schema([
                         Forms\Components\TextInput::make('store.name')
@@ -138,7 +138,7 @@ class ViewOrder extends ViewRecord
                     ])
                     ->columns(2)
                     ->visible(fn () => $this->record->store),
-                
+
                 Components\Section::make(__('system.payment_information'))
                     ->schema([
                         Forms\Components\TextInput::make('payment_method')
@@ -160,7 +160,7 @@ class ViewOrder extends ViewRecord
                             ->visible(fn () => $this->record->paymentMethod),
                     ])
                     ->columns(3),
-                
+
                 Components\Section::make(__('system.order_items'))
                     ->schema([
                         Forms\Components\Placeholder::make('items_display')
@@ -170,41 +170,41 @@ class ViewOrder extends ViewRecord
                                 if (empty($items) || !is_array($items)) {
                                     return __('system.no_items');
                                 }
-                                
+
                                 $locale = app()->getLocale();
                                 $html = '<div style="font-family: system-ui, -apple-system, sans-serif;">';
-                                
+
                                 foreach ($items as $index => $item) {
                                     $productName = $item['name'] ?? ($item['product_name'] ?? __('system.product') . ' #' . ($index + 1));
                                     $productId = $item['product_id'] ?? null;
                                     $productImage = null;
-                                    
+
                                     // Try to get product image if product_id exists
                                     if ($productId) {
                                         $product = Product::find($productId);
                                         if ($product && $product->image) {
-                                            $productImage = Storage::disk('public')->url($product->image);
+                                            $productImage = $product->image;
                                         }
                                     }
-                                    
+
                                     $quantity = $item['quantity'] ?? 1;
                                     $unitPrice = $item['price'] ?? 0;
                                     $itemTotal = $unitPrice * $quantity;
-                                    
+
                                     $html .= '<div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; background: linear-gradient(to right, #ffffff, #f9fafb); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">';
                                     $html .= '<div style="display: flex; gap: 16px; align-items: start;">';
-                                    
+
                                     // Product Image
                                     if ($productImage) {
                                         $html .= '<div style="flex-shrink: 0;">';
                                         $html .= '<img src="' . htmlspecialchars($productImage) . '" alt="' . htmlspecialchars($productName) . '" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #e5e7eb;">';
                                         $html .= '</div>';
                                     }
-                                    
+
                                     // Product Details
                                     $html .= '<div style="flex: 1; min-width: 0;">';
                                     $html .= '<h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #111827;">' . htmlspecialchars($productName) . '</h3>';
-                                    
+
                                     // Modifiers
                                     if (isset($item['modifiers']) && is_array($item['modifiers']) && count($item['modifiers']) > 0) {
                                         $html .= '<div style="margin-top: 12px; padding-left: 12px; border-left: 3px solid #3b82f6;">';
@@ -212,8 +212,8 @@ class ViewOrder extends ViewRecord
                                         $html .= '<ul style="margin: 0; padding-left: 20px; list-style-type: disc;">';
                                         foreach ($item['modifiers'] as $modifier) {
                                             if (is_array($modifier) && isset($modifier['name'])) {
-                                                $modifierPrice = isset($modifier['price']) && $modifier['price'] > 0 
-                                                    ? ' <span style="color: #059669;">(+' . number_format($modifier['price'], 2) . ' EGP)</span>' 
+                                                $modifierPrice = isset($modifier['price']) && $modifier['price'] > 0
+                                                    ? ' <span style="color: #059669;">(+' . number_format($modifier['price'], 2) . ' EGP)</span>'
                                                     : '';
                                                 $html .= '<li style="margin: 4px 0; font-size: 14px; color: #374151;">' . htmlspecialchars($modifier['name']) . $modifierPrice . '</li>';
                                             }
@@ -221,9 +221,9 @@ class ViewOrder extends ViewRecord
                                         $html .= '</ul>';
                                         $html .= '</div>';
                                     }
-                                    
+
                                     $html .= '</div>';
-                                    
+
                                     // Price Info
                                     $html .= '<div style="flex-shrink: 0; text-align: right; min-width: 150px;">';
                                     $html .= '<div style="margin-bottom: 8px;">';
@@ -239,18 +239,18 @@ class ViewOrder extends ViewRecord
                                     $html .= '<p style="margin: 4px 0 0 0; font-size: 20px; font-weight: 700; color: #2563eb;">' . number_format($itemTotal, 2) . ' EGP</p>';
                                     $html .= '</div>';
                                     $html .= '</div>';
-                                    
+
                                     $html .= '</div>';
                                     $html .= '</div>';
                                 }
-                                
+
                                 $html .= '</div>';
-                                
+
                                 return new \Illuminate\Support\HtmlString($html);
                             })
                             ->columnSpanFull(),
                     ]),
-                
+
                 Components\Section::make(__('system.order_totals'))
                     ->schema([
                         Forms\Components\TextInput::make('subtotal')
