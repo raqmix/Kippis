@@ -26,6 +26,10 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/reset-password', [CustomerAuthController::class, 'resetPassword']);
         Route::post('/resend-otp', [CustomerAuthController::class, 'resendOtp'])->name('resend-otp');
 
+        // Social authentication routes
+        Route::post('/social/google', [CustomerAuthController::class, 'socialLoginGoogle']);
+        Route::post('/social/apple', [CustomerAuthController::class, 'socialLoginApple']);
+
         // Authenticated routes
         Route::middleware('auth:api')->group(function () {
             Route::get('/me', [CustomerAuthController::class, 'me']);

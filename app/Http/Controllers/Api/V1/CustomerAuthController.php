@@ -599,17 +599,17 @@ class CustomerAuthController extends Controller
             }
 
             $validated = $request->validated();
-            
+
             // Remove password_confirmation from data (not needed for update)
             unset($validated['password_confirmation']);
-            
+
             // Handle avatar upload
             if ($request->hasFile('avatar')) {
                 // Delete old avatar if exists
                 if ($customer->avatar) {
                     Storage::disk('public')->delete($customer->avatar);
                 }
-                
+
                 // Store new avatar
                 $avatarPath = $request->file('avatar')->store('customers', 'public');
                 $validated['avatar'] = $avatarPath;
@@ -623,7 +623,7 @@ class CustomerAuthController extends Controller
             }
 
             // Refresh customer data
-            $customer->refresh();
+            $customer->refresh(); // @phpstan-ignore-line
 
             return apiSuccess(
                 new CustomerResource($customer),
@@ -631,6 +631,129 @@ class CustomerAuthController extends Controller
             );
         } catch (\Exception $e) {
             Log::error('Customer profile update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return apiError('SERVER_ERROR', 'server_error', 500);
+        }
+    }
+
+    /**
+     * Login with Google.
+     *
+     * Authenticate a customer using Google OAuth. The client app handles the OAuth flow and sends the access_token.
+     * If an account with the email already exists, it will be linked. Otherwise, a new account is created.
+     *
+     * @bodyParam access_token string required The Google OAuth access token from the client. Example: ya29.a0AfH6SMBx...
+     *
+     * @response 200 {
+     *   "success": true,
+     *   "data": {
+     *     "customer": {
+     *       "id": 1,
+     *       "name": "John Doe",
+     *       "email": "john@example.com",
+     *       "is_verified": true,
+     *       "google_id": "1234567890",
+     *       "created_at": "2025-12-21T10:00:00Z"
+     *     },
+     *     "token": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+     *   },
+     *   "message": "Login successful."
+     * }
+     *
+     * @return JsonResponse
+     */
+    public function socialLoginGoogle(): JsonResponse
+    {
+        try {
+            $request = request();
+
+            $validated = $request->validate([
+                'access_token' => 'required|string',
+            ]);
+
+            $result = $this->authService->socialLogin(
+                'google',
+                $validated['access_token'],
+                null
+            );
+
+            return apiSuccess([
+                'customer' => new CustomerResource($result['customer']),
+                'token' => $result['token'],
+            ], 'login_successful');
+        } catch (ApiException $e) {
+            return apiError($e->getErrorCode(), $e->getMessage(), $e->getCode());
+        } catch (ValidationException $e) {
+            return apiError('VALIDATION_ERROR', $e->getMessage(), 422);
+        } catch (\Exception $e) {
+            Log::error('Google social login failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return apiError('SERVER_ERROR', 'server_error', 500);
+        }
+    }
+
+    /**
+     * Login with Apple.
+     *
+     * Authenticate a customer using Apple Sign In. The client app handles the OAuth flow and sends the id_token.
+     * If an account with the email already exists, it will be linked. Otherwise, a new account is created.
+     * For first-time Apple users, the full name should be provided in the user object.
+     *
+     * @bodyParam id_token string required The Apple identity token (JWT) from the client. Example: eyJraWQiOiJlWGF1...
+     * @bodyParam user object optional User data from Apple (only provided on first login). Example: {"name": "John Doe"}
+     * @bodyParam user.name string optional The user's full name (Apple only provides this on first sign-in). Example: John Doe
+     *
+     * @response 200 {
+     *   "success": true,
+     *   "data": {
+     *     "customer": {
+     *       "id": 1,
+     *       "name": "John Doe",
+     *       "email": "john@example.com",
+     *       "is_verified": true,
+     *       "apple_id": "000123.abc456def789.0001",
+     *       "created_at": "2025-12-21T10:00:00Z"
+     *     },
+     *     "token": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+     *   },
+     *   "message": "Login successful."
+     * }
+     *
+     * @return JsonResponse
+     */
+    public function socialLoginApple(): JsonResponse
+    {
+        try {
+            $request = request();
+
+            $validated = $request->validate([
+                'id_token' => 'required|string',
+                'user' => 'nullable|array',
+                'user.name' => 'nullable|string',
+            ]);
+
+            $result = $this->authService->socialLogin(
+                'apple',
+                $validated['id_token'],
+                $validated['user'] ?? null
+            );
+
+            return apiSuccess([
+                'customer' => new CustomerResource($result['customer']),
+                'token' => $result['token'],
+            ], 'login_successful');
+        } catch (ApiException $e) {
+            return apiError($e->getErrorCode(), $e->getMessage(), $e->getCode());
+        } catch (ValidationException $e) {
+            return apiError('VALIDATION_ERROR', $e->getMessage(), 422);
+        } catch (\Exception $e) {
+            Log::error('Apple social login failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

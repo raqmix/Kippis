@@ -38,6 +38,11 @@ class Customer extends Authenticatable implements JWTSubject
         'avatar',
         'foodics_customer_id',
         'is_verified',
+        'google_id',
+        'google_refresh_token',
+        'apple_id',
+        'apple_refresh_token',
+        'social_avatar',
     ];
 
     /**
@@ -126,7 +131,7 @@ class Customer extends Authenticatable implements JWTSubject
      */
     public function generateToken(): string
     {
-        return auth('api')->login($this);
+        return \Tymon\JWTAuth\Facades\JWTAuth::fromUser($this);
     }
 
     /**
