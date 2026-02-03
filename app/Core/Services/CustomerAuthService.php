@@ -339,6 +339,9 @@ class CustomerAuthService
                 $customerData = [
                     'name' => $socialName ?: 'User',
                     'email' => $email,
+                    'phone' => $userData['phone'] ?? '0000000000',
+                    'country_code' => $userData['country_code'] ?? '000',
+                    'birthdate' => $userData['birthdate'] ?? now()->subYears(18)->toDateString(),
                     'password' => Hash::make(Str::random(32)), // Random placeholder password
                     'is_verified' => true, // Auto-verify social logins
                     'social_avatar' => $socialAvatar,
