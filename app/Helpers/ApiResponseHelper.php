@@ -58,6 +58,10 @@ if (!function_exists('apiError')) {
             ? __("api.{$message}", [], app()->getLocale())
             : $message;
 
+        if ($statusCode < 100) {
+            $statusCode = 400;
+        }
+
         return response()->json([
             'success' => false,
             'error' => [
