@@ -19,10 +19,15 @@ use App\Listeners\SendNewOrderNotification;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use SocialiteProviders\Apple\AppleExtendSocialite;
+use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class EventServiceProvider extends ServiceProvider
 {
     protected $listen = [
+        SocialiteWasCalled::class => [
+            AppleExtendSocialite::class . '@handle',
+        ],
         AdminLoggedIn::class => [
             LogAdminActivity::class . '@handleAdminLoggedIn',
             SendFilamentNotification::class . '@handleAdminLoggedIn',

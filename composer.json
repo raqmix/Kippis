@@ -19,6 +19,7 @@
         "pragmarx/google2fa": "^9.0",
         "predis/predis": "^2.2",
         "simplesoftwareio/simple-qrcode": "*",
+        "socialiteproviders/apple": "^5.7",
         "spatie/laravel-permission": "^6.24",
         "tymon/jwt-auth": "*"
     },
