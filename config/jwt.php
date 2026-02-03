@@ -101,7 +101,7 @@ return [
     |
     */
 
-    'ttl' => env('JWT_TTL', 60),
+    'ttl' => env('JWT_TTL', null), // Never expire for mobile apps
 
     /*
     |--------------------------------------------------------------------------
@@ -147,7 +147,7 @@ return [
     'required_claims' => [
         'iss',
         'iat',
-        'exp',
+        // 'exp', // Not required when tokens don't expire
         'nbf',
         'sub',
         'jti',
