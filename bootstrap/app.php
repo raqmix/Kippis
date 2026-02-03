@@ -23,9 +23,14 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Add rate limiting middleware for API routes
+        $middleware->api(append: [
+            \App\Http\Middleware\AuthRateLimit::class,
+        ]);
+
         // Global security headers
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
-        
+
         // API locale middleware
         $middleware->alias([
             'api.locale' => \App\Http\Middleware\SetApiLocale::class,
@@ -53,7 +58,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 if (!$request->hasHeader('X-Locale') && !$request->hasHeader('Accept-Language')) {
                     app()->setLocale('en'); // Default to English if no header
                 }
-                
+
                 return response()->json([
                     'success' => false,
                     'error' => [

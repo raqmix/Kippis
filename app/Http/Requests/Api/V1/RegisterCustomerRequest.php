@@ -27,7 +27,7 @@ class RegisterCustomerRequest extends FormRequest
             'phone' => ['required', 'string', 'max:20'],
             'country_code' => ['required', 'string', 'max:5'],
             'birthdate' => ['required', 'date', 'before:today'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'confirmed', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/'],
             'avatar' => ['nullable', 'image', 'max:2048'],
         ];
     }
@@ -51,6 +51,7 @@ class RegisterCustomerRequest extends FormRequest
             'password.required' => 'The password field is required.',
             'password.min' => 'The password must be at least 8 characters.',
             'password.confirmed' => 'The password confirmation does not match.',
+            'password.regex' => 'The password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).',
             'avatar.image' => 'The avatar must be an image file.',
             'avatar.max' => 'The avatar must not be larger than 2MB.',
         ];

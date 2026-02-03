@@ -23,7 +23,7 @@ class UpdateCustomerRequest extends FormRequest
     public function rules(): array
     {
         $customer = auth('api')->user();
-        
+
         return [
             'name' => 'sometimes|string|max:255',
             'email' => [
@@ -36,7 +36,7 @@ class UpdateCustomerRequest extends FormRequest
             'country_code' => 'sometimes|string|max:5',
             'birthdate' => 'sometimes|date|before:today',
             'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'password' => 'sometimes|string|min:8|confirmed',
+            'password' => 'sometimes|string|min:8|confirmed|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/',
         ];
     }
 
@@ -52,6 +52,7 @@ class UpdateCustomerRequest extends FormRequest
             'birthdate.before' => 'The birthdate must be a date before today.',
             'password.min' => 'The password must be at least 8 characters.',
             'password.confirmed' => 'The password confirmation does not match.',
+            'password.regex' => 'The password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).',
             'avatar.image' => 'The avatar must be an image.',
             'avatar.max' => 'The avatar may not be greater than 2MB.',
         ];
