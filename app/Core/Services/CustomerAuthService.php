@@ -297,8 +297,12 @@ class CustomerAuthService
             $socialAvatar = $socialUser->getAvatar();
 
             // For Apple, prioritize client-provided name on first login
+            $appleName = null;
             if ($provider === 'apple' && $userData && isset($userData['name'])) {
-                $socialName = $userData['name'];
+                $appleName = trim((string) $userData['name']);
+                if ($appleName !== '') {
+                    $socialName = $appleName;
+                }
             }
 
             if (!$email) {
@@ -322,6 +326,11 @@ class CustomerAuthService
                 // Update provider ID if not set or different
                 if (!$customer->$providerIdField || $customer->$providerIdField !== $providerId) {
                     $updateData[$providerIdField] = $providerId;
+                }
+
+                // Update name if we received a better Apple name and current is empty/placeholder
+                if ($provider === 'apple' && $appleName && (trim((string) $customer->name) === '' || $customer->name === 'User')) {
+                    $updateData['name'] = $appleName;
                 }
 
                 // Update social avatar if available
