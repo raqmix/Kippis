@@ -51,23 +51,19 @@ class CategoryRepository
             });
         }
 
-        // Sorting
-        $sortBy = $filters['sort_by'] ?? 'created_at';
-        $sortOrder = $filters['sort_order'] ?? 'desc';
-        
-        // Validate sort_by
-        $allowedSorts = ['created_at', 'name', 'updated_at'];
+        $sortBy = $filters['sort_by'] ?? 'sort_order';
+        $sortOrder = $filters['sort_order'] ?? 'asc';
+        $allowedSorts = ['sort_order', 'created_at', 'name', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
-            $sortBy = 'created_at';
+            $sortBy = 'sort_order';
         }
-        
-        // Validate sort_order must be 'asc' or 'desc'
         if (!in_array(strtolower($sortOrder), ['asc', 'desc'])) {
-            $sortOrder = 'desc';
+            $sortOrder = 'asc';
         }
-        
         if ($sortBy === 'name') {
             $query->orderByRaw("JSON_EXTRACT(name_json, '$.en') {$sortOrder}");
+        } elseif ($sortBy === 'sort_order') {
+            $query->orderByRaw('sort_order IS NULL')->orderBy('sort_order', $sortOrder);
         } else {
             $query->orderBy($sortBy, $sortOrder);
         }
@@ -95,6 +91,7 @@ class CategoryRepository
             $q->where('is_active', true);
         });
 
+        $query->orderByRaw('sort_order IS NULL')->orderBy('sort_order', 'asc');
         return $query->get();
     }
 

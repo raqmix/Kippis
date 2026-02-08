@@ -20,14 +20,14 @@ class CategoryController extends Controller
 
     /**
      * Get list of categories
-     * 
+     *
      * @queryParam source string optional Filter by source (all, foodics, manual). Default: "all". Example: "foodics"
      * @queryParam is_active string optional Filter by active status (0, 1). Default: "1". Example: "1"
      * @queryParam q string optional Search query. Example: "drinks"
-     * @queryParam sort_by string optional Sort field. Default: "created_at". Example: "name"
-     * @queryParam sort_order string optional Sort order (asc, desc). Default: "desc". Example: "asc"
+     * @queryParam sort_by string optional Sort field. Default: "sort_order". Example: "name"
+     * @queryParam sort_order string optional Sort order (asc, desc). Default: "asc". Example: "asc"
      * @queryParam per_page integer optional Items per page (max 100). Default: 15. Example: 20
-     * 
+     *
      * @response 200 {
      *   "success": true,
      *   "data": [
@@ -51,8 +51,8 @@ class CategoryController extends Controller
             'source' => $request->query('source', 'all'),
             'is_active' => $request->query('is_active', '1'),
             'q' => $request->query('q'),
-            'sort_by' => $request->query('sort_by', 'created_at'),
-            'sort_order' => $request->query('sort_order', 'desc'),
+            'sort_by' => $request->query('sort_by', 'sort_order'),
+            'sort_order' => $request->query('sort_order', 'asc'),
         ];
 
         $perPage = min($request->query('per_page', 15), 100);

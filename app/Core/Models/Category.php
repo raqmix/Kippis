@@ -25,6 +25,7 @@ class Category extends Model
         'description_json',
         'image',
         'is_active',
+        'sort_order',
         'external_source',
         'foodics_id',
         'last_synced_at',

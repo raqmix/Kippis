@@ -24,6 +24,7 @@ class CategoryResource extends JsonResource
             'description_en' => $this->getDescription('en'),
             'image' => $this->getImageUrl(),
             'external_source' => $this->external_source,
+            'sort_order' => $this->sort_order,
         ];
     }
 

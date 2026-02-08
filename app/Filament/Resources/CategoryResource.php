@@ -57,10 +57,6 @@ class CategoryResource extends Resource
 
     public static function canEdit($record): bool
     {
-        // Foodics items are read-only
-        if ($record->external_source === 'foodics') {
-            return false;
-        }
         return Gate::forUser(auth()->guard('admin')->user())->allows('manage_categories');
     }
 
@@ -130,6 +126,11 @@ class CategoryResource extends Resource
                             ->label(__('system.is_active'))
                             ->default(true)
                             ->required(),
+                        Forms\Components\TextInput::make('sort_order')
+                            ->label(__('system.sort_order'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->nullable(),
                     ]),
                 Components\Section::make(__('system.foodics_integration'))
                     ->schema([
@@ -162,6 +163,10 @@ class CategoryResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('sort_order')
+                    ->label(__('system.sort_order'))
+                    ->sortable()
+                    ->alignCenter(),
                 Tables\Columns\ImageColumn::make('image')
                     ->label(__('system.image'))
                     ->circular(),
@@ -231,8 +236,7 @@ class CategoryResource extends Resource
             ])
             ->actions([
                 Actions\ViewAction::make(),
-                Actions\EditAction::make()
-                    ->visible(fn ($record) => $record->external_source !== 'foodics'),
+                Actions\EditAction::make(),
                 Actions\DeleteAction::make()
                     ->visible(fn ($record) => $record->external_source !== 'foodics'),
                 Actions\RestoreAction::make(),
@@ -245,7 +249,8 @@ class CategoryResource extends Resource
                     Actions\ForceDeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('sort_order', 'asc')
+            ->reorderable('sort_order');
     }
 
     public static function getRelations(): array
