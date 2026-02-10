@@ -26,6 +26,7 @@ class PaymentMethodResource extends JsonResource
                 ];
             }),
             'configuration' => $this->when($this->configuration, $this->configuration),
+            'use_mastercard_hosted_session' => $this->code === 'card',
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

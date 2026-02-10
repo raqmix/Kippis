@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Core\Enums\OrderStatus;
+use App\Core\Models\PaymentMethod;
 use App\Core\Repositories\CartRepository;
 use App\Core\Repositories\OrderRepository;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\OrderResource;
 use App\Services\CartService;
+use App\Services\MastercardPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +23,8 @@ class OrderController extends Controller
     public function __construct(
         private OrderRepository $orderRepository,
         private CartRepository $cartRepository,
-        private CartService $cartService
+        private CartService $cartService,
+        private MastercardPaymentService $mastercardPayment
     ) {
     }
 
@@ -60,11 +63,17 @@ class OrderController extends Controller
         $request->validate([
             'payment_method_id' => 'required|integer|exists:payment_methods,id',
             'store_id' => 'nullable|exists:stores,id',
+            'mastercard_session_id' => 'nullable|string|max:64',
         ]);
 
         $customer = auth('api')->user();
         if (!$customer) {
             return apiError('UNAUTHORIZED', 'unauthorized', 401);
+        }
+
+        $paymentMethod = PaymentMethod::findOrFail($request->input('payment_method_id'));
+        if ($paymentMethod->code === 'card') {
+            $request->validate(['mastercard_session_id' => 'required|string|max:64']);
         }
 
         $cart = $this->cartRepository->findActiveCart($customer->id);
@@ -73,9 +82,29 @@ class OrderController extends Controller
             return apiError('CART_EMPTY', 'cart_empty', 400);
         }
 
-        // Recalculate cart totals before creating order to ensure they are accurate
         $this->cartRepository->recalculate($cart);
         $cart->refresh();
+
+        if ($paymentMethod->code === 'card') {
+            $gatewayOrderId = 'ord_' . $customer->id . '_' . time();
+            $transactionId = 'pay_1';
+            $amount = number_format((float) $cart->total, 2, '.', '');
+            $currency = config('mastercard.currency', 'EGP');
+            $result = $this->mastercardPayment->pay(
+                $gatewayOrderId,
+                $transactionId,
+                $amount,
+                $currency,
+                $request->input('mastercard_session_id')
+            );
+            if (!($result['success'] ?? false)) {
+                return apiError(
+                    $result['error'] ?? 'PAY_FAILED',
+                    $result['message'] ?? 'payment_gateway_error',
+                    $result['status'] ?? 502
+                );
+            }
+        }
 
         $storeId = $request->input('store_id') ?? $cart->store_id;
         $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method_id'), $storeId);

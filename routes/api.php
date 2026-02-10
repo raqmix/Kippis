@@ -90,6 +90,10 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/{id}', [\App\Http\Controllers\Api\V1\PaymentMethodController::class, 'show']);
     });
 
+    Route::middleware('auth:api')->prefix('v1/payment')->group(function () {
+        Route::post('/mastercard/session', [\App\Http\Controllers\Api\V1\MastercardHostedSessionController::class, 'createSession']);
+    });
+
     // ==================== ORDERS APIs ====================
     Route::middleware('auth:api')->prefix('v1/orders')->group(function () {
         Route::post('/checkout', [\App\Http\Controllers\Api\V1\OrderController::class, 'checkout']);
