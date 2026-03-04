@@ -134,6 +134,11 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/keys', [\App\Http\Controllers\Api\V1\SettingController::class, 'getByKeys']);
     });
 
+    // ==================== EVENT REQUESTS APIs ====================
+    Route::middleware('auth:api')->prefix('v1/event-requests')->group(function () {
+        Route::post('/', [\App\Http\Controllers\Api\V1\EventRequestController::class, 'store']);
+    });
+
     // ==================== SUPPORT TICKETS APIs ====================
     Route::prefix('v1/support')->group(function () {
         Route::post('/tickets', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'store']);
