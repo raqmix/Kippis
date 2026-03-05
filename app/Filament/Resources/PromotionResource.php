@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Core\Models\Product;
 use App\Core\Models\Promotion;
 use App\Filament\Resources\PromotionResource\Pages;
 use Filament\Actions;
@@ -47,6 +48,14 @@ class PromotionResource extends Resource
                             Forms\Components\TextInput::make('cta_link')->label('CTA Link')->url()->maxLength(500),
                             Forms\Components\TextInput::make('dismiss_text')->label('Dismiss Text')->placeholder('Maybe Later')->maxLength(50),
                         ]),
+                        Forms\Components\Select::make('product_id')
+                        ->label('Product for this offer')
+                        ->relationship('product', 'name_json')
+                        ->getOptionLabelFromRecordUsing(fn (Product $r) => $r->getName())
+                        ->searchable()
+                        ->preload()
+                        ->placeholder('None')
+                        ->nullable(),
                     ]),
                 Components\Section::make('Schedule & Order')
                     ->schema([
@@ -65,6 +74,7 @@ class PromotionResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('id')->sortable(),
+                Tables\Columns\TextColumn::make('product.name_json')->label('Product')->formatStateUsing(fn ($state, $r) => $r?->product?->getName()),
                 Tables\Columns\ImageColumn::make('image')->disk('public')->circular(),
                 Tables\Columns\TextColumn::make('title')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('offer_text')->limit(40)->wrap(),

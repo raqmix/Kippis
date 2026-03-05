@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Promotion extends Model
 {
     protected $fillable = [
+        'product_id',
         'title',
         'offer_text',
         'image',
@@ -26,6 +27,11 @@ class Promotion extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
         ];
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
     }
 
     public function scopeActive($query)
