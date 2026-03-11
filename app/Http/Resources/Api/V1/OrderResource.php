@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Core\Enums\OrderStatus;
+use App\Core\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,7 +38,7 @@ class OrderResource extends JsonResource
                     'code' => $this->paymentMethod->code,
                 ];
             }),
-            'items' => $this->items_snapshot,
+            'items' => $this->itemsWithProductImages(),
             'modifiers' => $this->modifiers_snapshot,
             'promo_code' => $this->when($this->relationLoaded('promoCode') && $this->promoCode, function () {
                 return [
@@ -53,6 +54,30 @@ class OrderResource extends JsonResource
             }),
             'created_at' => $this->created_at->toIso8601String(),
         ];
+    }
+
+    /**
+     * Items snapshot with product image filled when snapshot image is null.
+     *
+     * @return array
+     */
+    protected function itemsWithProductImages(): array
+    {
+        $items = $this->items_snapshot ?? [];
+        $productIds = collect($items)->filter(fn ($i) => empty($i['image']) && !empty($i['product_id']))->pluck('product_id')->unique()->values()->all();
+        $imageMap = [];
+        if ($productIds) {
+            $products = Product::whereIn('id', $productIds)->get(['id', 'image']);
+            foreach ($products as $p) {
+                $imageMap[$p->id] = $p->image ? (str_starts_with($p->image, 'http') ? $p->image : asset('storage/' . $p->image)) : null;
+            }
+        }
+        return array_map(function ($item) use ($imageMap) {
+            if (empty($item['image']) && !empty($item['product_id']) && isset($imageMap[$item['product_id']])) {
+                $item['image'] = $imageMap[$item['product_id']];
+            }
+            return $item;
+        }, $items);
     }
 
     /**
