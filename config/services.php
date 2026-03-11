@@ -50,4 +50,9 @@ return [
         'redirect' => env('APPLE_REDIRECT_URI'),
     ],
 
+    'fcm' => [
+        'credentials' => env('FCM_CREDENTIALS', base_path('storage/app/firebase-credentials.json')),
+        'project_id' => env('FCM_PROJECT_ID', 'kippisapp-2ff28'),
+    ],
+
 ];

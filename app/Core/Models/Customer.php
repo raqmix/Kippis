@@ -43,6 +43,7 @@ class Customer extends Authenticatable implements JWTSubject
         'apple_id',
         'apple_refresh_token',
         'social_avatar',
+        'fcm_token',
     ];
 
     /**

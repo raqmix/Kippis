@@ -640,6 +640,23 @@ class CustomerAuthController extends Controller
     }
 
     /**
+     * Register FCM device token for push notifications.
+     *
+     * @authenticated
+     * @bodyParam fcm_token string required FCM device token from the mobile app.
+     */
+    public function registerFcmToken(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate(['fcm_token' => 'required|string']);
+        $customer = auth('api')->user();
+        if (!$customer) {
+            return apiError('UNAUTHORIZED', 'unauthorized', 401);
+        }
+        $customer->update(['fcm_token' => $request->fcm_token]);
+        return apiSuccess(null, 'fcm_token_registered');
+    }
+
+    /**
      * Login with Google.
      *
      * Authenticate a customer using Google OAuth. The client app handles the OAuth flow and sends the access_token.

@@ -37,6 +37,7 @@ Route::middleware('api.locale')->group(function () {
             Route::patch('/me', [CustomerAuthController::class, 'update']);
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
             Route::post('/refresh-token', [CustomerAuthController::class, 'refreshToken']);
+            Route::post('/fcm-token', [CustomerAuthController::class, 'registerFcmToken']);
             Route::delete('/account', [CustomerAuthController::class, 'deleteAccount']);
         });
     });
