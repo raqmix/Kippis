@@ -36,10 +36,13 @@ class OrderRepository
             'payment_method_id' => $paymentMethodId,
             'pickup_code' => $pickupCode,
             'items_snapshot' => $cart->items->map(function ($item) {
+                $img = $item->product?->image;
+                $imageUrl = $img ? (str_starts_with($img, 'http') ? $img : asset('storage/' . $img)) : null;
                 return [
                     'product_id' => $item->product_id,
                     'item_type' => $item->item_type ?? 'product',
                     'name' => $item->name ?? ($item->product ? $item->product->getName(app()->getLocale()) : 'Unknown'),
+                    'image' => $imageUrl,
                     'quantity' => $item->quantity,
                     'price' => $item->price,
                     'modifiers' => $item->modifiers_snapshot,
@@ -136,6 +139,7 @@ class OrderRepository
                     'product_id' => $item['product_id'] ?? null,
                     'item_type' => $item['item_type'] ?? 'product',
                     'name' => $item['name'] ?? 'Unknown',
+                    'image' => $item['image'] ?? null,
                     'quantity' => $item['quantity'] ?? 1,
                     'price' => $item['price'] ?? 0.0,
                     'modifiers' => $item['modifiers'] ?? null,
