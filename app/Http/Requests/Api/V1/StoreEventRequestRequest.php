@@ -23,7 +23,7 @@ class StoreEventRequestRequest extends FormRequest
             'event_type' => ['required', 'string', 'in:' . implode(',', EventRequest::EVENT_TYPES)],
             'event_date' => ['required', 'date', 'after_or_equal:today'],
             'start_time' => ['required', 'date_format:H:i'],
-            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+            'end_time' => ['required', 'date_format:H:i'],
             'number_of_guests' => ['required', 'integer', 'min:1', 'max:10000'],
             'city' => ['required', 'string', 'max:100'],
             'region' => ['required', 'string', 'max:100'],
