@@ -35,11 +35,11 @@ class CartRepository
     public function findActiveCart(?int $customerId = null, $sessionIdOrIncludeProduct = false, $includeProductDetailsOrStoreId = false, ?int $storeId = null): ?Cart
     {
         $relationships = ['items', 'promoCode', 'store'];
-        
+
         // Handle backward compatibility: if second param is bool, treat it as includeProductDetails
         $sessionId = null;
         $includeProductDetails = false;
-        
+
         if (is_string($sessionIdOrIncludeProduct)) {
             $sessionId = $sessionIdOrIncludeProduct;
             // Third param could be bool (includeProduct) or int (storeId)
@@ -55,14 +55,14 @@ class CartRepository
         } elseif (is_bool($sessionIdOrIncludeProduct)) {
             $includeProductDetails = $sessionIdOrIncludeProduct;
         }
-        
+
         if ($includeProductDetails) {
             $relationships[] = 'items.product.addonModifiers';
             $relationships[] = 'items.product.category';
         } else {
             $relationships[] = 'items.product';
         }
-        
+
         $query = Cart::with($relationships)
             ->whereNull('abandoned_at');
 
@@ -73,7 +73,7 @@ class CartRepository
         } else {
             return null;
         }
-        
+
         // Filter by store_id if provided (for kiosk)
         if ($storeId !== null) {
             $query->where('store_id', $storeId);
@@ -277,10 +277,10 @@ class CartRepository
     public function applyPromoCode(Cart $cart, PromoCode $promoCode): bool
     {
         $result = $cart->update(['promo_code_id' => $promoCode->id]);
-        
+
         // Refresh the cart to ensure the promo_code_id is loaded
         $cart->refresh();
-        
+
         return $result;
     }
 
@@ -306,12 +306,12 @@ class CartRepository
     public function recalculate(Cart $cart): void
     {
         // Ensure items and promoCode relationships are loaded
-        if (!$cart->relationLoaded('items')) {
+        // if (!$cart->relationLoaded('items')) {
             $cart->load('items');
-        }
-        if (!$cart->relationLoaded('promoCode')) {
+        // }
+        // if (!$cart->relationLoaded('promoCode')) {
             $cart->load('promoCode');
-        }
+        // }
 
         $cart->recalculate();
     }

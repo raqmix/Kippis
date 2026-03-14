@@ -50,6 +50,8 @@ class OrderResource extends JsonResource
                 return [
                     'id' => $this->store->id,
                     'name' => $this->store->name,
+                    'latitude' => $this->store->latitude,
+                    'longitude' => $this->store->longitude,
                 ];
             }),
             'created_at' => $this->created_at->toIso8601String(),
@@ -88,7 +90,7 @@ class OrderResource extends JsonResource
     protected function buildStatusHistory(): array
     {
         $statusHistory = [];
-        
+
         // Define normal progression order (cancelled can happen at any point)
         $normalProgression = [
             OrderStatus::RECEIVED->value,
@@ -98,7 +100,7 @@ class OrderResource extends JsonResource
         ];
 
         $isCancelled = $this->status === OrderStatus::CANCELLED->value;
-        
+
         // Determine which statuses are completed
         $completedStatuses = [];
         if ($isCancelled) {
@@ -117,7 +119,7 @@ class OrderResource extends JsonResource
             $statusEnum = OrderStatus::tryFrom($statusValue);
             $statusLabel = $statusEnum ? $statusEnum->label() : $statusValue;
             $isCompleted = in_array($statusValue, $completedStatuses);
-            
+
             // Calculate timestamp: received at created_at, others estimated
             $statusTime = null;
             if ($isCompleted) {
