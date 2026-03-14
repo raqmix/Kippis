@@ -68,20 +68,16 @@ class CustomerAuthController extends Controller
      * @param RegisterCustomerRequest $request
      * @return JsonResponse
      */
-
     public function register(RegisterCustomerRequest $request): JsonResponse
     {
         try {
             $customer = $this->authService->register($request->validated());
 
-            // Generate token for the new user
-            $token = JWTAuth::fromUser($customer);
-
-            return apiSuccess([
-                'customer' => new CustomerResource($customer),
-                'token' => $token,
-            ], 'registration_successful', 201);
-
+            return apiSuccess(
+                new CustomerResource($customer),
+                'registration_successful',
+                201
+            );
         } catch (\Exception $e) {
             Log::error('Customer registration failed', [
                 'error' => $e->getMessage(),
@@ -119,10 +115,15 @@ class CustomerAuthController extends Controller
         try {
             $validated = $request->validated();
             $customer = $this->authService->verify($validated['email'], $validated['otp']);
+            $token = JWTAuth::fromUser($customer);
+
 
             return apiSuccess(
-                new CustomerResource($customer),
-                'account_verified'
+                [
+                    'customer' => new CustomerResource($customer),
+                    'token' => $token,
+                ],
+                'account_verified',
             );
         } catch (InvalidOtpException $e) {
             return apiError($e->getErrorCode(), $e->getMessage(), $e->getStatusCode());
