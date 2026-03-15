@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\CustomerAuthController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 /*
 |--------------------------------------------------------------------------
@@ -106,6 +108,12 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show']);
         Route::post('/{id}/reorder', [\App\Http\Controllers\Api\V1\OrderController::class, 'reorder']);
     });
+    Route::get('/download-receipt', function (Request $request) {
+        if (!$request->hasValidSignature()) {
+            abort(403);
+        }
+        return Storage::disk('public')->download($request->file);
+    })->name('download.receipt');
 
     // ==================== LOYALTY APIs ====================
     Route::middleware('auth:api')->prefix('v1/loyalty')->group(function () {

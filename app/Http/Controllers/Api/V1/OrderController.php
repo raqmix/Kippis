@@ -13,6 +13,9 @@ use App\Services\MastercardPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -30,12 +33,12 @@ class OrderController extends Controller
 
     /**
      * Checkout cart and create order
-     * 
+     *
      * @authenticated
-     * 
+     *
      * @bodyParam payment_method_id integer required Payment method ID from payment_methods table. Example: 1
      * @bodyParam store_id integer optional Store ID for the order. If not provided, uses the cart's store_id. Example: 1
-     * 
+     *
      * @response 201 {
      *   "success": true,
      *   "message": "order_created",
@@ -45,13 +48,13 @@ class OrderController extends Controller
      *     "total": 75.50
      *   }
      * }
-     * 
+     *
      * @response 400 {
      *   "success": false,
      *   "error": "CART_EMPTY",
      *   "message": "cart_empty"
      * }
-     * 
+     *
      * @response 401 {
      *   "success": false,
      *   "error": "UNAUTHORIZED",
@@ -120,9 +123,9 @@ class OrderController extends Controller
 
     /**
      * Get list of customer orders
-     * 
+     *
      * @authenticated
-     * 
+     *
      * @queryParam status string optional Filter by status. Use "active" to get orders that are active now (not completed or cancelled). Use "past" to get all orders that are not active (completed or cancelled). You can also filter by specific status: received, mixing, ready, completed, cancelled. Default: "active". Example: "past"
      * @queryParam payment_method string optional Filter by payment method. Example: "cash"
      * @queryParam store_id integer optional Filter by store ID. Example: 1
@@ -133,7 +136,7 @@ class OrderController extends Controller
      * @queryParam sort_by string optional Sort field. Default: "created_at". Example: "total"
      * @queryParam sort_order string optional Sort order (asc, desc). Default: "desc". Example: "asc"
      * @queryParam per_page integer optional Items per page (max 100). Default: 15. Example: 20
-     * 
+     *
      * @response 200 {
      *   "success": true,
      *   "data": [
@@ -185,11 +188,11 @@ class OrderController extends Controller
 
     /**
      * Get single order by ID
-     * 
+     *
      * @authenticated
-     * 
+     *
      * @urlParam id required The order ID. Example: 123
-     * 
+     *
      * @response 200 {
      *   "success": true,
      *   "data": {
@@ -200,7 +203,7 @@ class OrderController extends Controller
      *     "items": []
      *   }
      * }
-     * 
+     *
      * @response 404 {
      *   "success": false,
      *   "error": "ORDER_NOT_FOUND",
@@ -221,11 +224,11 @@ class OrderController extends Controller
 
     /**
      * Get order tracking information
-     * 
+     *
      * @authenticated
-     * 
+     *
      * @urlParam id required The order ID. Example: 123
-     * 
+     *
      * @response 200 {
      *   "success": true,
      *   "data": {
@@ -266,7 +269,7 @@ class OrderController extends Controller
      *     ]
      *   }
      * }
-     * 
+     *
      * @response 404 {
      *   "success": false,
      *   "error": "ORDER_NOT_FOUND",
@@ -288,7 +291,7 @@ class OrderController extends Controller
 
         // Build status history with all possible statuses
         $statusHistory = [];
-        
+
         // Define normal progression order (cancelled can happen at any point)
         $normalProgression = [
             OrderStatus::RECEIVED->value,
@@ -298,7 +301,7 @@ class OrderController extends Controller
         ];
 
         $isCancelled = $order->status === OrderStatus::CANCELLED->value;
-        
+
         // Determine which statuses are completed
         $completedStatuses = [];
         if ($isCancelled) {
@@ -317,7 +320,7 @@ class OrderController extends Controller
             $statusEnum = OrderStatus::tryFrom($statusValue);
             $statusLabel = $statusEnum ? $statusEnum->label() : $statusValue;
             $isCompleted = in_array($statusValue, $completedStatuses);
-            
+
             // Calculate timestamp: received at created_at, others estimated
             $statusTime = null;
             if ($isCompleted) {
@@ -367,11 +370,11 @@ class OrderController extends Controller
 
     /**
      * Reorder an existing order.
-     * 
+     *
      * Create a new cart with the same items from a previous order, allowing the customer to reorder easily.
-     * 
+     *
      * @urlParam id int required The order ID to reorder. Example: 123
-     * 
+     *
      * @response 201 {
      *   "success": true,
      *   "message": "cart_recreated",
@@ -383,7 +386,7 @@ class OrderController extends Controller
      *     "total": 75.00
      *   }
      * }
-     * 
+     *
      * @response 404 {
      *   "success": false,
      *   "error": {
@@ -415,7 +418,7 @@ class OrderController extends Controller
         $itemsAdded = 0;
         foreach ($order->items_snapshot as $item) {
             $itemType = $item['item_type'] ?? 'product';
-            
+
             if ($itemType === 'product') {
                 // Handle product items
                 $product = \App\Core\Models\Product::find($item['product_id']);
@@ -462,7 +465,7 @@ class OrderController extends Controller
             } elseif (in_array($itemType, ['mix', 'creator_mix'])) {
                 // Handle mix and creator_mix items
                 $configuration = $item['configuration'] ?? [];
-                
+
                 // Verify base product exists if base_id is set
                 if (isset($configuration['base_id'])) {
                     $baseProduct = \App\Core\Models\Product::find($configuration['base_id']);
@@ -508,21 +511,23 @@ class OrderController extends Controller
 
     /**
      * Download order receipt as PDF
-     * 
+     *
      * @authenticated
-     * 
+     *
      * @urlParam id required The order ID. Example: 123
-     * 
+     *
      * @response 200
      * The response will be a PDF file download.
-     * 
+     *
      * @response 404 {
      *   "success": false,
      *   "error": "ORDER_NOT_FOUND",
      *   "message": "order_not_found"
      * }
      */
-    public function downloadPdf($id): Response|JsonResponse
+
+
+    public function downloadPdf($id): JsonResponse
     {
         $customer = auth('api')->user();
         $order = $this->orderRepository->findByIdForCustomer((int) $id, $customer->id);
@@ -531,10 +536,8 @@ class OrderController extends Controller
             return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
         }
 
-        // Load relationships
         $order->load(['store', 'customer', 'promoCode', 'paymentMethod']);
 
-        // Generate PDF
         $pdf = Pdf::loadView('orders.receipt', [
             'order' => $order,
             'store' => $order->store,
@@ -542,24 +545,29 @@ class OrderController extends Controller
             'htmlDir' => app()->getLocale() === 'ar' ? 'rtl' : 'ltr',
         ]);
 
-        // Set PDF options for better mobile compatibility
         $pdf->setPaper('a4', 'portrait');
-        $pdf->setOption('enable-local-file-access', true);
 
-        // Generate filename
-        $filename = 'order-' . $order->id . '-' . $order->pickup_code . '.pdf';
+        $filename = 'receipts/order-' . $order->id . '-' . Str::random(8) . '.pdf';
 
-        // Return PDF download response with proper headers for mobile compatibility
-        return $pdf->download($filename);
+        Storage::disk('public')->put($filename, $pdf->output());
+
+        $url = URL::temporarySignedRoute(
+            'download.receipt',
+            now()->addMinutes(2),
+            ['file' => $filename]
+        );
+        return apiSuccess([
+            'download_url' => $url
+        ], 'pdf_generated');
     }
 
     /**
      * Get active order for the authenticated customer
-     * 
+     *
      * Returns the most recent active order (status: received, mixing, or ready) for the authenticated customer.
-     * 
+     *
      * @authenticated
-     * 
+     *
      * @response 200 {
      *   "success": true,
      *   "data": {
@@ -570,7 +578,7 @@ class OrderController extends Controller
      *     "items": []
      *   }
      * }
-     * 
+     *
      * @response 404 {
      *   "success": false,
      *   "error": "ORDER_NOT_FOUND",
@@ -580,7 +588,7 @@ class OrderController extends Controller
     public function activeOrder(): JsonResponse
     {
         $customer = auth('api')->user();
-        
+
         $order = $this->orderRepository->findActiveOrderForCustomer($customer->id);
 
         if (!$order) {
@@ -592,9 +600,9 @@ class OrderController extends Controller
 
     /**
      * Get last order for the authenticated customer
-     * 
+     *
      * @authenticated
-     * 
+     *
      * @response 200 {
      *   "success": true,
      *   "data": {
@@ -605,7 +613,7 @@ class OrderController extends Controller
      *     "items": []
      *   }
      * }
-     * 
+     *
      * @response 404 {
      *   "success": false,
      *   "error": "ORDER_NOT_FOUND",
@@ -615,7 +623,7 @@ class OrderController extends Controller
     public function lastOrder(): JsonResponse
     {
         $customer = auth('api')->user();
-        
+
         $order = \App\Core\Models\Order::where('customer_id', $customer->id)
             ->with(['store', 'promoCode', 'paymentMethod'])
             ->latest()
