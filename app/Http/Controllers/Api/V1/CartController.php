@@ -501,6 +501,8 @@ class CartController extends Controller
         $request->validate([
             'quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:1000',
+            'configuration' => 'nullable|array',
+            "name" => 'nullable|string|max:255',
         ]);
 
         $customer = auth('api')->user();
@@ -512,10 +514,39 @@ class CartController extends Controller
         }
 
         $cartItem = $cart->items()->findOrFail($id);
-        $this->cartRepository->updateItem($cartItem, ['quantity' => $request->input('quantity'), 'note' => $request->input('note')]);
+
+        $updateData = [
+            'quantity' => $request->input('quantity'),
+            'note' => $request->input('note'),
+        ];
+
+        // Handle mix update
+        if ($cartItem->item_type !== 'product' && $request->has('configuration')) {
+
+            $configuration = $request->input('configuration');
+            $name = $request->input('name') ?? null;
+
+
+            // Store updated configuration
+            $updateData['configuration'] = $configuration;
+            // update name
+            $updateData['name']= $name;
+
+            // Recalculate item price
+            $newPrice = $this->mixPriceCalculator->calculate($configuration);
+            // return apiSuccess($newPrice);
+
+            $updateData['price'] = $newPrice['total'];
+            // return apiSuccess($updateData);
+            // return apiSuccess($updateData);
+        }
+
+        $this->cartRepository->updateItem($cartItem, $updateData);
+
         $this->cartRepository->recalculate($cart);
 
         $includeProduct = $request->boolean('include_product', false);
+
         return apiSuccess(
             new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
             'item_updated'
