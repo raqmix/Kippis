@@ -92,6 +92,11 @@ class StoreResource extends Resource
                             ->numeric()
                             ->step(0.00000001)
                             ->maxLength(255),
+                            Forms\Components\TextInput::make('phone')
+                            ->label(__('system.phone'))
+                            ->tel()
+                            ->maxLength(20)
+                            ->placeholder('+20 109 123 4567'),
                     ])->columns(2),
                 Components\Section::make(__('system.operating_hours'))
                     ->schema([

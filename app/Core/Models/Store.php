@@ -27,6 +27,7 @@ class Store extends Model
         'address',
         'latitude',
         'longitude',
+        'phone',
         'open_time',
         'close_time',
         'is_active',
@@ -61,7 +62,7 @@ class Store extends Model
     public function getNameLocalized(string $locale = 'en', ?string $fallback = null): string
     {
         $localized = $this->name_localized;
-        
+
         if (is_array($localized) && isset($localized[$locale])) {
             return $localized[$locale];
         }

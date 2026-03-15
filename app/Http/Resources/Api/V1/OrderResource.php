@@ -52,6 +52,11 @@ class OrderResource extends JsonResource
                     'name' => $this->store->name,
                     'latitude' => $this->store->latitude,
                     'longitude' => $this->store->longitude,
+                    'address'=>$this->store->address,
+                    'open_time' => $this->store->open_time,
+                    'close_time' => $this->store->close_time,
+                    'is_open_now' => $this->store->is_open_now  ?? $this->store->isOpenNow(),
+                    'phone'=>$this->store->phone
                 ];
             }),
             'created_at' => $this->created_at->toIso8601String(),
