@@ -5,6 +5,7 @@ namespace App\Core\Services;
 use App\Core\Models\Customer;
 use App\Core\Repositories\CustomerRepository;
 use App\Core\Repositories\CustomerOtpRepository;
+use App\Core\Repositories\LoyaltyWalletRepository;
 use App\Helpers\FileHelper;
 use App\Http\Exceptions\AccountNotVerifiedException;
 use App\Http\Exceptions\InvalidOtpException;
@@ -20,7 +21,8 @@ class CustomerAuthService
     public function __construct(
         private CustomerRepository $customerRepository,
         private OtpService $otpService,
-        private FileHelper $fileHelper
+        private FileHelper $fileHelper,
+        private LoyaltyWalletRepository $loyaltyWalletRepository
     ) {
     }
 
@@ -78,6 +80,20 @@ class CustomerAuthService
         // Mark OTP as verified and delete it
         $otpRecord->markAsVerified();
         app(CustomerOtpRepository::class)->deleteByEmail($email, 'verification');
+
+        // Award welcome bonus points
+        $welcomeBonus = (int) config('core.loyalty.welcome_bonus_points', 100);
+        if ($welcomeBonus > 0) {
+            $wallet = $this->loyaltyWalletRepository->getOrCreateForCustomer($customer->id);
+            $this->loyaltyWalletRepository->addPoints(
+                $wallet,
+                $welcomeBonus,
+                'earned',
+                'Welcome bonus points',
+                'welcome_bonus',
+                null
+            );
+        }
 
         return $customer;
     }
