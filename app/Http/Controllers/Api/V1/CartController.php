@@ -35,14 +35,14 @@ class CartController extends Controller
     private function getCartRelationships(bool $includeProduct = false): array
     {
         $relationships = ['items', 'promoCode'];
-        
+
         if ($includeProduct) {
             $relationships[] = 'items.product.addonModifiers';
             $relationships[] = 'items.product.category';
         } else {
             $relationships[] = 'items.product';
         }
-        
+
         return $relationships;
     }
 
@@ -54,7 +54,7 @@ class CartController extends Controller
     {
         // Try to find existing cart
         $cart = $this->cartRepository->findActiveCart($customerId);
-        
+
         if ($cart) {
             return $cart;
         }
@@ -65,11 +65,11 @@ class CartController extends Controller
             $store = Store::where('is_active', true)
                 ->where('receive_online_orders', true)
                 ->first();
-            
+
             if (!$store) {
                 return null; // No active store available
             }
-            
+
             $storeId = $store->id;
         }
 
@@ -170,7 +170,7 @@ class CartController extends Controller
     public function index(Request $request): JsonResponse
     {
         $customer = auth('api')->user();
-        
+
         $includeProduct = $request->boolean('include_product', false);
 
         $cart = $this->cartRepository->findActiveCart($customer->id, $includeProduct);
@@ -410,8 +410,8 @@ class CartController extends Controller
 
             $includeProduct = $request->boolean('include_product', false);
             return apiSuccess(
-                new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
-                'item_added', 
+                new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
+                'item_added',
                 201
             );
         }
@@ -500,6 +500,7 @@ class CartController extends Controller
     {
         $request->validate([
             'quantity' => 'required|integer|min:1',
+            'note' => 'nullable|string|max:1000',
         ]);
 
         $customer = auth('api')->user();
@@ -511,12 +512,12 @@ class CartController extends Controller
         }
 
         $cartItem = $cart->items()->findOrFail($id);
-        $this->cartRepository->updateItem($cartItem, ['quantity' => $request->input('quantity')]);
+        $this->cartRepository->updateItem($cartItem, ['quantity' => $request->input('quantity'), 'note' => $request->input('note')]);
         $this->cartRepository->recalculate($cart);
 
         $includeProduct = $request->boolean('include_product', false);
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
             'item_updated'
         );
     }
@@ -553,7 +554,7 @@ class CartController extends Controller
 
         $includeProduct = $request->boolean('include_product', false);
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
             'item_removed'
         );
     }
@@ -604,11 +605,11 @@ class CartController extends Controller
         // Ensure cart is recalculated first to get accurate subtotal
         $this->cartRepository->recalculate($cart);
         $cart->refresh();
-        
+
         // Ensure cart subtotal is calculated before validation
         $this->cartRepository->recalculate($cart);
         $cart->refresh();
-        
+
         if ($cart->subtotal < $promoCode->minimum_order_amount) {
             return apiError('MINIMUM_ORDER_NOT_MET', 'minimum_order_not_met', 400);
         }
@@ -622,7 +623,7 @@ class CartController extends Controller
 
         $includeProduct = $request->boolean('include_product', false);
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
             'promo_applied'
         );
     }
@@ -657,7 +658,7 @@ class CartController extends Controller
 
         $includeProduct = request()->boolean('include_product', false);
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))), 
+            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
             'promo_removed'
         );
     }
