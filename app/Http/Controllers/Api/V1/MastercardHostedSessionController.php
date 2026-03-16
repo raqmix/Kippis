@@ -27,6 +27,7 @@ class MastercardHostedSessionController extends Controller
             ->withBody('{}', 'application/json')
             ->post($url);
 
+        /** @var \Illuminate\Http\Client\Response $response */
         if (!$response->successful()) {
             Log::warning('Mastercard session failed', [
                 'status' => $response->status(),
@@ -45,8 +46,14 @@ class MastercardHostedSessionController extends Controller
             return apiError('SESSION_CREATE_FAILED', 'invalid_gateway_response', 502);
         }
 
+        $base = rtrim(config('mastercard.gateway'), '/');
+        $version = config('mastercard.api_version');
+        $checkoutJsUrl = "{$base}/checkout/version/{$version}/checkout.js";
+
         return apiSuccess([
-            'session_id' => $sessionId,
+            'session_id'      => $sessionId,
+            'merchant_id'     => $merchantId,
+            'checkout_js_url' => $checkoutJsUrl,
         ]);
     }
 }
