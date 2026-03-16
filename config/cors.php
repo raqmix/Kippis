@@ -22,9 +22,9 @@ return [
         'https://www.kippis.raversys.uk',
     ],
 
-    'allowed_origins_patterns' => [
+    'allowed_origins_patterns' => array_filter([
         env('CORS_ALLOWED_ORIGINS_PATTERNS', ''),
-    ],
+    ]),
 
     'allowed_headers' => ['*'],
 
