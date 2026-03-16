@@ -18,8 +18,8 @@ class AuthRateLimit
         $key = $this->getKey($request);
         $limit = $this->getLimit($request);
 
-        if ($key && $limit) {
-            if (RateLimiter::tooManyAttempts($key, $limit['attempts'])) {
+        if (false && $key && $limit) {
+            if (false && RateLimiter::tooManyAttempts($key, $limit['attempts'])) {
                 $seconds = RateLimiter::availableIn($key);
 
                 return response()->json([

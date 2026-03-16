@@ -22,9 +22,33 @@ class MastercardHostedSessionController extends Controller
         $version = config('mastercard.api_version');
         $url = "{$base}/api/rest/version/{$version}/merchant/{$merchantId}/session";
 
+        $customer = auth('api')->user();
+        $gatewayOrderId = 'ver_' . ($customer ? $customer->id : 'guest') . '_' . time();
+        $currency = config('mastercard.currency', 'EGP');
+        $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:3000'), '/');
+
+        $payload = [
+            'apiOperation' => 'CREATE_CHECKOUT_SESSION',
+            'order' => [
+                'id' => $gatewayOrderId,
+                'currency' => $currency
+            ],
+            'interaction' => [
+                'operation' => 'VERIFY',
+                'returnUrl' => "{$frontendUrl}/checkout?mpgs_return=1",
+                'merchant' => [
+                    'name' => 'Kippis'
+                ],
+                'displayControl' => [
+                    'billingAddress' => 'HIDE',
+                    'orderSummary' => 'HIDE'
+                ]
+            ]
+        ];
+
         $response = Http::withBasicAuth($apiUsername, $apiPassword)
             ->acceptJson()
-            ->withBody('{}', 'application/json')
+            ->withBody(json_encode($payload), 'application/json')
             ->post($url);
 
         /** @var \Illuminate\Http\Client\Response $response */
