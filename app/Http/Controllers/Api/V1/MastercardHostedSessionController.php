@@ -47,8 +47,8 @@ class MastercardHostedSessionController extends Controller
         }
 
         $base = rtrim(config('mastercard.gateway'), '/');
-        $version = config('mastercard.api_version');
-        $checkoutJsUrl = "{$base}/checkout/version/{$version}/checkout.js";
+        // For API v63+, MPGS uses a static un-versioned checkout.js URL
+        $checkoutJsUrl = "{$base}/static/checkout/checkout.min.js";
 
         return apiSuccess([
             'session_id'      => $sessionId,
