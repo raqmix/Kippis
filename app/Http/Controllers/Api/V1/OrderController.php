@@ -76,7 +76,10 @@ class OrderController extends Controller
 
         $paymentMethod = PaymentMethod::findOrFail($request->input('payment_method_id'));
         if ($paymentMethod->code === 'card') {
-            $request->validate(['mastercard_gateway_order_id' => 'required|string|max:80']);
+            $request->validate([
+                'mastercard_gateway_order_id' => 'required|string|max:80',
+                'mastercard_result_indicator'  => 'required|string|max:128',
+            ]);
         }
 
         $cart = $this->cartRepository->findActiveCart($customer->id);
@@ -91,6 +94,7 @@ class OrderController extends Controller
         if ($paymentMethod->code === 'card') {
             $result = $this->mastercardPayment->verifyPayment(
                 $request->input('mastercard_gateway_order_id'),
+                $request->input('mastercard_result_indicator'),
                 $customer->id
             );
             if (!($result['success'] ?? false)) {

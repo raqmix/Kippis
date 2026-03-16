@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Core\Repositories\CartRepository;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -72,9 +73,14 @@ class MastercardHostedSessionController extends Controller
 
         $session = $response->json('session');
         $sessionId = $session['id'] ?? null;
-        if (!$sessionId) {
+        $successIndicator = $response->json('successIndicator');
+        if (!$sessionId || !$successIndicator) {
             return apiError('SESSION_CREATE_FAILED', 'invalid_gateway_response', 502);
         }
+
+        // Store the success indicator server-side; compared against the resultIndicator
+        // returned by the Lightbox complete() callback to verify genuine payment.
+        Cache::put("mpgs_success_{$gatewayOrderId}", $successIndicator, now()->addMinutes(30));
 
         $base = rtrim(config('mastercard.gateway'), '/');
         // For API v63+, MPGS uses a static un-versioned checkout.js URL
