@@ -66,7 +66,7 @@ class OrderController extends Controller
         $request->validate([
             'payment_method_id' => 'required|integer|exists:payment_methods,id',
             'store_id' => 'nullable|exists:stores,id',
-            'mastercard_session_id' => 'nullable|string|max:64',
+            'mastercard_session_id' => 'nullable|string|max:100',
         ]);
 
         $customer = auth('api')->user();
@@ -76,10 +76,7 @@ class OrderController extends Controller
 
         $paymentMethod = PaymentMethod::findOrFail($request->input('payment_method_id'));
         if ($paymentMethod->code === 'card') {
-            $request->validate([
-                'mastercard_gateway_order_id' => 'required|string|max:80',
-                'mastercard_result_indicator'  => 'required|string|max:128',
-            ]);
+            $request->validate(['mastercard_session_id' => 'required|string|max:100']);
         }
 
         $cart = $this->cartRepository->findActiveCart($customer->id);
@@ -92,16 +89,21 @@ class OrderController extends Controller
         $cart->refresh();
 
         if ($paymentMethod->code === 'card') {
-            $result = $this->mastercardPayment->verifyPayment(
-                $request->input('mastercard_gateway_order_id'),
-                $request->input('mastercard_result_indicator'),
-                $customer->id
+            $gatewayOrderId = 'ord_' . $customer->id . '_' . time();
+            $amount = number_format((float) $cart->total, 2, '.', '');
+            $currency = config('mastercard.currency', 'EGP');
+            $result = $this->mastercardPayment->pay(
+                $gatewayOrderId,
+                'pay_1',
+                $amount,
+                $currency,
+                $request->input('mastercard_session_id')
             );
             if (!($result['success'] ?? false)) {
                 return apiError(
                     $result['error'] ?? 'PAY_FAILED',
                     $result['message'] ?? 'payment_gateway_error',
-                    $result['status'] ?? 402
+                    $result['status'] ?? 502
                 );
             }
         }
