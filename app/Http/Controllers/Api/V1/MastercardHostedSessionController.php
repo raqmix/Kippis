@@ -35,7 +35,7 @@ class MastercardHostedSessionController extends Controller
                 'currency' => $currency
             ],
             'interaction' => [
-                'operation' => 'PURCHASE',
+                'operation' => 'NONE',
                 'returnUrl' => "{$frontendUrl}/checkout?mpgs_return=1"
             ]
         ];

@@ -13,6 +13,7 @@ class MastercardPaymentService
         $merchantId = config('mastercard.merchant_id');
         $apiUsername = config('mastercard.api_username') ?: $merchantId;
         $apiPassword = config('mastercard.api_password');
+
         if (!$merchantId || !$apiPassword) {
             return ['success' => false, 'error' => 'PAYMENT_CONFIG_MISSING', 'message' => 'payment_gateway_not_configured', 'status' => 503];
         }
@@ -29,10 +30,7 @@ class MastercardPaymentService
             ],
             'session' => [
                 'id' => $sessionId,
-            ],
-            'sourceOfFunds' => [
-                'type' => 'CARD',
-            ],
+            ]
         ];
 
         try {
