@@ -49,7 +49,7 @@ class MastercardHostedSessionController extends Controller
             ],
             'interaction' => [
                 'operation' => 'PURCHASE',
-                'returnUrl' => "{$frontendUrl}/checkout?mpgs_return=1"
+                'returnUrl' => "{$frontendUrl}/checkout?mpgs_return=1&mpgs_order={$gatewayOrderId}"
             ]
         ];
 
