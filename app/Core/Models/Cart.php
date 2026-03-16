@@ -78,8 +78,20 @@ class Cart extends Model
      */
     public function recalculate(): void
     {
+        // Ensure product is loaded so we can fall back to base_price for items
+        // whose snapshot price is 0 (e.g. added before prices were set).
+        $this->load('items.product');
+
         $subtotal = $this->items->sum(function ($item) {
-            return $item->price * $item->quantity;
+            $price = (float) $item->price;
+            if ($price === 0.0 && $item->product) {
+                $price = (float) $item->product->base_price;
+            }
+            // Also persist the corrected price so future recalculations are accurate.
+            if ($price !== (float) $item->price) {
+                $item->update(['price' => $price]);
+            }
+            return $price * $item->quantity;
         });
 
         $discount = 0;
