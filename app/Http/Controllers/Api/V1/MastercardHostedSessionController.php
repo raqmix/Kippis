@@ -28,21 +28,15 @@ class MastercardHostedSessionController extends Controller
         $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:3000'), '/');
 
         $payload = [
-            'apiOperation' => 'CREATE_CHECKOUT_SESSION',
+            'apiOperation' => 'INITIATE_CHECKOUT',
             'order' => [
                 'id' => $gatewayOrderId,
+                'amount' => '100.00',
                 'currency' => $currency
             ],
             'interaction' => [
-                'operation' => 'VERIFY',
-                'returnUrl' => "{$frontendUrl}/checkout?mpgs_return=1",
-                'merchant' => [
-                    'name' => 'Kippis'
-                ],
-                'displayControl' => [
-                    'billingAddress' => 'HIDE',
-                    'orderSummary' => 'HIDE'
-                ]
+                'operation' => 'PURCHASE',
+                'returnUrl' => "{$frontendUrl}/checkout?mpgs_return=1"
             ]
         ];
 
