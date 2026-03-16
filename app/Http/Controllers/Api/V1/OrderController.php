@@ -76,7 +76,7 @@ class OrderController extends Controller
 
         $paymentMethod = PaymentMethod::findOrFail($request->input('payment_method_id'));
         if ($paymentMethod->code === 'card') {
-            $request->validate(['mastercard_session_id' => 'required|string|max:64']);
+            $request->validate(['mastercard_gateway_order_id' => 'required|string|max:80']);
         }
 
         $cart = $this->cartRepository->findActiveCart($customer->id);
@@ -89,22 +89,15 @@ class OrderController extends Controller
         $cart->refresh();
 
         if ($paymentMethod->code === 'card') {
-            $gatewayOrderId = 'ord_' . $customer->id . '_' . time();
-            $transactionId = 'pay_1';
-            $amount = number_format((float) $cart->total, 2, '.', '');
-            $currency = config('mastercard.currency', 'EGP');
-            $result = $this->mastercardPayment->pay(
-                $gatewayOrderId,
-                $transactionId,
-                $amount,
-                $currency,
-                $request->input('mastercard_session_id')
+            $result = $this->mastercardPayment->verifyPayment(
+                $request->input('mastercard_gateway_order_id'),
+                $customer->id
             );
             if (!($result['success'] ?? false)) {
                 return apiError(
                     $result['error'] ?? 'PAY_FAILED',
                     $result['message'] ?? 'payment_gateway_error',
-                    $result['status'] ?? 502
+                    $result['status'] ?? 402
                 );
             }
         }

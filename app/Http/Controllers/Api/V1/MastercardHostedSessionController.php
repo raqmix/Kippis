@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Core\Repositories\CartRepository;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 
 class MastercardHostedSessionController extends Controller
 {
+    public function __construct(private CartRepository $cartRepository) {}
+
     public function createSession(): JsonResponse
     {
         $merchantId = config('mastercard.merchant_id');
@@ -23,7 +26,16 @@ class MastercardHostedSessionController extends Controller
         $url = "{$base}/api/rest/version/{$version}/merchant/{$merchantId}/session";
 
         $customer = auth('api')->user();
-        $gatewayOrderId = 'ver_' . ($customer ? $customer->id : 'guest') . '_' . time();
+
+        $cart = $this->cartRepository->findActiveCart($customer->id);
+        if (!$cart || $cart->items->isEmpty()) {
+            return apiError('CART_EMPTY', 'cart_empty', 400);
+        }
+        $this->cartRepository->recalculate($cart);
+        $cart->refresh();
+
+        $amount = number_format((float) $cart->total, 2, '.', '');
+        $gatewayOrderId = 'mpgs_' . $customer->id . '_' . time();
         $currency = config('mastercard.currency', 'EGP');
         $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:3000'), '/');
 
@@ -31,11 +43,11 @@ class MastercardHostedSessionController extends Controller
             'apiOperation' => 'INITIATE_CHECKOUT',
             'order' => [
                 'id' => $gatewayOrderId,
-                'amount' => '100.00',
+                'amount' => $amount,
                 'currency' => $currency
             ],
             'interaction' => [
-                'operation' => 'NONE',
+                'operation' => 'PURCHASE',
                 'returnUrl' => "{$frontendUrl}/checkout?mpgs_return=1"
             ]
         ];
@@ -69,9 +81,10 @@ class MastercardHostedSessionController extends Controller
         $checkoutJsUrl = "{$base}/static/checkout/checkout.min.js";
 
         return apiSuccess([
-            'session_id'      => $sessionId,
-            'merchant_id'     => $merchantId,
-            'checkout_js_url' => $checkoutJsUrl,
+            'session_id'       => $sessionId,
+            'gateway_order_id' => $gatewayOrderId,
+            'merchant_id'      => $merchantId,
+            'checkout_js_url'  => $checkoutJsUrl,
         ]);
     }
 }
