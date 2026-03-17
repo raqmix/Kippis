@@ -8,5 +8,5 @@ return [
     'api_username' => env('MASTERCARD_API_USERNAME'),
     'api_password' => env('MASTERCARD_API_PASSWORD'),
     'currency' => env('MASTERCARD_CURRENCY', 'EGP'),
-    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+    'frontend_url' => env('MASTERCARD_FRONTEND_URL', env('FRONTEND_URL', 'http://localhost:3000')),
 ];

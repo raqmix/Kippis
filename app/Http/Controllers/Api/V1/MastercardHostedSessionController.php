@@ -43,10 +43,12 @@ class MastercardHostedSessionController extends Controller
                     'status' => $response->status(),
                     'body'   => $response->json() ?? $response->body(),
                 ]);
+                // Always return 502 — never forward MPGS 401/403 to the browser
+                // as that triggers the frontend auth interceptor and logs the user out.
                 return apiError(
                     'SESSION_CREATE_FAILED',
                     $response->json('error.explanation') ?? $response->json('error.message') ?? 'payment_gateway_error',
-                    $response->status()
+                    502
                 );
             }
 
