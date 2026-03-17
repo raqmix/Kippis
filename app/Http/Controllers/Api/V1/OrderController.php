@@ -101,7 +101,7 @@ class OrderController extends Controller
 
             // Step 1: INITIATE_AUTHENTICATION — creates the transaction, checks if 3DS needed
             $initResult = $this->mastercardPayment->initiateAuthentication(
-                $gatewayOrderId, 'auth_1', $amount, $currency, $sessionId, $callbackUrl
+                $gatewayOrderId, 'auth_1', $currency, $sessionId
             );
             if (!($initResult['success'] ?? false)) {
                 return apiError(

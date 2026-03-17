@@ -35,6 +35,10 @@ class MastercardPaymentService
      * Creates the transaction on the gateway and determines whether 3DS is
      * required for this card / order.
      *
+     * Correct payload: only apiOperation + order.currency + session.id.
+     * Do NOT include order.amount, authentication.*, or sourceOfFunds — MPGS
+     * rejects them as unexpected parameters at this stage.
+     *
      * Returns:
      *   ['success' => true, 'authentication_required' => false] — 3DS not required, call PAY directly
      *   ['success' => true, 'authentication_required' => true]  — must call authenticatePayer() next
@@ -43,10 +47,8 @@ class MastercardPaymentService
     public function initiateAuthentication(
         string $gatewayOrderId,
         string $transactionId,
-        string $amount,
         string $currency,
-        string $sessionId,
-        string $redirectResponseUrl
+        string $sessionId
     ): array {
         [, $apiUsername, $apiPassword] = $this->authHeaders();
         if (!$apiUsername || !$apiPassword) {
@@ -54,15 +56,11 @@ class MastercardPaymentService
         }
 
         $url     = $this->txUrl($gatewayOrderId, $transactionId);
+        // Only these three fields are accepted by INITIATE_AUTHENTICATION
         $payload = [
-            'apiOperation'   => 'INITIATE_AUTHENTICATION',
-            'authentication' => [
-                'initiator'           => 'MERCHANT',
-                'redirectResponseUrl' => $redirectResponseUrl,
-                'purpose'             => 'PAYMENT_TRANSACTION',
-            ],
-            'order'   => ['amount' => $amount, 'currency' => $currency],
-            'session' => ['id' => $sessionId],
+            'apiOperation' => 'INITIATE_AUTHENTICATION',
+            'order'        => ['currency' => $currency],
+            'session'      => ['id' => $sessionId],
         ];
 
         try {
@@ -85,7 +83,7 @@ class MastercardPaymentService
         }
 
         if ($statusCode < 200 || $statusCode >= 300) {
-            Log::warning('Mastercard INITIATE_AUTHENTICATION unexpected status', ['status' => $statusCode, 'body' => $body]);
+            Log::warning('Mastercard INITIATE_AUTHENTICATION failed', ['status' => $statusCode, 'body' => $body]);
             return [
                 'success' => false, 'error' => 'INITIATE_AUTH_FAILED',
                 'message' => $body['error']['explanation'] ?? $body['error']['message'] ?? 'payment_gateway_error',
@@ -93,16 +91,11 @@ class MastercardPaymentService
             ];
         }
 
-        // If gatewayRecommendation is PROCEED and no 3DS, skip authenticatePayer
-        $recommendation    = $body['response']['gatewayRecommendation'] ?? '';
-        $authRequired      = ($body['authentication']['3ds']['authenticationStatus'] ?? '') !== 'AUTHENTICATION_NOT_SUPPORTED'
-                          && $recommendation !== 'PROCEED';
+        // PROCEED means 3DS is not required; anything else means we must call AUTHENTICATE_PAYER
+        $recommendation      = $body['response']['gatewayRecommendation'] ?? '';
+        $authenticationRequired = ($recommendation !== 'PROCEED');
 
-        // Simpler: any non-PROCEED recommendation or presence of versioning means 3DS needed
-        $versioningStatus  = $body['authentication']['3ds2']['transactionStatus'] ?? null;
-        $authRequired      = !($recommendation === 'PROCEED' && $versioningStatus === null);
-
-        return ['success' => true, 'authentication_required' => $authRequired];
+        return ['success' => true, 'authentication_required' => $authenticationRequired];
     }
 
     /**
