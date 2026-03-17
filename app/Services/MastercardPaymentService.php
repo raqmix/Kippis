@@ -56,11 +56,14 @@ class MastercardPaymentService
         }
 
         $url     = $this->txUrl($gatewayOrderId, $transactionId);
-        // Only these three fields are accepted by INITIATE_AUTHENTICATION
         $payload = [
-            'apiOperation' => 'INITIATE_AUTHENTICATION',
-            'order'        => ['currency' => $currency],
-            'session'      => ['id' => $sessionId],
+            'apiOperation'   => 'INITIATE_AUTHENTICATION',
+            'authentication' => [
+                'channel' => 'BROWSER',
+                'purpose' => 'PAYMENT_TRANSACTION',
+            ],
+            'order'          => ['currency' => $currency],
+            'session'        => ['id' => $sessionId],
         ];
 
         try {
