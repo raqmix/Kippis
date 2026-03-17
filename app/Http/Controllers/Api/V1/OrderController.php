@@ -184,7 +184,8 @@ class OrderController extends Controller
         $pending     = Cache::get('mpgs_pending_' . $ref);
 
         if (!$pending) {
-            return redirect()->away($frontendUrl . '/checkout?payment_error=session_expired');
+            $url = htmlspecialchars($frontendUrl . '/checkout?payment_error=session_expired', ENT_QUOTES, 'UTF-8');
+            return response('<html><head></head><body><script>window.top.location.href="' . $url . '"</script></body></html>', 200, ['Content-Type' => 'text/html']);
         }
 
         $result = $this->mastercardPayment->pay(
@@ -197,7 +198,8 @@ class OrderController extends Controller
 
         if (!($result['success'] ?? false)) {
             Cache::forget('mpgs_pending_' . $ref);
-            return redirect()->away($frontendUrl . '/checkout?payment_error=payment_failed');
+            $url = htmlspecialchars($frontendUrl . '/checkout?payment_error=payment_failed', ENT_QUOTES, 'UTF-8');
+            return response('<html><head></head><body><script>window.top.location.href="' . $url . '"</script></body></html>', 200, ['Content-Type' => 'text/html']);
         }
 
         // PAY succeeded — create the order from the saved cart
@@ -207,7 +209,8 @@ class OrderController extends Controller
             Cache::forget('mpgs_pending_' . $ref);
             // Payment charged but order could not be created — log and surface error
             \Illuminate\Support\Facades\Log::error('3DS return: cart not found after PAY', $pending);
-            return redirect()->away($frontendUrl . '/checkout?payment_error=order_failed');
+            $url = htmlspecialchars($frontendUrl . '/checkout?payment_error=order_failed', ENT_QUOTES, 'UTF-8');
+            return response('<html><head></head><body><script>window.top.location.href="' . $url . '"</script></body></html>', 200, ['Content-Type' => 'text/html']);
         }
 
         $order = $this->orderRepository->createFromCart(
@@ -219,7 +222,13 @@ class OrderController extends Controller
         $this->cartRepository->abandon($cart);
         Cache::forget('mpgs_pending_' . $ref);
 
-        return redirect()->away($frontendUrl . '/orders/' . $order->id . '?success=true');
+        // Use window.top so the redirect breaks out of the 3DS iframe on the frontend.
+        $successUrl = htmlspecialchars($frontendUrl . '/orders/' . $order->id . '?success=true', ENT_QUOTES, 'UTF-8');
+        return response(
+            '<html><head></head><body><script>window.top.location.href="' . $successUrl . '"</script></body></html>',
+            200,
+            ['Content-Type' => 'text/html']
+        );
     }
 
     /**
