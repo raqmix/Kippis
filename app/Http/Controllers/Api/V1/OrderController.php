@@ -14,6 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -64,9 +65,10 @@ class OrderController extends Controller
     public function checkout(Request $request): JsonResponse
     {
         $request->validate([
-            'payment_method_id' => 'required|integer|exists:payment_methods,id',
-            'store_id' => 'nullable|exists:stores,id',
+            'payment_method_id'  => 'required|integer|exists:payment_methods,id',
+            'store_id'           => 'nullable|exists:stores,id',
             'mastercard_session_id' => 'nullable|string|max:100',
+            'browser_details'    => 'nullable|array',
         ]);
 
         $customer = auth('api')->user();
@@ -90,14 +92,49 @@ class OrderController extends Controller
 
         if ($paymentMethod->code === 'card') {
             $gatewayOrderId = 'ord_' . $customer->id . '_' . time();
-            $amount = number_format((float) $cart->total, 2, '.', '');
-            $currency = config('mastercard.currency', 'EGP');
+            $amount         = number_format((float) $cart->total, 2, '.', '');
+            $currency       = config('mastercard.currency', 'EGP');
+            $sessionId      = $request->input('mastercard_session_id');
+
+            // 3DS authentication before charging
+            $callbackUrl    = config('app.url') . '/api/v1/payment/mastercard/3ds-return/' . $gatewayOrderId;
+            $browserDetails = $request->input('browser_details', []);
+            $browserDetails['ipAddress'] = $request->ip();
+
+            $authResult = $this->mastercardPayment->authenticatePayer(
+                $gatewayOrderId, 'auth_1', $amount, $currency, $sessionId, $callbackUrl, $browserDetails
+            );
+
+            if (!($authResult['success'] ?? false)) {
+                return apiError(
+                    $authResult['error'] ?? 'AUTH_FAILED',
+                    $authResult['message'] ?? 'payment_gateway_error',
+                    $authResult['status'] ?? 502
+                );
+            }
+
+            if ($authResult['requires_redirect'] ?? false) {
+                // Store pending payment data so we can complete it after the 3DS redirect
+                Cache::put('mpgs_pending_' . $gatewayOrderId, [
+                    'customer_id'       => $customer->id,
+                    'payment_method_id' => $paymentMethod->id,
+                    'store_id'          => $request->input('store_id') ?? $cart->store_id,
+                    'session_id'        => $sessionId,
+                    'gateway_order_id'  => $gatewayOrderId,
+                    'amount'            => $amount,
+                    'currency'          => $currency,
+                    'cart_id'           => $cart->id,
+                ], now()->addMinutes(30));
+
+                return apiSuccess([
+                    'requires_3ds' => true,
+                    'redirect_html' => $authResult['redirect_html'],
+                ]);
+            }
+
+            // Frictionless / no 3DS — charge immediately
             $result = $this->mastercardPayment->pay(
-                $gatewayOrderId,
-                'pay_1',
-                $amount,
-                $currency,
-                $request->input('mastercard_session_id')
+                $gatewayOrderId, 'pay_1', $amount, $currency, $sessionId
             );
             if (!($result['success'] ?? false)) {
                 return apiError(
@@ -118,6 +155,60 @@ class OrderController extends Controller
             'pickup_code' => $order->pickup_code,
             'total' => (float) $order->total,
         ], 'order_created', 201);
+    }
+
+    /**
+     * Handle the browser redirect back from the 3DS card-issuer challenge.
+     *
+     * This endpoint is NOT authenticated — the browser is redirected here by
+     * the card issuer after the 3DS challenge. We look up the pending payment
+     * data saved in cache, charge the session, create the order, then redirect
+     * the user to the frontend confirmation page.
+     *
+     * NOTE: This route must be outside the auth:api middleware group.
+     */
+    public function handle3dsReturn(Request $request, string $ref): \Symfony\Component\HttpFoundation\Response
+    {
+        $frontendUrl = rtrim(config('mastercard.frontend_url', 'http://localhost:3000'), '/');
+        $pending     = Cache::get('mpgs_pending_' . $ref);
+
+        if (!$pending) {
+            return redirect()->away($frontendUrl . '/checkout?payment_error=session_expired');
+        }
+
+        $result = $this->mastercardPayment->pay(
+            $pending['gateway_order_id'],
+            'pay_1',
+            $pending['amount'],
+            $pending['currency'],
+            $pending['session_id']
+        );
+
+        if (!($result['success'] ?? false)) {
+            Cache::forget('mpgs_pending_' . $ref);
+            return redirect()->away($frontendUrl . '/checkout?payment_error=payment_failed');
+        }
+
+        // PAY succeeded — create the order from the saved cart
+        $cart = $this->cartRepository->findActiveCart($pending['customer_id']);
+
+        if (!$cart || $cart->items->isEmpty()) {
+            Cache::forget('mpgs_pending_' . $ref);
+            // Payment charged but order could not be created — log and surface error
+            \Illuminate\Support\Facades\Log::error('3DS return: cart not found after PAY', $pending);
+            return redirect()->away($frontendUrl . '/checkout?payment_error=order_failed');
+        }
+
+        $order = $this->orderRepository->createFromCart(
+            $cart,
+            $pending['payment_method_id'],
+            $pending['store_id']
+        );
+
+        $this->cartRepository->abandon($cart);
+        Cache::forget('mpgs_pending_' . $ref);
+
+        return redirect()->away($frontendUrl . '/orders/' . $order->id . '?success=true');
     }
 
     /**

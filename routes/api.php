@@ -97,6 +97,11 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/mastercard/session', [\App\Http\Controllers\Api\V1\MastercardHostedSessionController::class, 'createSession']);
     });
 
+    // 3DS return — no auth, the browser is redirected here by the card issuer
+    Route::match(['get', 'post'], 'v1/payment/mastercard/3ds-return/{ref}', [
+        \App\Http\Controllers\Api\V1\OrderController::class, 'handle3dsReturn',
+    ]);
+
     // ==================== ORDERS APIs ====================
     Route::middleware('auth:api')->prefix('v1/orders')->group(function () {
         Route::post('/checkout', [\App\Http\Controllers\Api\V1\OrderController::class, 'checkout']);
