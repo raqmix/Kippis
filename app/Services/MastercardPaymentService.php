@@ -59,7 +59,7 @@ class MastercardPaymentService
         $payload = [
             'apiOperation'   => 'INITIATE_AUTHENTICATION',
             'authentication' => [
-                'channel' => 'BROWSER',
+                'channel' => 'PAYER_BROWSER',
                 'purpose' => 'PAYMENT_TRANSACTION',
             ],
             'order'          => ['currency' => $currency],
