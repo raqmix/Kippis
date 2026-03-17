@@ -8,15 +8,115 @@ use Illuminate\Support\Facades\Log;
 
 class MastercardPaymentService
 {
+    private function makeClient(): Client
+    {
+        return new Client(['timeout' => 30]);
+    }
+
+    private function authHeaders(): array
+    {
+        $merchantId  = config('mastercard.merchant_id');
+        $apiUsername = config('mastercard.api_username') ?: $merchantId;
+        $apiPassword = config('mastercard.api_password');
+        return [$merchantId, $apiUsername, $apiPassword];
+    }
+
+    private function txUrl(string $gatewayOrderId, string $transactionId): string
+    {
+        $base    = rtrim(config('mastercard.gateway'), '/');
+        $version = config('mastercard.api_version');
+        [$merchantId] = $this->authHeaders();
+        return "{$base}/api/rest/version/{$version}/merchant/{$merchantId}/order/{$gatewayOrderId}/transaction/{$transactionId}";
+    }
+
     /**
-     * Run AUTHENTICATE_PAYER (3DS2) for a Hosted Session.
+     * Step 1 of 3DS: INITIATE_AUTHENTICATION.
+     *
+     * Creates the transaction on the gateway and determines whether 3DS is
+     * required for this card / order.
      *
      * Returns:
-     *   ['success' => true, 'requires_redirect' => false]  — frictionless / no 3DS
-     *   ['success' => true, 'requires_redirect' => true, 'redirect_html' => '<base64 HTML>']
-     *   ['success' => false, 'error' => ..., 'message' => ..., 'status' => ...]
+     *   ['success' => true, 'authentication_required' => false] — 3DS not required, call PAY directly
+     *   ['success' => true, 'authentication_required' => true]  — must call authenticatePayer() next
+     *   ['success' => false, ...]
+     */
+    public function initiateAuthentication(
+        string $gatewayOrderId,
+        string $transactionId,
+        string $amount,
+        string $currency,
+        string $sessionId,
+        string $redirectResponseUrl
+    ): array {
+        [, $apiUsername, $apiPassword] = $this->authHeaders();
+        if (!$apiUsername || !$apiPassword) {
+            return ['success' => false, 'error' => 'PAYMENT_CONFIG_MISSING', 'message' => 'payment_gateway_not_configured', 'status' => 503];
+        }
+
+        $url     = $this->txUrl($gatewayOrderId, $transactionId);
+        $payload = [
+            'apiOperation'   => 'INITIATE_AUTHENTICATION',
+            'authentication' => [
+                'initiator'           => 'MERCHANT',
+                'redirectResponseUrl' => $redirectResponseUrl,
+                'purpose'             => 'PAYMENT_TRANSACTION',
+            ],
+            'order'   => ['amount' => $amount, 'currency' => $currency],
+            'session' => ['id' => $sessionId],
+        ];
+
+        try {
+            $response     = $this->makeClient()->put($url, [
+                'auth'    => [$apiUsername, $apiPassword],
+                'headers' => ['Accept' => 'application/json', 'Content-Type' => 'application/json'],
+                'body'    => json_encode($payload),
+            ]);
+            $statusCode   = $response->getStatusCode();
+            $body         = json_decode($response->getBody()->getContents(), true);
+        } catch (RequestException $e) {
+            $statusCode = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 502;
+            $body       = $e->hasResponse() ? json_decode($e->getResponse()->getBody()->getContents(), true) : null;
+            Log::error('Mastercard INITIATE_AUTHENTICATION failed', ['status' => $statusCode, 'body' => $body]);
+            return [
+                'success' => false, 'error' => 'INITIATE_AUTH_FAILED',
+                'message' => $body['error']['explanation'] ?? $body['error']['message'] ?? $e->getMessage(),
+                'status'  => $statusCode,
+            ];
+        }
+
+        if ($statusCode < 200 || $statusCode >= 300) {
+            Log::warning('Mastercard INITIATE_AUTHENTICATION unexpected status', ['status' => $statusCode, 'body' => $body]);
+            return [
+                'success' => false, 'error' => 'INITIATE_AUTH_FAILED',
+                'message' => $body['error']['explanation'] ?? $body['error']['message'] ?? 'payment_gateway_error',
+                'status'  => $statusCode,
+            ];
+        }
+
+        // If gatewayRecommendation is PROCEED and no 3DS, skip authenticatePayer
+        $recommendation    = $body['response']['gatewayRecommendation'] ?? '';
+        $authRequired      = ($body['authentication']['3ds']['authenticationStatus'] ?? '') !== 'AUTHENTICATION_NOT_SUPPORTED'
+                          && $recommendation !== 'PROCEED';
+
+        // Simpler: any non-PROCEED recommendation or presence of versioning means 3DS needed
+        $versioningStatus  = $body['authentication']['3ds2']['transactionStatus'] ?? null;
+        $authRequired      = !($recommendation === 'PROCEED' && $versioningStatus === null);
+
+        return ['success' => true, 'authentication_required' => $authRequired];
+    }
+
+    /**
+     * Step 2 of 3DS: AUTHENTICATE_PAYER.
      *
-     * @param array $browserDetails Keys: colorDepth, language, screenHeight, screenWidth, timeZone, userAgent
+     * Must be called only after a successful INITIATE_AUTHENTICATION that returns
+     * authentication_required = true. Uses the same transactionId.
+     *
+     * Returns:
+     *   ['success' => true, 'requires_redirect' => false]  — frictionless / no challenge
+     *   ['success' => true, 'requires_redirect' => true, 'redirect_html' => '<base64 HTML>']
+     *   ['success' => false, ...]
+     *
+     * @param array $browserDetails Keys: colorDepth, language, screenHeight, screenWidth, timeZone, ipAddress
      */
     public function authenticatePayer(
         string $gatewayOrderId,
@@ -27,12 +127,12 @@ class MastercardPaymentService
         string $redirectResponseUrl,
         array  $browserDetails = []
     ): array {
-        $merchantId  = config('mastercard.merchant_id');
-        $apiUsername = config('mastercard.api_username') ?: $merchantId;
-        $apiPassword = config('mastercard.api_password');
-        $base        = rtrim(config('mastercard.gateway'), '/');
-        $version     = config('mastercard.api_version');
-        $url         = "{$base}/api/rest/version/{$version}/merchant/{$merchantId}/order/{$gatewayOrderId}/transaction/{$transactionId}";
+        [, $apiUsername, $apiPassword] = $this->authHeaders();
+        if (!$apiUsername || !$apiPassword) {
+            return ['success' => false, 'error' => 'PAYMENT_CONFIG_MISSING', 'message' => 'payment_gateway_not_configured', 'status' => 503];
+        }
+
+        $url = $this->txUrl($gatewayOrderId, $transactionId);
 
         $payload = [
             'apiOperation'   => 'AUTHENTICATE_PAYER',
@@ -51,25 +151,21 @@ class MastercardPaymentService
                     'screenWidth'                 => (int) ($browserDetails['screenWidth'] ?? 1366),
                     'timeZone'                    => (int) ($browserDetails['timeZone'] ?? 0),
                 ],
-                'ipAddress' => $browserDetails['ipAddress'] ?? null,
             ],
             'order'   => ['amount' => $amount, 'currency' => $currency],
             'session' => ['id' => $sessionId],
         ];
 
-        // Remove null ipAddress to avoid sending it when missing
-        if ($payload['device']['ipAddress'] === null) {
-            unset($payload['device']['ipAddress']);
+        if (!empty($browserDetails['ipAddress'])) {
+            $payload['device']['ipAddress'] = $browserDetails['ipAddress'];
         }
 
         try {
-            $client   = new Client(['timeout' => 30]);
-            $response = $client->put($url, [
+            $response     = $this->makeClient()->put($url, [
                 'auth'    => [$apiUsername, $apiPassword],
                 'headers' => ['Accept' => 'application/json', 'Content-Type' => 'application/json'],
                 'body'    => json_encode($payload),
             ]);
-
             $statusCode   = $response->getStatusCode();
             $responseBody = json_decode($response->getBody()->getContents(), true);
         } catch (RequestException $e) {
@@ -114,44 +210,34 @@ class MastercardPaymentService
     }
 
     /**
+     * Step 3: PAY — charge the session after authentication.
      *
      * The session must already contain card data (populated by the browser via
      * PaymentSession.updateSessionFromForm before calling this method).
      */
     public function pay(string $gatewayOrderId, string $transactionId, string $amount, string $currency, string $sessionId): array
     {
-        $merchantId = config('mastercard.merchant_id');
-        $apiUsername = config('mastercard.api_username') ?: $merchantId;
-        $apiPassword = config('mastercard.api_password');
+        [, $apiUsername, $apiPassword] = $this->authHeaders();
 
-        if (!$merchantId || !$apiPassword) {
+        if (!$apiUsername || !$apiPassword) {
             return ['success' => false, 'error' => 'PAYMENT_CONFIG_MISSING', 'message' => 'payment_gateway_not_configured', 'status' => 503];
         }
 
-        $base = rtrim(config('mastercard.gateway'), '/');
-        $version = config('mastercard.api_version');
-        $url = "{$base}/api/rest/version/{$version}/merchant/{$merchantId}/order/{$gatewayOrderId}/transaction/{$transactionId}";
+        $url = $this->txUrl($gatewayOrderId, $transactionId);
 
         $payload = [
             'apiOperation' => 'PAY',
-            'order' => [
-                'amount' => $amount,
-                'currency' => $currency,
-            ],
-            'session' => [
-                'id' => $sessionId,
-            ]
+            'order'        => ['amount' => $amount, 'currency' => $currency],
+            'session'      => ['id' => $sessionId],
         ];
 
         try {
-            $client = new Client(['timeout' => 30]);
-            $response = $client->put($url, [
-                'auth' => [$apiUsername, $apiPassword],
+            $response     = $this->makeClient()->put($url, [
+                'auth'    => [$apiUsername, $apiPassword],
                 'headers' => ['Accept' => 'application/json', 'Content-Type' => 'application/json'],
-                'body' => json_encode($payload),
+                'body'    => json_encode($payload),
             ]);
-
-            $statusCode = $response->getStatusCode();
+            $statusCode   = $response->getStatusCode();
             $responseBody = json_decode($response->getBody()->getContents(), true);
 
             if ($statusCode >= 200 && $statusCode < 300) {
@@ -161,19 +247,19 @@ class MastercardPaymentService
             Log::warning('Mastercard Pay failed', ['status' => $statusCode, 'body' => $responseBody]);
             return [
                 'success' => false,
-                'error' => 'PAY_FAILED',
+                'error'   => 'PAY_FAILED',
                 'message' => $responseBody['error']['explanation'] ?? $responseBody['error']['message'] ?? 'payment_gateway_error',
-                'status' => $statusCode,
+                'status'  => $statusCode,
             ];
         } catch (RequestException $e) {
-            $statusCode = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 502;
+            $statusCode   = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 502;
             $responseBody = $e->hasResponse() ? json_decode($e->getResponse()->getBody()->getContents(), true) : null;
             Log::warning('Mastercard Pay failed', ['status' => $statusCode, 'body' => $responseBody]);
             return [
                 'success' => false,
-                'error' => 'PAY_FAILED',
+                'error'   => 'PAY_FAILED',
                 'message' => $responseBody['error']['explanation'] ?? $responseBody['error']['message'] ?? $e->getMessage(),
-                'status' => $statusCode,
+                'status'  => $statusCode,
             ];
         }
     }

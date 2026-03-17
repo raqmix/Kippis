@@ -95,44 +95,55 @@ class OrderController extends Controller
             $amount         = number_format((float) $cart->total, 2, '.', '');
             $currency       = config('mastercard.currency', 'EGP');
             $sessionId      = $request->input('mastercard_session_id');
-
-            // 3DS authentication before charging
             $callbackUrl    = config('app.url') . '/api/v1/payment/mastercard/3ds-return/' . $gatewayOrderId;
             $browserDetails = $request->input('browser_details', []);
             $browserDetails['ipAddress'] = $request->ip();
 
-            $authResult = $this->mastercardPayment->authenticatePayer(
-                $gatewayOrderId, 'auth_1', $amount, $currency, $sessionId, $callbackUrl, $browserDetails
+            // Step 1: INITIATE_AUTHENTICATION — creates the transaction, checks if 3DS needed
+            $initResult = $this->mastercardPayment->initiateAuthentication(
+                $gatewayOrderId, 'auth_1', $amount, $currency, $sessionId, $callbackUrl
             );
-
-            if (!($authResult['success'] ?? false)) {
+            if (!($initResult['success'] ?? false)) {
                 return apiError(
-                    $authResult['error'] ?? 'AUTH_FAILED',
-                    $authResult['message'] ?? 'payment_gateway_error',
-                    $authResult['status'] ?? 502
+                    $initResult['error'] ?? 'INITIATE_AUTH_FAILED',
+                    $initResult['message'] ?? 'payment_gateway_error',
+                    $initResult['status'] ?? 502
                 );
             }
 
-            if ($authResult['requires_redirect'] ?? false) {
-                // Store pending payment data so we can complete it after the 3DS redirect
-                Cache::put('mpgs_pending_' . $gatewayOrderId, [
-                    'customer_id'       => $customer->id,
-                    'payment_method_id' => $paymentMethod->id,
-                    'store_id'          => $request->input('store_id') ?? $cart->store_id,
-                    'session_id'        => $sessionId,
-                    'gateway_order_id'  => $gatewayOrderId,
-                    'amount'            => $amount,
-                    'currency'          => $currency,
-                    'cart_id'           => $cart->id,
-                ], now()->addMinutes(30));
+            if ($initResult['authentication_required'] ?? false) {
+                // Step 2: AUTHENTICATE_PAYER — triggers the 3DS challenge (same transactionId)
+                $authResult = $this->mastercardPayment->authenticatePayer(
+                    $gatewayOrderId, 'auth_1', $amount, $currency, $sessionId, $callbackUrl, $browserDetails
+                );
+                if (!($authResult['success'] ?? false)) {
+                    return apiError(
+                        $authResult['error'] ?? 'AUTH_FAILED',
+                        $authResult['message'] ?? 'payment_gateway_error',
+                        $authResult['status'] ?? 502
+                    );
+                }
 
-                return apiSuccess([
-                    'requires_3ds' => true,
-                    'redirect_html' => $authResult['redirect_html'],
-                ]);
+                if ($authResult['requires_redirect'] ?? false) {
+                    // Store pending payment data so we can complete it after 3DS redirect
+                    Cache::put('mpgs_pending_' . $gatewayOrderId, [
+                        'customer_id'       => $customer->id,
+                        'payment_method_id' => $paymentMethod->id,
+                        'store_id'          => $request->input('store_id') ?? $cart->store_id,
+                        'session_id'        => $sessionId,
+                        'gateway_order_id'  => $gatewayOrderId,
+                        'amount'            => $amount,
+                        'currency'          => $currency,
+                    ], now()->addMinutes(30));
+
+                    return apiSuccess([
+                        'requires_3ds'  => true,
+                        'redirect_html' => $authResult['redirect_html'],
+                    ]);
+                }
             }
 
-            // Frictionless / no 3DS — charge immediately
+            // No 3DS (or frictionless) — charge immediately
             $result = $this->mastercardPayment->pay(
                 $gatewayOrderId, 'pay_1', $amount, $currency, $sessionId
             );
