@@ -169,7 +169,8 @@ class CategoryResource extends Resource
                     ->alignCenter(),
                 Tables\Columns\ImageColumn::make('image')
                     ->label(__('system.image'))
-                    ->circular(),
+                    ->circular()
+                    ->disk('public'),
                 Tables\Columns\TextColumn::make('name_json')
                     ->label(__('system.name'))
                     ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))

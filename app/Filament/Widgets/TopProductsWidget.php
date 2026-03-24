@@ -40,7 +40,7 @@ class TopProductsWidget extends BaseWidget
 
         // Create a map for O(1) lookup instead of firstWhere which is O(n)
         $statsMap = $productStats->keyBy('product_id');
-        
+
         return $table
             ->query(
                 Product::query()
@@ -50,7 +50,10 @@ class TopProductsWidget extends BaseWidget
             ->columns([
                 Tables\Columns\ImageColumn::make('image')
                     ->label(__('system.image'))
-                    ->circular(),
+                    ->circular()
+                    ->disk('public')
+                    ->defaultImageUrl(fn ($record) => str_starts_with((string)$record->image, 'http') ? $record->image : null)
+                    ->getStateUsing(fn ($record) => str_starts_with((string)$record->image, 'http') ? null : $record->image),
                 Tables\Columns\TextColumn::make('name')
                     ->label(__('system.name'))
                     ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
@@ -75,12 +78,12 @@ class TopProductsWidget extends BaseWidget
         // Use raw query to extract product stats from JSON items_snapshot
         // This avoids loading all orders into memory
         $stats = collect();
-        
+
         // Get all orders with items_snapshot in a single query
         $orders = Order::where('status', '!=', 'cancelled')
             ->select('id', 'items_snapshot')
             ->get();
-        
+
         // Process items in memory (unavoidable due to JSON structure)
         // But we're only loading id and items_snapshot, not full models
         foreach ($orders as $order) {

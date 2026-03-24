@@ -133,6 +133,7 @@ class CustomerResource extends Resource
                 Tables\Columns\ImageColumn::make('avatar')
                     ->label(__('system.avatar'))
                     ->circular()
+                    ->disk('public')
                     ->defaultImageUrl(url('/images/default-avatar.png')),
                 Tables\Columns\TextColumn::make('name')
                     ->label(__('system.name'))
