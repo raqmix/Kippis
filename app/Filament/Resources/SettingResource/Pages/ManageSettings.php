@@ -5,6 +5,7 @@ namespace App\Filament\Resources\SettingResource\Pages;
 use App\Core\Models\Setting;
 use App\Filament\Resources\SettingResource;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -17,7 +18,7 @@ class ManageSettings extends Page implements HasForms
     use InteractsWithForms;
 
     protected static string $resource = SettingResource::class;
-    
+
     protected string $view = 'filament.resources.setting-resource.pages.manage-settings';
 
     public ?array $data = [];
@@ -115,10 +116,11 @@ class ManageSettings extends Page implements HasForms
                         $type = $key === 'working_application' ? 'boolean' : 'string';
                         Setting::set($key, $value, $type, $this->getGroupForKey($key));
                     }
-                        notify()->success(
-                            __('system.settings_saved_successfully'),
-                            __('system.changes_have_been_applied')
-                        );
+                        Notification::make()
+                            ->title(__('system.settings_saved_successfully'))
+                            ->body(__('system.changes_have_been_applied'))
+                            ->success()
+                            ->send();
                 })
                 ->requiresConfirmation(false),
         ];
