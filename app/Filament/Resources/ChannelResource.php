@@ -11,10 +11,32 @@ use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 
 class ChannelResource extends Resource
 {
     protected static ?string $model = Channel::class;
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_channels');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_channels');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_channels');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_channels');
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-link';
@@ -24,7 +46,7 @@ class ChannelResource extends Resource
         return __('navigation.groups.integrations');
     }
     protected static ?int $navigationSort = 1;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.channels');

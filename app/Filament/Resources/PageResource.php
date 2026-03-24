@@ -11,10 +11,32 @@ use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 
 class PageResource extends Resource
 {
     protected static ?string $model = Page::class;
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_pages');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_pages');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_pages');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_pages');
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-document-text';
@@ -24,7 +46,7 @@ class PageResource extends Resource
         return __('navigation.groups.content_management');
     }
     protected static ?int $navigationSort = 1;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.pages');
@@ -50,7 +72,7 @@ class PageResource extends Resource
                         Forms\Components\Toggle::make('is_active')
                             ->default(true),
                     ]),
-                    
+
                 Components\Section::make(__('system.translations'))
                     ->schema([
                         Forms\Components\Repeater::make('translations')

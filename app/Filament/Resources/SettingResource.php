@@ -36,15 +36,22 @@ class SettingResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->guard('admin')->user();
-        if (!$user) {
-            return false;
-        }
-        
-        // Clear cache to ensure fresh permission check
-        app()['cache']->forget('spatie.permission.cache');
-        
-        return $user->can('manage_settings');
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_settings');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_settings');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_settings');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_settings');
     }
 
 

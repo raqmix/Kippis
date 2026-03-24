@@ -49,6 +49,21 @@ class StoreResource extends Resource
         return Gate::forUser(auth()->guard('admin')->user())->allows('manage_stores');
     }
 
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_stores');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_stores');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_stores');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

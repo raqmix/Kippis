@@ -11,11 +11,33 @@ use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 
 class AdminResource extends Resource
 {
     protected static ?string $model = Admin::class;
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_admins');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_admins');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_admins');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_admins');
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-users';
@@ -25,7 +47,7 @@ class AdminResource extends Resource
         return __('navigation.groups.system_management');
     }
     protected static ?int $navigationSort = 3;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.admins');
@@ -60,7 +82,7 @@ class AdminResource extends Resource
                             ->default('en')
                             ->required(),
                     ]),
-                    
+
                 Components\Section::make(__('system.security_settings'))
                     ->schema([
                         Forms\Components\Toggle::make('is_active')
@@ -70,7 +92,7 @@ class AdminResource extends Resource
                             ->label(__('system.enable_2fa'))
                             ->disabled(fn ($record) => $record && !$record->two_factor_secret),
                     ]),
-                    
+
                 Components\Section::make(__('system.access_control'))
                     ->schema([
                         Forms\Components\TagsInput::make('allowed_ips')
@@ -88,7 +110,7 @@ class AdminResource extends Resource
                                 'sunday' => __('system.sunday'),
                             ]),
                     ]),
-                    
+
                 Components\Section::make(__('system.password'))
                     ->schema([
                         Forms\Components\TextInput::make('password')

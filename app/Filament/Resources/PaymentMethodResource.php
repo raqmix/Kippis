@@ -11,10 +11,32 @@ use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 
 class PaymentMethodResource extends Resource
 {
     protected static ?string $model = PaymentMethod::class;
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_payment_methods');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_payment_methods');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_payment_methods');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_payment_methods');
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-credit-card';
@@ -24,7 +46,7 @@ class PaymentMethodResource extends Resource
         return __('navigation.groups.integrations');
     }
     protected static ?int $navigationSort = 2;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.payment_methods');

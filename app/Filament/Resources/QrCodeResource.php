@@ -53,6 +53,21 @@ class QrCodeResource extends Resource
         return Gate::forUser(auth()->guard('admin')->user())->allows('manage_qr_codes');
     }
 
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_qr_codes');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_qr_codes');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_qr_codes');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -143,9 +158,9 @@ class QrCodeResource extends Resource
                 Tables\Columns\TextColumn::make('total_used_count')
                     ->label(__('system.total_uses'))
                     ->sortable()
-                    ->formatStateUsing(fn ($state, $record) => 
-                        $record->total_limit 
-                            ? "{$state} / {$record->total_limit}" 
+                    ->formatStateUsing(fn ($state, $record) =>
+                        $record->total_limit
+                            ? "{$state} / {$record->total_limit}"
                             : (string) $state
                     ),
                 Tables\Columns\TextColumn::make('per_customer_limit')
@@ -207,13 +222,13 @@ class QrCodeResource extends Resource
                     ->action(function (QrCode $record, QrCodeGeneratorService $qrService) {
                         $path = $qrService->generate($record->code);
                         $url = Storage::disk('public')->url($path);
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title(__('system.qr_code_generated'))
                             ->body(__('system.qr_code_generated_successfully'))
                             ->success()
                             ->send();
-                        
+
                         return redirect($url);
                     }),
                 Actions\Action::make('download_qr')
