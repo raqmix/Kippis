@@ -85,6 +85,7 @@ class ProductResource extends Resource
                             ->relationship('category', 'name_json')
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale()))
                             ->searchable()
+                            ->preload()
                             ->getSearchResultsUsing(function (string $search) {
                                 return Category::query()
                                     ->whereRaw('LOWER(name_json) LIKE ?', ['%' . strtolower($search) . '%'])
