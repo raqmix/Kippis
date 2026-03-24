@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class AdminResource extends Resource
 {
@@ -125,6 +126,25 @@ class AdminResource extends Resource
                             ->dehydrated(false),
                     ])
                     ->visible(fn ($livewire) => $livewire instanceof Pages\CreateAdmin),
+
+                Components\Section::make(__('system.roles_and_permissions'))
+                    ->schema([
+                        Forms\Components\Select::make('roles')
+                            ->label(__('system.roles'))
+                            ->multiple()
+                            ->options(
+                                Role::where('guard_name', 'admin')->pluck('name', 'name')
+                            )
+                            ->default([])
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
+                                if ($record) {
+                                    $component->state($record->roles->pluck('name')->toArray());
+                                }
+                            }),
+                    ]),
             ]);
     }
 
@@ -138,6 +158,10 @@ class AdminResource extends Resource
                 Tables\Columns\TextColumn::make('email')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('roles.name')
+                    ->label(__('system.roles'))
+                    ->badge()
+                    ->separator(','),
                 Tables\Columns\IconColumn::make('is_active')
                     ->boolean()
                     ->label(__('system.active')),
