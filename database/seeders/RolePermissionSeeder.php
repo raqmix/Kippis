@@ -10,52 +10,17 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // Reset cached roles and permissions
-        app()['cache']->forget('spatie.permission.cache');
-
-        // Create permissions
-        $permissions = [
-            'manage_admins',
-            'manage_roles',
-            'manage_pages',
-            'manage_support',
-            'manage_notifications',
-            'manage_channels',
-            'manage_payment_methods',
-            'manage_settings',
-            'manage_customers',
-            'manage_stores',
-            'manage_categories',
-            'manage_products',
-            'manage_modifiers',
-            'manage_promo_codes',
-            'manage_orders',
-            'manage_loyalty',
-            'manage_qr_receipts',
-            'view_logs',
-            'view_activities',
-            'manage_frames',
-            'manage_qr_codes',
-            'manage_promo_qr_codes',
-            'manage_promotions',
-            'manage_events',
-        ];
-
-        foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'admin']);
-        }
+        // Seed all permissions first
+        $this->call(PermissionSeeder::class);
 
         // Create roles
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'admin']);
-        $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'admin']);
-        $support = Role::firstOrCreate(['name' => 'support', 'guard_name' => 'admin']);
-        $auditor = Role::firstOrCreate(['name' => 'auditor', 'guard_name' => 'admin']);
+        $admin      = Role::firstOrCreate(['name' => 'admin',       'guard_name' => 'admin']);
+        $support    = Role::firstOrCreate(['name' => 'support',     'guard_name' => 'admin']);
+        $auditor    = Role::firstOrCreate(['name' => 'auditor',     'guard_name' => 'admin']);
 
-        // Assign all permissions to super_admin (including manage_customers)
-        $superAdmin->givePermissionTo(Permission::all());
-
-        // Explicitly ensure manage_customers is assigned (already included in Permission::all(), but explicit for clarity)
-        $superAdmin->givePermissionTo('manage_customers');
+        // super_admin gets every permission
+        $superAdmin->syncPermissions(Permission::where('guard_name', 'admin')->pluck('name'));
 
         // Assign permissions to admin
         $admin->givePermissionTo([
