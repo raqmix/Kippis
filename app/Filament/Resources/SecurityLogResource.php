@@ -7,6 +7,7 @@ use App\Filament\Resources\SecurityLogResource\Pages;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Gate;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -18,6 +19,11 @@ class SecurityLogResource extends Resource
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-shield-exclamation';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('view_logs');
     }
 
     public static function canCreate(): bool
@@ -39,7 +45,7 @@ class SecurityLogResource extends Resource
         return __('navigation.groups.security');
     }
     protected static ?int $navigationSort = 1;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.security_logs');

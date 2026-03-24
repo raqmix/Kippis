@@ -7,6 +7,7 @@ use App\Filament\Resources\ActivityLogResource\Pages;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Gate;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -16,10 +17,15 @@ class ActivityLogResource extends Resource
 {
     protected static ?string $model = ActivityLog::class;
     protected static ?int $navigationSort = 2;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.activity_logs');
+    }
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('view_activities');
     }
 
     public static function canCreate(): bool

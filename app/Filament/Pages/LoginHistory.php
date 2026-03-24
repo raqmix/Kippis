@@ -8,6 +8,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Illuminate\Support\Facades\Gate;
 
 class LoginHistory extends Page implements HasTable
 {
@@ -17,10 +18,15 @@ class LoginHistory extends Page implements HasTable
     {
         return 'heroicon-o-clock';
     }
-    
+
     protected string $view = 'filament.pages.login-history';
     protected static ?int $navigationSort = 3;
-    
+
+    public static function canAccess(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('view_logs');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.login_history');

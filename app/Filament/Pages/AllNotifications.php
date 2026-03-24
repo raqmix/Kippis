@@ -11,20 +11,26 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class AllNotifications extends Page implements HasTable
 {
     use InteractsWithTable;
 
     protected string $view = 'filament.pages.all-notifications';
-    
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-bell';
     }
-    
+
     protected static ?int $navigationSort = 999;
-    
+
+    public static function canAccess(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_notifications');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.all_notifications');
@@ -43,7 +49,7 @@ class AllNotifications extends Page implements HasTable
     public function table(Table $table): Table
     {
         $admin = Auth::guard('admin')->user();
-        
+
         return $table
             ->query($admin->notifications()->getQuery())
             ->columns([

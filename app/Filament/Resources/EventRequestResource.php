@@ -7,6 +7,7 @@ use App\Filament\Resources\EventRequestResource\Pages;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Gate;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -17,6 +18,26 @@ class EventRequestResource extends Resource
     protected static ?string $model = EventRequest::class;
 
     protected static ?string $navigationLabel = 'Event Requests';
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_events');
+    }
+
+    public static function canCreate(): bool
+    {
+        return false; // Event requests are submitted by customers, not created in admin
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_events');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_events');
+    }
 
     public static function getNavigationIcon(): ?string
     {
@@ -131,9 +152,5 @@ class EventRequestResource extends Resource
             'edit' => Pages\EditEventRequest::route('/{record}/edit'),
         ];
     }
-
-    public static function canCreate(): bool
-    {
-        return false;
-    }
 }
+

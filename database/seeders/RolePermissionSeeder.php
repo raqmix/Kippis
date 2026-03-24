@@ -34,6 +34,11 @@ class RolePermissionSeeder extends Seeder
             'manage_qr_receipts',
             'view_logs',
             'view_activities',
+            'manage_frames',
+            'manage_qr_codes',
+            'manage_promo_qr_codes',
+            'manage_promotions',
+            'manage_events',
         ];
 
         foreach ($permissions as $permission) {
@@ -48,7 +53,7 @@ class RolePermissionSeeder extends Seeder
 
         // Assign all permissions to super_admin (including manage_customers)
         $superAdmin->givePermissionTo(Permission::all());
-        
+
         // Explicitly ensure manage_customers is assigned (already included in Permission::all(), but explicit for clarity)
         $superAdmin->givePermissionTo('manage_customers');
 
@@ -69,11 +74,17 @@ class RolePermissionSeeder extends Seeder
             'manage_qr_receipts',
             'view_logs',
             'view_activities',
+            'manage_frames',
+            'manage_qr_codes',
+            'manage_promo_qr_codes',
+            'manage_promotions',
+            'manage_events',
         ]);
 
         // Assign permissions to support
         $support->givePermissionTo([
             'manage_support',
+            'manage_events',
             'view_logs',
         ]);
 

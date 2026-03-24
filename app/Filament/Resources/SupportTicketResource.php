@@ -7,6 +7,7 @@ use App\Filament\Resources\SupportTicketResource\Pages;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Gate;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -15,6 +16,27 @@ use Filament\Tables\Table;
 class SupportTicketResource extends Resource
 {
     protected static ?string $model = SupportTicket::class;
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_support');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_support');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_support');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_support');
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-ticket';
@@ -24,7 +46,7 @@ class SupportTicketResource extends Resource
         return __('navigation.groups.support');
     }
     protected static ?int $navigationSort = 1;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.support_tickets');

@@ -8,6 +8,7 @@ use App\Filament\Resources\PromotionResource\Pages;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Gate;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -18,6 +19,26 @@ class PromotionResource extends Resource
     protected static ?string $model = Promotion::class;
 
     protected static ?string $navigationLabel = 'Promotions';
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_promotions');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_promotions');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_promotions');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_promotions');
+    }
 
     public static function getNavigationIcon(): ?string
     {

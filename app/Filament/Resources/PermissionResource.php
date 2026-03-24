@@ -9,11 +9,33 @@ use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
 
 class PermissionResource extends Resource
 {
     protected static ?string $model = Permission::class;
+
+    public static function canViewAny(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_roles');
+    }
+
+    public static function canCreate(): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_roles');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_roles');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_roles');
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-key';
@@ -23,7 +45,7 @@ class PermissionResource extends Resource
         return __('navigation.groups.system_management');
     }
     protected static ?int $navigationSort = 5;
-    
+
     public static function getNavigationLabel(): string
     {
         return __('navigation.permissions');
