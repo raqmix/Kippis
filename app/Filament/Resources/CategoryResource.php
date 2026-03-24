@@ -170,7 +170,9 @@ class CategoryResource extends Resource
                 Tables\Columns\ImageColumn::make('image')
                     ->label(__('system.image'))
                     ->circular()
-                    ->disk('public'),
+                    ->disk('public')
+                    ->defaultImageUrl(fn ($record) => str_starts_with((string)$record->image, 'http') ? $record->image : null)
+                    ->getStateUsing(fn ($record) => str_starts_with((string)$record->image, 'http') ? null : $record->image),
                 Tables\Columns\TextColumn::make('name_json')
                     ->label(__('system.name'))
                     ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
