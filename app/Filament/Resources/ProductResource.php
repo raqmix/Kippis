@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Core\Models\Category;
 use App\Core\Models\Product;
 use App\Filament\Resources\ProductResource\Pages;
 use Filament\Actions;
@@ -83,7 +84,15 @@ class ProductResource extends Resource
                             ->label(__('system.category'))
                             ->relationship('category', 'name_json')
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale()))
-                            ->searchable(['name_json'])
+                            ->searchable()
+                            ->getSearchResultsUsing(function (string $search) {
+                                return Category::query()
+                                    ->whereRaw('LOWER(name_json) LIKE ?', ['%' . strtolower($search) . '%'])
+                                    ->limit(50)
+                                    ->get()
+                                    ->mapWithKeys(fn ($category) => [$category->id => $category->getName(app()->getLocale())])
+                                    ->toArray();
+                            })
                             ->required(),
                         Components\Tabs::make('name_json_tabs')
                             ->label(__('system.name'))
