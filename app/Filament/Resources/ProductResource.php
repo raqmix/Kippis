@@ -130,6 +130,7 @@ class ProductResource extends Resource
                             ->image()
                             ->directory('products')
                             ->disk('public')
+                            ->visibility('public')
                             ->maxSize(2048)
                             ->imageEditor(),
                         Forms\Components\Select::make('product_kind')
@@ -186,7 +187,10 @@ class ProductResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('image')
                     ->label(__('system.image'))
-                    ->circular(),
+                    ->circular()
+                    ->disk('public')
+                    ->defaultImageUrl(fn ($record) => str_starts_with((string)$record->image, 'http') ? $record->image : null)
+                    ->getStateUsing(fn ($record) => str_starts_with((string)$record->image, 'http') ? null : $record->image),
                 Tables\Columns\TextColumn::make('name_json')
                     ->label(__('system.name'))
                     ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))

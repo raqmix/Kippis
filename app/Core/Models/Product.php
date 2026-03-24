@@ -56,7 +56,7 @@ class Product extends Model
     public function getName(string $locale = 'en', ?string $fallback = null): string
     {
         $name = $this->name_json;
-        
+
         if (is_array($name) && isset($name[$locale])) {
             return $name[$locale];
         }
@@ -74,12 +74,29 @@ class Product extends Model
     public function getDescription(string $locale = 'en', ?string $fallback = null): string
     {
         $description = $this->description_json;
-        
+
         if (is_array($description) && isset($description[$locale])) {
             return $description[$locale];
         }
 
         return $fallback ?? ($description['en'] ?? '');
+    }
+
+    /**
+     * Returns a fully-qualified public URL for the image regardless of source.
+     * Foodics products have a full URL; local products have a relative storage path.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if (empty($this->image)) {
+            return null;
+        }
+
+        if (str_starts_with($this->image, 'http')) {
+            return $this->image;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($this->image);
     }
 
     /**
