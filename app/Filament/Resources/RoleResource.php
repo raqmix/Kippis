@@ -10,6 +10,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class RoleResource extends Resource
@@ -61,8 +62,14 @@ class RoleResource extends Resource
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
+                        Forms\Components\Hidden::make('guard_name')
+                            ->default('admin'),
                         Forms\Components\CheckboxList::make('permissions')
-                            ->relationship('permissions', 'name')
+                            ->relationship(
+                                'permissions',
+                                'name',
+                                fn ($query) => $query->where('guard_name', 'admin')
+                            )
                             ->columns(2),
                     ]),
             ]);
@@ -71,6 +78,7 @@ class RoleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->where('guard_name', 'admin'))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()

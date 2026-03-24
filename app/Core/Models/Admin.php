@@ -16,6 +16,8 @@ class Admin extends Authenticatable
 {
     use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
+    protected $guard_name = 'admin';
+
     /**
      * Create a new factory instance for the model.
      */
@@ -71,7 +73,7 @@ class Admin extends Authenticatable
             // Hash the password
             $this->attributes['password'] = Hash::make($value);
         }
-        
+
         // Only update password_changed_at if password is actually being set
         if (!empty($value)) {
             $this->attributes['password_changed_at'] = now();
@@ -102,7 +104,7 @@ class Admin extends Authenticatable
     public function incrementFailedAttempts(): void
     {
         $this->increment('failed_login_attempts');
-        
+
         if ($this->failed_login_attempts >= 5) {
             $this->lock();
         }
@@ -117,11 +119,11 @@ class Admin extends Authenticatable
     {
         $google2fa = new Google2FA();
         $secret = $google2fa->generateSecretKey();
-        
+
         $this->update([
             'two_factor_secret' => encrypt($secret),
         ]);
-        
+
         return $secret;
     }
 
@@ -146,11 +148,11 @@ class Admin extends Authenticatable
         for ($i = 0; $i < 8; $i++) {
             $codes[] = strtoupper(bin2hex(random_bytes(4)));
         }
-        
+
         $this->update([
             'two_factor_recovery_codes' => encrypt(json_encode($codes)),
         ]);
-        
+
         return $codes;
     }
 
@@ -159,10 +161,10 @@ class Admin extends Authenticatable
         if (!$this->two_factor_recovery_codes) {
             return false;
         }
-        
+
         try {
             $codes = json_decode(decrypt($this->two_factor_recovery_codes), true);
-            
+
             if (($key = array_search($code, $codes)) !== false) {
                 unset($codes[$key]);
                 $this->update([
@@ -173,7 +175,7 @@ class Admin extends Authenticatable
         } catch (\Exception $e) {
             return false;
         }
-        
+
         return false;
     }
 

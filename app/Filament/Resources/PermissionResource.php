@@ -61,6 +61,8 @@ class PermissionResource extends Resource
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
+                        Forms\Components\Hidden::make('guard_name')
+                            ->default('admin'),
                     ]),
             ]);
     }
@@ -68,6 +70,7 @@ class PermissionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->where('guard_name', 'admin'))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
