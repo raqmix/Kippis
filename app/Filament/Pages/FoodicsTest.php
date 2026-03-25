@@ -16,6 +16,8 @@ class FoodicsTest extends Page implements HasForms
 
     protected string $view = 'filament.pages.foodics-test';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-arrow-path';
