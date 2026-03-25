@@ -35,11 +35,11 @@ class ProductAddonsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('name')
                     ->label('Modifier')
                     ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
-                    ->searchable(query: fn ($query, string $search) => 
+                    ->searchable(query: fn ($query, string $search) =>
                         $query->where('name_json->en', 'like', "%{$search}%")
                               ->orWhere('name_json->ar', 'like', "%{$search}%")
                     )
-                    ->sortable(query: fn ($query, string $direction) => 
+                    ->sortable(query: fn ($query, string $direction) =>
                         $query->orderBy('name_json->' . app()->getLocale(), $direction)
                     ),
                 Tables\Columns\TextColumn::make('type')
@@ -69,6 +69,7 @@ class ProductAddonsRelationManager extends RelationManager
             ->headerActions([
                 Actions\AttachAction::make()
                     ->preloadRecordSelect()
+                    ->recordSelectSearchColumns(['name_json->en', 'name_json->ar'])
                     ->recordSelectOptionsQuery(fn (Builder $query) => $query->active())
                     ->form(fn (Actions\AttachAction $action): array => [
                         $action->getRecordSelect()

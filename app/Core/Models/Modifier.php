@@ -49,12 +49,20 @@ class Modifier extends Model
     public function getName(string $locale = 'en', ?string $fallback = null): string
     {
         $name = $this->name_json;
-        
+
         if (is_array($name) && isset($name[$locale])) {
             return $name[$locale];
         }
 
         return $fallback ?? ($name['en'] ?? '');
+    }
+
+    /**
+     * Get localized name as a virtual attribute (used by Filament recordTitleAttribute).
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->getName(app()->getLocale());
     }
 
     /**
