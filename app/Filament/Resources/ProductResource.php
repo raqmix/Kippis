@@ -319,6 +319,7 @@ class ProductResource extends Resource
         return [
             ProductResource\RelationManagers\ProductAddonsRelationManager::class,
             ProductResource\RelationManagers\MixBuilderBasesRelationManager::class,
+            ProductResource\RelationManagers\FoodicsModifiersRelationManager::class,
         ];
     }
 

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources;
 
-use App\Core\Models\FoodicsModifierGroup;
+use App\Core\Models\FoodicsModifier;
 use App\Filament\Resources\ModifierResource\Pages;
 use Filament\Actions;
 use Filament\Forms;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Gate;
 
 class ModifierResource extends Resource
 {
-    protected static ?string $model = FoodicsModifierGroup::class;
+    protected static ?string $model = FoodicsModifier::class;
 
     public static function getNavigationIcon(): ?string
     {
@@ -145,7 +145,7 @@ class ModifierResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ModifierResource\RelationManagers\OptionsRelationManager::class,
         ];
     }
 
