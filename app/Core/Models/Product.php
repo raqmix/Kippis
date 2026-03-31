@@ -145,12 +145,16 @@ class Product extends Model
     /**
      * Get the Foodics modifier groups (option groups) synced from Foodics.
      */
-    public function foodicsModifierGroups(): BelongsToMany
+    public function foodicsModifiers(): BelongsToMany
     {
-        return $this->belongsToMany(FoodicsModifierGroup::class, 'product_foodics_modifier_groups')
-            ->withPivot('minimum_options', 'maximum_options', 'free_options', 'index')
+        return $this->belongsToMany(FoodicsModifier::class, 'product_foodics_modifiers', 'product_id', 'foodics_modifier_id')
+            ->withPivot(
+                'minimum_options', 'maximum_options', 'free_options',
+                'default_option_ids', 'excluded_option_ids',
+                'unique_options', 'is_splittable_in_half', 'sort_order'
+            )
             ->withTimestamps()
-            ->orderByPivot('index');
+            ->orderByPivot('sort_order');
     }
 
     /**

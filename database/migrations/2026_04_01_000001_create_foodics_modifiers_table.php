@@ -8,7 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('foodics_modifier_groups', function (Blueprint $table) {
+        // foodics_modifiers maps to v5/modifiers in the Foodics API.
+        // In Foodics terminology a "modifier" is the group container
+        // (e.g. "Milk Type", "Size", "Sauce").  The selectable choices
+        // inside it are "modifier options" stored in foodics_modifier_options.
+        Schema::create('foodics_modifiers', function (Blueprint $table) {
             $table->id();
             $table->string('foodics_id')->unique();
             $table->json('name_json');
@@ -19,6 +23,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('foodics_modifier_groups');
+        Schema::dropIfExists('foodics_modifiers');
     }
 };
