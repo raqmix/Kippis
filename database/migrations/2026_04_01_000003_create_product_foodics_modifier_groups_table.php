@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('product_foodics_modifier_groups', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
-            $table->foreignId('foodics_modifier_group_id')->constrained('foodics_modifier_groups')->onDelete('cascade');
+            $table->foreignId('foodics_modifier_group_id')->constrained('foodics_modifier_groups', 'id', 'pfmg_fmg_id_foreign')->onDelete('cascade');
             $table->integer('minimum_options')->nullable();
             $table->integer('maximum_options')->nullable();
             $table->integer('free_options')->nullable();

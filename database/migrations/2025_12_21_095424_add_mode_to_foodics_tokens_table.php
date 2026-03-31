@@ -12,8 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('foodics_tokens', function (Blueprint $table) {
-            $table->enum('mode', ['sandbox', 'live'])->default('live')->after('id');
-            $table->index('mode');
+            if (!Schema::hasColumn('foodics_tokens', 'mode')) {
+                $table->enum('mode', ['sandbox', 'live'])->default('live')->after('id');
+                $table->index('mode');
+            }
         });
     }
 
@@ -23,8 +25,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('foodics_tokens', function (Blueprint $table) {
-            $table->dropIndex(['mode']);
-            $table->dropColumn('mode');
+            if (Schema::hasColumn('foodics_tokens', 'mode')) {
+                $table->dropIndex(['mode']);
+                $table->dropColumn('mode');
+            }
         });
     }
 };

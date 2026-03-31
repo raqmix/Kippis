@@ -1,0 +1,134 @@
+name: 'Kiosk Order APIs'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/kiosk/orders/checkout
+    metadata:
+      custom: []
+      groupName: 'Kiosk Order APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Checkout cart and create guest order for kiosk'
+      description: 'Creates an order from locally managed cart items. Order will have customer_id = null (guest order).'
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      payment_method:
+        custom: []
+        name: payment_method
+        description: 'Payment method. Options: `cash`, `card`, `online`.'
+        required: true
+        example: cash
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      items:
+        custom: []
+        name: items
+        description: 'Array of cart items. Each item should have: product_id, item_type, name, quantity, price, modifiers (optional), configuration (optional), note (optional)'
+        required: true
+        example:
+          - architecto
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      subtotal:
+        custom: []
+        name: subtotal
+        description: 'Cart subtotal'
+        required: true
+        example: 4326.41688
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      discount:
+        custom: []
+        name: discount
+        description: 'Cart discount (from promo code if applicable)'
+        required: true
+        example: 4326.41688
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      total:
+        custom: []
+        name: total
+        description: 'Cart total'
+        required: true
+        example: 4326.41688
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      promo_code:
+        custom: []
+        name: promo_code
+        description: 'optional Promo code to apply'
+        required: false
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      payment_method: cash
+      items:
+        - architecto
+      subtotal: 4326.41688
+      discount: 4326.41688
+      total: 4326.41688
+      promo_code: architecto
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 201
+        content: |-
+          {
+            "success": true,
+            "message": "order_created",
+            "data": {
+              "order_id": 123,
+              "pickup_code": "ABC123",
+              "total": 75.50
+            }
+          }
+        headers: []
+        description: ''
+      -
+        custom: []
+        status: 400
+        content: |-
+          {
+            "success": false,
+            "error": "VALIDATION_ERROR",
+            "message": "Validation failed."
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

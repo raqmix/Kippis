@@ -1,0 +1,586 @@
+name: 'Kiosk Cart APIs'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/kiosk/cart/init
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Initialize a new cart for kiosk'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 201
+        content: |-
+          {
+            "success": true,
+            "message": "cart_initialized",
+            "data": {
+              "cart_id": 123,
+              "session_id": "abc123xyz"
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/kiosk/cart
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Get current active cart for kiosk session'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters:
+      include_product:
+        custom: []
+        name: include_product
+        description: 'optional Include full product details in cart items.'
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanQueryParameters:
+      include_product: true
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "data": {
+              "id": 123,
+              "items": [],
+              "subtotal": 0,
+              "total": 0
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/kiosk/cart/items
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Add item to cart'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters:
+      include_product:
+        custom: []
+        name: include_product
+        description: 'optional Include full product details in response.'
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanQueryParameters:
+      include_product: true
+    bodyParameters:
+      item_type:
+        custom: []
+        name: item_type
+        description: 'optional Item type: product|mix|creator_mix. Default: product.'
+        required: false
+        example: mix
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      product_id:
+        custom: []
+        name: product_id
+        description: 'required_if:item_type,product The product ID.'
+        required: false
+        example: 1
+        type: integer
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      quantity:
+        custom: []
+        name: quantity
+        description: 'Quantity (min 1).'
+        required: true
+        example: 2
+        type: integer
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      addons:
+        custom: []
+        name: addons
+        description: 'optional Array of addon configurations (only for products).'
+        required: false
+        example:
+          -
+            modifier_id: 5
+            level: 2
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      note:
+        custom: []
+        name: note
+        description: 'optional Note for this cart item (max 1000 characters).'
+        required: false
+        example: '"Extra hot please"'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      configuration:
+        custom: []
+        name: configuration
+        description: 'required_if:item_type,mix,creator_mix Configuration snapshot for mix or creator_mix.'
+        required: false
+        example:
+          base_id: 1
+          modifiers:
+            -
+              id: 2
+              level: 1
+        type: object
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      ref_id:
+        custom: []
+        name: ref_id
+        description: 'optional Reference ID (mix_builder_id or creator_mix_id).'
+        required: false
+        example: 10
+        type: integer
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      name:
+        custom: []
+        name: name
+        description: 'optional Custom name for the item.'
+        required: false
+        example: '"My Custom Mix"'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      item_type: mix
+      product_id: 1
+      quantity: 2
+      addons:
+        -
+          modifier_id: 5
+          level: 2
+      note: '"Extra hot please"'
+      configuration:
+        base_id: 1
+        modifiers:
+          -
+            id: 2
+            level: 1
+      ref_id: 10
+      name: '"My Custom Mix"'
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 201
+        content: |-
+          {
+            "success": true,
+            "message": "item_added",
+            "data": {
+              "id": 123,
+              "items": [],
+              "total": 25.50
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PATCH
+    uri: 'api/v1/kiosk/cart/items/{id}'
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Update cart item quantity'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The cart item ID.'
+        required: true
+        example: '1'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: '1'
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      quantity:
+        custom: []
+        name: quantity
+        description: 'New quantity (min 1).'
+        required: true
+        example: 3
+        type: integer
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      quantity: 3
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "message": "item_updated",
+            "data": {
+              "id": 123,
+              "items": [],
+              "total": 50.00
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/kiosk/cart/items/{id}'
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Remove item from cart'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The cart item ID.'
+        required: true
+        example: '1'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: '1'
+    queryParameters:
+      include_product:
+        custom: []
+        name: include_product
+        description: 'optional Include full product details in response.'
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanQueryParameters:
+      include_product: true
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "message": "item_removed",
+            "data": {
+              "id": 123,
+              "items": [],
+              "total": 25.00
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/kiosk/cart/apply-promo
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Apply promo code to cart'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters:
+      include_product:
+        custom: []
+        name: include_product
+        description: 'optional Include full product details in response.'
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanQueryParameters:
+      include_product: true
+    bodyParameters:
+      code:
+        custom: []
+        name: code
+        description: 'Promo code.'
+        required: true
+        example: '"SAVE20"'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      code: '"SAVE20"'
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "message": "promo_applied",
+            "data": {
+              "id": 123,
+              "promo_code": "SAVE20",
+              "discount": 10.00,
+              "total": 65.50
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/kiosk/cart/remove-promo
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Remove promo code from cart'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters:
+      include_product:
+        custom: []
+        name: include_product
+        description: 'optional Include full product details in response.'
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanQueryParameters:
+      include_product: true
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "message": "promo_removed",
+            "data": {
+              "id": 123,
+              "promo_code": null,
+              "total": 75.50
+            }
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/kiosk/cart/abandon
+    metadata:
+      custom: []
+      groupName: 'Kiosk Cart APIs'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Abandon/clear cart'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: |-
+          {
+            "success": true,
+            "message": "cart_abandoned"
+          }
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
