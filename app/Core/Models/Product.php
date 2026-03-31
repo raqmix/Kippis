@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Database\Factories\ProductFactory;
 
 class Product extends Model
@@ -20,6 +21,8 @@ class Product extends Model
     {
         return ProductFactory::new();
     }
+
+    protected $appends = ['image_url'];
 
     protected $fillable = [
         'category_id',
@@ -96,7 +99,7 @@ class Product extends Model
             return $this->image;
         }
 
-        return \Illuminate\Support\Facades\Storage::disk('public')->url($this->image);
+        return Storage::url($this->image);
     }
 
     /**
@@ -137,6 +140,17 @@ class Product extends Model
     public function modifierGroups()
     {
         return $this->hasMany(ProductModifierGroup::class);
+    }
+
+    /**
+     * Get the Foodics modifier groups (option groups) synced from Foodics.
+     */
+    public function foodicsModifierGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(FoodicsModifierGroup::class, 'product_foodics_modifier_groups')
+            ->withPivot('minimum_options', 'maximum_options', 'free_options', 'index')
+            ->withTimestamps()
+            ->orderByPivot('index');
     }
 
     /**
