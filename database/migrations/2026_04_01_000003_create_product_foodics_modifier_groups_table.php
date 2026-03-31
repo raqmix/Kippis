@@ -18,9 +18,9 @@ return new class extends Migration
             $table->integer('index')->nullable();
             $table->timestamps();
 
-            $table->unique(['product_id', 'foodics_modifier_group_id']);
-            $table->index('product_id');
-            $table->index('foodics_modifier_group_id');
+            $table->unique(['product_id', 'foodics_modifier_group_id'], 'pfmg_product_fmg_unique');
+            $table->index('product_id', 'pfmg_product_id_index');
+            $table->index('foodics_modifier_group_id', 'pfmg_fmg_id_index');
         });
     }
 

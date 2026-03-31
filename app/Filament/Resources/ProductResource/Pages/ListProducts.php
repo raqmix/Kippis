@@ -23,11 +23,15 @@ class ListProducts extends ListRecords
                 ->action(function () {
                     $service = app(\App\Core\Services\FoodicsSyncService::class);
                     $result = $service->syncProducts();
-                    
+
+                    $hasErrors = !empty($result['errors']);
+
                     \Filament\Notifications\Notification::make()
                         ->title(__('system.sync_completed'))
-                        ->body(__('system.synced_count', ['count' => $result['synced']]) . ' ' . __('system.updated_count', ['count' => $result['updated']]))
-                        ->success()
+                        ->body(__('system.synced_count', ['count' => $result['synced']]) . ' ' . __('system.updated_count', ['count' => $result['updated']]) . ($hasErrors ? ' (' . count($result['errors']) . ' errors)' : ''))
+                        ->when(! $hasErrors, fn ($n) => $n->success())
+                        ->when($hasErrors && ($result['synced'] + $result['updated']) > 0, fn ($n) => $n->warning())
+                        ->when($hasErrors && ($result['synced'] + $result['updated']) === 0, fn ($n) => $n->danger())
                         ->send();
                 }),
         ];

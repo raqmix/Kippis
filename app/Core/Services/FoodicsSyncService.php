@@ -155,6 +155,16 @@ class FoodicsSyncService
         // Default to sandbox for testing
         $mode = $mode ?? config('foodics.mode', 'sandbox');
 
+        // Categories must exist before products can be linked — sync them first
+        $categoryResult = $this->syncCategories($mode);
+        if (!empty($categoryResult['errors'])) {
+            Log::warning('Foodics category pre-sync had errors', ['errors' => $categoryResult['errors']]);
+        }
+        Log::info('Foodics category pre-sync completed', [
+            'synced' => $categoryResult['synced'],
+            'updated' => $categoryResult['updated'],
+        ]);
+
         try {
             $page = 1;
             $hasMore = true;
@@ -163,7 +173,7 @@ class FoodicsSyncService
                 $response = $this->foodicsClient->get('v5/products', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
                     'per_page' => 50,
-                    'include' => ['modifiers', 'modifiers.options'],
+                    'include' => ['category', 'modifiers', 'modifiers.options'],
                 ]), $mode);
 
                 if (!$response->ok) {
@@ -184,10 +194,11 @@ class FoodicsSyncService
                         $foodicsId = (string) $productItem['id'];
                         $existing = Product::where('foodics_id', $foodicsId)->first();
 
-                        // Find or create category
+                        // Find or create category — API returns a nested 'category' object when included
                         $categoryId = null;
-                        if (isset($productItem['category_id'])) {
-                            $category = Category::where('foodics_id', (string) $productItem['category_id'])->first();
+                        $foodicsCategoryId = $productItem['category']['id'] ?? $productItem['category_id'] ?? null;
+                        if ($foodicsCategoryId) {
+                            $category = Category::where('foodics_id', (string) $foodicsCategoryId)->first();
                             if ($category) {
                                 $categoryId = $category->id;
                             }
