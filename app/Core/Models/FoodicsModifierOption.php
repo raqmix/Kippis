@@ -9,9 +9,12 @@ class FoodicsModifierOption extends Model
 {
     protected $fillable = [
         'foodics_id',
-        'foodics_modifier_group_id',
+        'foodics_modifier_id',
         'name_json',
         'price',
+        'sku',
+        'calories',
+        'sort_order',
         'is_active',
         'last_synced_at',
     ];
@@ -35,8 +38,8 @@ class FoodicsModifierOption extends Model
         return $fallback ?? ($name['en'] ?? '');
     }
 
-    public function modifierGroup(): BelongsTo
+    public function modifier(): BelongsTo
     {
-        return $this->belongsTo(FoodicsModifierGroup::class, 'foodics_modifier_group_id');
+        return $this->belongsTo(FoodicsModifier::class, 'foodics_modifier_id');
     }
 }

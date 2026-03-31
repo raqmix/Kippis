@@ -4,7 +4,7 @@ namespace App\Core\Services;
 
 use App\Core\Models\Category;
 use App\Core\Models\Product;
-use App\Core\Models\FoodicsModifierGroup;
+use App\Core\Models\FoodicsModifier;
 use App\Core\Models\FoodicsModifierOption;
 use App\Integrations\Foodics\Services\FoodicsClient;
 use Illuminate\Support\Facades\Log;
@@ -237,9 +237,9 @@ class FoodicsSyncService
                             $synced++;
                         }
 
-                        // Sync Foodics modifier groups attached to this product
+                        // Sync Foodics modifiers (option groups + options) attached to this product
                         if (!empty($productItem['modifiers'])) {
-                            $this->syncProductModifierGroups($savedProduct, $productItem['modifiers']);
+                            $this->syncProductModifiers($savedProduct, $productItem['modifiers']);
                         }
                     } catch (\Exception $e) {
                         $errors[] = "Error syncing product {$productItem['id']}: " . $e->getMessage();
@@ -277,8 +277,12 @@ class FoodicsSyncService
     }
 
     /**
-     * Sync all Foodics modifiers (option groups) and their options.
-     * This can be called independently to pre-populate modifier data.
+     * Sync all Foodics modifiers and their options independently.
+     * Use this to pre-populate modifier data before syncing products.
+     *
+     * Foodics terminology:
+     *   modifier       → the group container  (e.g. "Milk Type", "Size")
+     *   modifier_option → the selectable item (e.g. "Oat Milk +2.50")
      *
      * @param string|null $mode 'sandbox' or 'live', null to use config default
      */
@@ -296,7 +300,7 @@ class FoodicsSyncService
 
             while ($hasMore) {
                 $response = $this->foodicsClient->get('v5/modifiers', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
-                    'page' => $page,
+                    'page'    => $page,
                     'per_page' => 50,
                     'include' => ['options'],
                 ]), $mode);
@@ -311,27 +315,21 @@ class FoodicsSyncService
 
                 foreach ($modifiers as $modifierItem) {
                     try {
-                        $foodicsId = (string) $modifierItem['id'];
-
-                        $groupData = [
-                            'foodics_id'      => $foodicsId,
-                            'name_json'       => [
-                                'en' => $modifierItem['name'] ?? '',
-                                'ar' => $modifierItem['name_localized'] ?? $modifierItem['name'] ?? '',
-                            ],
-                            'last_synced_at'  => now(),
-                        ];
-
-                        $group = FoodicsModifierGroup::updateOrCreate(
-                            ['foodics_id' => $foodicsId],
-                            $groupData
+                        $modifier = FoodicsModifier::updateOrCreate(
+                            ['foodics_id' => (string) $modifierItem['id']],
+                            [
+                                'name_json'      => [
+                                    'en' => $modifierItem['name'] ?? '',
+                                    'ar' => $modifierItem['name_localized'] ?? $modifierItem['name'] ?? '',
+                                ],
+                                'last_synced_at' => now(),
+                            ]
                         );
 
-                        $group->wasRecentlyCreated ? $synced++ : $updated++;
+                        $modifier->wasRecentlyCreated ? $synced++ : $updated++;
 
-                        // Sync the options for this modifier group
                         foreach ($modifierItem['options'] ?? [] as $optionItem) {
-                            $this->upsertModifierOption($group->id, $optionItem);
+                            $this->upsertModifierOption($modifier->id, $optionItem);
                         }
                     } catch (\Exception $e) {
                         $errors[] = "Error syncing modifier {$modifierItem['id']}: " . $e->getMessage();
@@ -368,20 +366,17 @@ class FoodicsSyncService
     }
 
     /**
-     * Sync the modifier groups attached to a single product,
-     * including upserting modifier group records, their options,
-     * and the product–modifier-group pivot rows.
+     * Upsert the Foodics modifiers attached to a product.
+     * Each modifier item includes nested options and pivot fields.
      */
-    private function syncProductModifierGroups(Product $product, array $modifiers): void
+    private function syncProductModifiers(Product $product, array $modifiers): void
     {
-        $syncedGroupIds = [];
+        $syncedModifierIds = [];
 
         foreach ($modifiers as $modifierItem) {
             try {
-                $foodicsId = (string) $modifierItem['id'];
-
-                $group = FoodicsModifierGroup::updateOrCreate(
-                    ['foodics_id' => $foodicsId],
+                $modifier = FoodicsModifier::updateOrCreate(
+                    ['foodics_id' => (string) $modifierItem['id']],
                     [
                         'name_json'      => [
                             'en' => $modifierItem['name'] ?? '',
@@ -391,26 +386,34 @@ class FoodicsSyncService
                     ]
                 );
 
-                // Sync options nested within this modifier
                 foreach ($modifierItem['options'] ?? [] as $optionItem) {
-                    $this->upsertModifierOption($group->id, $optionItem);
+                    $this->upsertModifierOption($modifier->id, $optionItem);
                 }
 
-                // Determine pivot values from the modifier's pivot data
-                $pivot = $modifierItem['pivot'] ?? [];
+                // Foodics returns pivot fields directly on the modifier item
+                // when the include is via a product relationship.
+                $pivot = $modifierItem['pivot'] ?? $modifierItem;
 
-                $product->foodicsModifierGroups()->syncWithoutDetaching([
-                    $group->id => [
-                        'minimum_options' => $pivot['minimum_options'] ?? null,
-                        'maximum_options' => $pivot['maximum_options'] ?? null,
-                        'free_options'    => $pivot['free_options'] ?? null,
-                        'index'           => $pivot['index'] ?? null,
+                $product->foodicsModifiers()->syncWithoutDetaching([
+                    $modifier->id => [
+                        'minimum_options'     => $pivot['minimum_options'] ?? null,
+                        'maximum_options'     => $pivot['maximum_options'] ?? null,
+                        'free_options'        => $pivot['free_options'] ?? null,
+                        'default_option_ids'  => isset($pivot['default_options_ids'])
+                            ? json_encode($pivot['default_options_ids'])
+                            : null,
+                        'excluded_option_ids' => isset($pivot['excluded_options_ids'])
+                            ? json_encode($pivot['excluded_options_ids'])
+                            : null,
+                        'unique_options'         => (bool) ($pivot['unique_options'] ?? false),
+                        'is_splittable_in_half'  => (bool) ($pivot['is_splittable_in_half'] ?? false),
+                        'sort_order'             => $pivot['index'] ?? null,
                     ],
                 ]);
 
-                $syncedGroupIds[] = $group->id;
+                $syncedModifierIds[] = $modifier->id;
             } catch (\Exception $e) {
-                Log::error('Foodics product modifier group sync error', [
+                Log::error('Foodics product modifier sync error', [
                     'product_id'  => $product->id,
                     'modifier_id' => $modifierItem['id'] ?? null,
                     'error'       => $e->getMessage(),
@@ -418,28 +421,37 @@ class FoodicsSyncService
             }
         }
 
-        // Detach modifier groups no longer returned by the API for this product
-        $product->foodicsModifierGroups()->detach(
-            $product->foodicsModifierGroups()->pluck('foodics_modifier_groups.id')->diff($syncedGroupIds)->values()
-        );
+        // Detach modifiers that Foodics no longer returns for this product
+        $existingIds = $product->foodicsModifiers()
+            ->pluck('foodics_modifiers.id')
+            ->diff($syncedModifierIds)
+            ->values();
+
+        if ($existingIds->isNotEmpty()) {
+            $product->foodicsModifiers()->detach($existingIds);
+        }
     }
 
     /**
-     * Upsert a single Foodics modifier option record.
+     * Upsert a single Foodics modifier option.
+     * Stores name, price, sku, calories, sort_order and is_active.
      */
-    private function upsertModifierOption(int $groupId, array $optionItem): void
+    private function upsertModifierOption(int $modifierId, array $optionItem): void
     {
         FoodicsModifierOption::updateOrCreate(
             ['foodics_id' => (string) $optionItem['id']],
             [
-                'foodics_modifier_group_id' => $groupId,
-                'name_json'                 => [
+                'foodics_modifier_id' => $modifierId,
+                'name_json'           => [
                     'en' => $optionItem['name'] ?? '',
                     'ar' => $optionItem['name_localized'] ?? $optionItem['name'] ?? '',
                 ],
-                'price'                     => $optionItem['price'] ?? 0,
-                'is_active'                 => $optionItem['is_active'] ?? true,
-                'last_synced_at'            => now(),
+                'price'          => $optionItem['price'] ?? 0,
+                'sku'            => $optionItem['sku'] ?? null,
+                'calories'       => $optionItem['calories'] ?? null,
+                'sort_order'     => $optionItem['index'] ?? null,
+                'is_active'      => $optionItem['is_active'] ?? true,
+                'last_synced_at' => now(),
             ]
         );
     }
