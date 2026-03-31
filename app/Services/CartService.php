@@ -26,7 +26,7 @@ class CartService
      * @return \App\Core\Models\CartItem
      * @throws \InvalidArgumentException
      */
-    public function addProductToCart(Cart $cart, Product $product, int $quantity, array $addons = [], ?string $note = null): \App\Core\Models\CartItem
+    public function addProductToCart(Cart $cart, Product $product, int $quantity, array $addons = [], ?string $note = null, array $foodicsOptionIds = []): \App\Core\Models\CartItem
     {
         if (!$product->is_active) {
             throw new \InvalidArgumentException('Product is not active.');
@@ -35,18 +35,27 @@ class CartService
         // Calculate price with addons
         $priceResult = $this->mixPriceCalculator->calculateProductWithAddons($product, $addons);
 
+        // Add Foodics modifier option prices
+        $foodicsOptionsTotal = 0.0;
+        if (!empty($foodicsOptionIds)) {
+            $foodicsOptionsTotal = \App\Core\Models\FoodicsModifierOption::whereIn('id', $foodicsOptionIds)
+                ->where('is_active', true)
+                ->sum('price');
+        }
+
         // Prepare configuration snapshot
         $configuration = null;
-        if (!empty($addons)) {
+        if (!empty($addons) || !empty($foodicsOptionIds)) {
             $configuration = [
-                'addons' => $addons,
+                'addons' => !empty($addons) ? $addons : null,
+                'foodics_option_ids' => !empty($foodicsOptionIds) ? $foodicsOptionIds : null,
             ];
         }
 
         $payload = [
             'product_id' => $product->id,
             'quantity' => $quantity,
-            'price' => $priceResult['total'],
+            'price' => round($priceResult['total'] + $foodicsOptionsTotal, 2),
             'item_type' => 'product',
             'ref_id' => $product->id,
             'name' => $product->getName(app()->getLocale()),

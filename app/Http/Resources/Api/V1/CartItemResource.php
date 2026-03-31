@@ -15,7 +15,7 @@ class CartItemResource extends JsonResource
     public function toArray(Request $request): array
     {
         $itemType = $this->item_type ?? 'product';
-        
+
         $base = [
             'id' => $this->id,
             'item_type' => $itemType,
@@ -28,10 +28,10 @@ class CartItemResource extends JsonResource
         // Handle product items
         if ($itemType === 'product') {
             // Check if full product details should be included (when product.addonModifiers is loaded)
-            $includeFullProduct = $this->relationLoaded('product') && 
-                                  $this->product && 
+            $includeFullProduct = $this->relationLoaded('product') &&
+                                  $this->product &&
                                   $this->product->relationLoaded('addonModifiers');
-            
+
             if ($includeFullProduct) {
                 // Include full product details with allowed_addons
                 $base['product'] = [
@@ -73,12 +73,17 @@ class CartItemResource extends JsonResource
                     ];
                 });
             }
-            
+
             // Include addons if present in configuration
             if ($this->configuration && isset($this->configuration['addons'])) {
                 $base['addons'] = $this->configuration['addons'];
             }
-            
+
+            // Include Foodics option IDs if present in configuration
+            if ($this->configuration && !empty($this->configuration['foodics_option_ids'])) {
+                $base['foodics_option_ids'] = $this->configuration['foodics_option_ids'];
+            }
+
             // Backward compatibility: include modifiers_snapshot if present
             if ($this->modifiers_snapshot) {
                 $base['modifiers'] = $this->modifiers_snapshot;
@@ -86,7 +91,7 @@ class CartItemResource extends JsonResource
         } else {
             // Handle mix and creator_mix items
             $base['ref_id'] = $this->ref_id;
-            
+
             if ($this->configuration) {
                 $base['configuration'] = $this->configuration;
             }

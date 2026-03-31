@@ -73,18 +73,18 @@ class ProductRepository
         // Sorting
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
-        
+
         // Validate sort_by to prevent SQL injection
         $allowedSorts = ['created_at', 'base_price', 'name', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
             $sortBy = 'created_at';
         }
-        
+
         // Validate sort_order must be 'asc' or 'desc'
         if (!in_array(strtolower($sortOrder), ['asc', 'desc'])) {
             $sortOrder = 'desc';
         }
-        
+
         if ($sortBy === 'name') {
             $query->orderByRaw("JSON_EXTRACT(name_json, '$.en') {$sortOrder}");
         } else {
@@ -126,7 +126,7 @@ class ProductRepository
      */
     public function findById(int $id): ?Product
     {
-        return Product::with(['category', 'addonModifiers'])->active()->find($id);
+        return Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions'])->active()->find($id);
     }
 
     /**

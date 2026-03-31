@@ -450,7 +450,7 @@ class CartController extends Controller
                     }, $addons);
                 }
 
-                $this->cartService->addProductToCart($cart, $product, $quantity, $addons, $validated['note'] ?? null);
+                $this->cartService->addProductToCart($cart, $product, $quantity, $addons, $validated['note'] ?? null, $validated['foodics_option_ids'] ?? []);
             } else {
                 // mix or creator_mix
                 $configuration = $validated['configuration'] ?? [];

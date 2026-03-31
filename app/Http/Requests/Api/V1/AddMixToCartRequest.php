@@ -40,6 +40,8 @@ class AddMixToCartRequest extends FormRequest
             'product_id' => 'required_if:item_type,product|exists:products,id',
             'note' => 'nullable|string|max:1000',
             'store_id' => 'nullable|exists:stores,id',
+            'foodics_option_ids' => 'nullable|array',
+            'foodics_option_ids.*' => 'integer|exists:foodics_modifier_options,id',
         ];
     }
 }

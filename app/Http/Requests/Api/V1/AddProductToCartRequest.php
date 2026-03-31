@@ -29,6 +29,8 @@ class AddProductToCartRequest extends FormRequest
             'addons.*.id' => 'required_without:addons.*.modifier_id|exists:modifiers,id',
             'addons.*.level' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:1000',
+            'foodics_option_ids' => 'nullable|array',
+            'foodics_option_ids.*' => 'integer|exists:foodics_modifier_options,id',
         ];
     }
 

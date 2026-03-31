@@ -32,14 +32,14 @@ class KioskCartController extends Controller
     private function getCartRelationships(bool $includeProduct = false): array
     {
         $relationships = ['items', 'promoCode'];
-        
+
         if ($includeProduct) {
             $relationships[] = 'items.product.addonModifiers';
             $relationships[] = 'items.product.category';
         } else {
             $relationships[] = 'items.product';
         }
-        
+
         return $relationships;
     }
 
@@ -50,7 +50,7 @@ class KioskCartController extends Controller
     {
         // Try to find existing cart for this session AND store
         $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $storeId);
-        
+
         if ($cart) {
             return $cart;
         }
@@ -113,7 +113,7 @@ class KioskCartController extends Controller
     {
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
-        
+
         $includeProduct = $request->boolean('include_product', false);
 
         $cart = $this->cartRepository->findActiveCart(null, $sessionId, $includeProduct ? true : null, $store->id);
@@ -211,10 +211,10 @@ class KioskCartController extends Controller
             $includeProduct = $request->boolean('include_product', false);
             // Reload cart with relationships
             $cart->load($this->getCartRelationships($includeProduct));
-            
+
             return apiSuccess(
-                new CartResource($cart), 
-                'item_added', 
+                new CartResource($cart),
+                'item_added',
                 201
             );
         }
@@ -250,7 +250,7 @@ class KioskCartController extends Controller
                     }, $addons);
                 }
 
-                $this->cartService->addProductToCart($cart, $product, $quantity, $addons, $validated['note'] ?? null);
+                $this->cartService->addProductToCart($cart, $product, $quantity, $addons, $validated['note'] ?? null, $validated['foodics_option_ids'] ?? []);
             } else {
                 // mix or creator_mix
                 $configuration = $validated['configuration'] ?? [];
@@ -271,7 +271,7 @@ class KioskCartController extends Controller
             $includeProduct = $request->boolean('include_product', false);
             // Reload cart with relationships
             $cart->load($this->getCartRelationships($includeProduct));
-            
+
             return apiSuccess(
                 new CartResource($cart),
                 'item_added',
@@ -322,9 +322,9 @@ class KioskCartController extends Controller
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
-        
+
         return apiSuccess(
-            new CartResource($cart), 
+            new CartResource($cart),
             'item_updated'
         );
     }
@@ -363,9 +363,9 @@ class KioskCartController extends Controller
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
-        
+
         return apiSuccess(
-            new CartResource($cart), 
+            new CartResource($cart),
             'item_removed'
         );
     }
@@ -416,7 +416,7 @@ class KioskCartController extends Controller
         // Ensure cart is recalculated first to get accurate subtotal
         $this->cartRepository->recalculate($cart);
         $cart->refresh();
-        
+
         if ($cart->subtotal < $promoCode->minimum_order_amount) {
             return apiError('MINIMUM_ORDER_NOT_MET', 'minimum_order_not_met', 400);
         }
@@ -428,9 +428,9 @@ class KioskCartController extends Controller
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
-        
+
         return apiSuccess(
-            new CartResource($cart), 
+            new CartResource($cart),
             'promo_applied'
         );
     }
@@ -467,9 +467,9 @@ class KioskCartController extends Controller
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
-        
+
         return apiSuccess(
-            new CartResource($cart), 
+            new CartResource($cart),
             'promo_removed'
         );
     }
