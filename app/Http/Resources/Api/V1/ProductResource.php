@@ -32,6 +32,7 @@ class ProductResource extends JsonResource
             }),
             'external_source' => $this->external_source,
             'modifiers' => $this->getModifiersGroupedByType(),
+            'foodics_modifiers' => $this->getFoodicsModifiers(),
         ];
     }
 
@@ -67,6 +68,42 @@ class ProductResource extends JsonResource
         }
 
         return $result;
+    }
+
+    /**
+     * Get Foodics modifier groups with their active options and pivot constraints.
+     *
+     * @return array
+     */
+    private function getFoodicsModifiers(): array
+    {
+        if (!$this->relationLoaded('foodicsModifiers')) {
+            return [];
+        }
+
+        return $this->foodicsModifiers->map(function ($modifier) {
+            return [
+                'id'              => $modifier->id,
+                'name'            => $modifier->getName(app()->getLocale()),
+                'name_ar'         => $modifier->getName('ar'),
+                'name_en'         => $modifier->getName('en'),
+                'minimum_options' => $modifier->pivot->minimum_options ?? 0,
+                'maximum_options' => $modifier->pivot->maximum_options ?? 1,
+                'free_options'    => $modifier->pivot->free_options ?? 0,
+                'sort_order'      => $modifier->pivot->sort_order ?? 0,
+                'options'         => $modifier->activeOptions->map(function ($option) {
+                    return [
+                        'id'       => $option->id,
+                        'name'     => $option->getName(app()->getLocale()),
+                        'name_ar'  => $option->getName('ar'),
+                        'name_en'  => $option->getName('en'),
+                        'price'    => (float) $option->price,
+                        'calories' => $option->calories,
+                        'sku'      => $option->sku,
+                    ];
+                })->values()->all(),
+            ];
+        })->sortBy('sort_order')->values()->all();
     }
 
     /**
