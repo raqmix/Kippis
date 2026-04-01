@@ -7,6 +7,7 @@ use App\Core\Models\CartItem;
 use App\Core\Models\Product;
 use App\Core\Models\PromoCode;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class CartRepository
 {
@@ -117,7 +118,7 @@ class CartRepository
      */
     public function addItemUnified(Cart $cart, array $payload): CartItem
     {
-        return \DB::transaction(function () use ($cart, $payload) {
+        return DB::transaction(function () use ($cart, $payload) {
             $productId = $payload['product_id'] ?? null;
             $itemType = $payload['item_type'] ?? 'product';
             $configuration = $payload['configuration'] ?? null;
@@ -174,9 +175,18 @@ class CartRepository
             $query->where('product_id', $productId);
         }
 
-        $items = $query->get();
+        // Fast path: null configuration → SQL NULL check, no PHP scan needed
+        $normalized = $this->normalizeConfiguration($configuration);
+        if ($normalized === null) {
+            return $query->whereNull('configuration')->first();
+        }
 
-        foreach ($items as $item) {
+        // Non-null: select only the columns needed for comparison + quantity update
+        $candidates = $query->whereNotNull('configuration')
+            ->select(['id', 'quantity', 'item_type', 'configuration'])
+            ->get();
+
+        foreach ($candidates as $item) {
             if ($this->configurationsMatch($item->configuration, $configuration)) {
                 return $item;
             }
@@ -301,18 +311,33 @@ class CartRepository
     }
 
     /**
+     * Find active cart for write operations (no eager loading — just the cart row).
+     * Use this instead of findActiveCart() for add/update/remove/promo write paths.
+     */
+    public function findActiveCartForWrite(?int $customerId, ?string $sessionId = null, ?int $storeId = null): ?Cart
+    {
+        $query = Cart::whereNull('abandoned_at');
+
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
+        } elseif ($sessionId) {
+            $query->where('session_id', $sessionId);
+        } else {
+            return null;
+        }
+
+        if ($storeId !== null) {
+            $query->where('store_id', $storeId);
+        }
+
+        return $query->latest()->first();
+    }
+
+    /**
      * Recalculate cart totals.
      */
     public function recalculate(Cart $cart): void
     {
-        // Ensure items and promoCode relationships are loaded
-        // if (!$cart->relationLoaded('items')) {
-            $cart->load('items');
-        // }
-        // if (!$cart->relationLoaded('promoCode')) {
-            $cart->load('promoCode');
-        // }
-
         $cart->recalculate();
     }
 }

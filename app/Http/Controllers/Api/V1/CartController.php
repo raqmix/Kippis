@@ -52,8 +52,8 @@ class CartController extends Controller
      */
     private function getOrCreateCart(int $customerId, ?int $storeId = null)
     {
-        // Try to find existing cart
-        $cart = $this->cartRepository->findActiveCart($customerId);
+        // Lean lookup — no eager loading needed for write operations
+        $cart = $this->cartRepository->findActiveCartForWrite($customerId);
 
         if ($cart) {
             return $cart;
@@ -468,8 +468,9 @@ class CartController extends Controller
             $this->cartRepository->recalculate($cart);
 
             $includeProduct = $request->boolean('include_product', false);
+            $cart->load($this->getCartRelationships($includeProduct));
             return apiSuccess(
-                new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
+                new CartResource($cart),
                 'item_added',
                 201
             );
@@ -507,7 +508,7 @@ class CartController extends Controller
 
         $customer = auth('api')->user();
 
-        $cart = $this->cartRepository->findActiveCart($customer->id);
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -546,9 +547,9 @@ class CartController extends Controller
         $this->cartRepository->recalculate($cart);
 
         $includeProduct = $request->boolean('include_product', false);
-
+        $cart->load($this->getCartRelationships($includeProduct));
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
+            new CartResource($cart),
             'item_updated'
         );
     }
@@ -573,7 +574,7 @@ class CartController extends Controller
     {
         $customer = auth('api')->user();
 
-        $cart = $this->cartRepository->findActiveCart($customer->id);
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -584,8 +585,9 @@ class CartController extends Controller
         $this->cartRepository->recalculate($cart);
 
         $includeProduct = $request->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
+            new CartResource($cart),
             'item_removed'
         );
     }
@@ -621,7 +623,7 @@ class CartController extends Controller
 
         $customer = auth('api')->user();
 
-        $cart = $this->cartRepository->findActiveCart($customer->id);
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -633,13 +635,8 @@ class CartController extends Controller
             return apiError('INVALID_PROMO_CODE', 'invalid_promo_code', 400);
         }
 
-        // Ensure cart is recalculated first to get accurate subtotal
+        // Recalculate to get accurate subtotal before validation
         $this->cartRepository->recalculate($cart);
-        $cart->refresh();
-
-        // Ensure cart subtotal is calculated before validation
-        $this->cartRepository->recalculate($cart);
-        $cart->refresh();
 
         if ($cart->subtotal < $promoCode->minimum_order_amount) {
             return apiError('MINIMUM_ORDER_NOT_MET', 'minimum_order_not_met', 400);
@@ -653,8 +650,9 @@ class CartController extends Controller
         $this->cartRepository->recalculate($cart);
 
         $includeProduct = $request->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
+            new CartResource($cart),
             'promo_applied'
         );
     }
@@ -678,7 +676,7 @@ class CartController extends Controller
     {
         $customer = auth('api')->user();
 
-        $cart = $this->cartRepository->findActiveCart($customer->id);
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -688,8 +686,9 @@ class CartController extends Controller
         $this->cartRepository->recalculate($cart);
 
         $includeProduct = request()->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
         return apiSuccess(
-            new CartResource($cart->fresh($this->getCartRelationships($includeProduct))),
+            new CartResource($cart),
             'promo_removed'
         );
     }
@@ -706,7 +705,7 @@ class CartController extends Controller
     {
         $customer = auth('api')->user();
 
-        $cart = $this->cartRepository->findActiveCart($customer->id);
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);

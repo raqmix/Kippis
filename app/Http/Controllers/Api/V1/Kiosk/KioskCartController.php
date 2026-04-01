@@ -48,8 +48,8 @@ class KioskCartController extends Controller
      */
     private function getOrCreateCart(string $sessionId, int $storeId)
     {
-        // Try to find existing cart for this session AND store
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $storeId);
+        // Lean lookup — no eager loading needed for write operations
+        $cart = $this->cartRepository->findActiveCartForWrite(null, $sessionId, $storeId);
 
         if ($cart) {
             return $cart;
@@ -206,7 +206,6 @@ class KioskCartController extends Controller
             );
 
             $this->cartRepository->recalculate($cart);
-            $cart->refresh();
 
             $includeProduct = $request->boolean('include_product', false);
             // Reload cart with relationships
@@ -266,7 +265,6 @@ class KioskCartController extends Controller
             }
 
             $this->cartRepository->recalculate($cart);
-            $cart->refresh();
 
             $includeProduct = $request->boolean('include_product', false);
             // Reload cart with relationships
@@ -309,7 +307,7 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $store->id);
+        $cart = $this->cartRepository->findActiveCartForWrite(null, $sessionId, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -318,7 +316,6 @@ class KioskCartController extends Controller
         $cartItem = $cart->items()->findOrFail($id);
         $this->cartRepository->updateItem($cartItem, ['quantity' => $request->input('quantity')]);
         $this->cartRepository->recalculate($cart);
-        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
@@ -350,7 +347,7 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $store->id);
+        $cart = $this->cartRepository->findActiveCartForWrite(null, $sessionId, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -359,7 +356,6 @@ class KioskCartController extends Controller
         $cartItem = $cart->items()->findOrFail($id);
         $this->cartRepository->removeItem($cartItem);
         $this->cartRepository->recalculate($cart);
-        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
@@ -396,15 +392,10 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId);
+        $cart = $this->cartRepository->findActiveCartForWrite(null, $sessionId, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
-        }
-
-        // Ensure cart belongs to authenticated store
-        if ($cart->store_id !== $store->id) {
-            return apiError('CART_STORE_MISMATCH', 'Cart belongs to a different store', 403);
         }
 
         $promoCode = $this->promoCodeRepository->findValidByCode($request->input('code'));
@@ -413,9 +404,8 @@ class KioskCartController extends Controller
             return apiError('INVALID_PROMO_CODE', 'invalid_promo_code', 400);
         }
 
-        // Ensure cart is recalculated first to get accurate subtotal
+        // Recalculate to get accurate subtotal before validation
         $this->cartRepository->recalculate($cart);
-        $cart->refresh();
 
         if ($cart->subtotal < $promoCode->minimum_order_amount) {
             return apiError('MINIMUM_ORDER_NOT_MET', 'minimum_order_not_met', 400);
@@ -424,7 +414,6 @@ class KioskCartController extends Controller
         // For guest carts (kiosk), skip customer validation
         $this->cartRepository->applyPromoCode($cart, $promoCode);
         $this->cartRepository->recalculate($cart);
-        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
@@ -455,7 +444,7 @@ class KioskCartController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $sessionId = session()->getId();
 
-        $cart = $this->cartRepository->findActiveCart(null, $sessionId, null, $store->id);
+        $cart = $this->cartRepository->findActiveCartForWrite(null, $sessionId, $store->id);
 
         if (!$cart) {
             return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
@@ -463,7 +452,6 @@ class KioskCartController extends Controller
 
         $this->cartRepository->removePromoCode($cart);
         $this->cartRepository->recalculate($cart);
-        $cart->refresh();
 
         $includeProduct = $request->boolean('include_product', false);
         $cart->load($this->getCartRelationships($includeProduct));
