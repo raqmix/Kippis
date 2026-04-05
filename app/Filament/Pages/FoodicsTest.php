@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Integrations\Foodics\Models\FoodicsToken;
 use App\Integrations\Foodics\Services\FoodicsAuthService;
+use App\Modules\Stores\Services\FoodicsBranchesSyncService;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -47,6 +48,9 @@ class FoodicsTest extends Page implements HasForms
 
     public ?string $sandboxToken = null;
     public ?string $liveToken = null;
+
+    public bool $isSyncingBranches = false;
+    public ?array $branchesSyncResult = null;
 
     public function mount(): void
     {
@@ -104,6 +108,45 @@ class FoodicsTest extends Page implements HasForms
     {
         $this->testSandbox();
         $this->testLive();
+    }
+
+    public function syncBranches(): void
+    {
+        $this->isSyncingBranches = true;
+        $this->branchesSyncResult = null;
+
+        try {
+            $syncService = app(FoodicsBranchesSyncService::class);
+            $stats = $syncService->syncAllBranches();
+
+            $this->branchesSyncResult = [
+                'success' => true,
+                'stats' => $stats,
+            ];
+
+            Notification::make()
+                ->title(__('system.sync_branches_success'))
+                ->body(__('system.sync_branches_success_body', [
+                    'created' => $stats['created'],
+                    'updated' => $stats['updated'],
+                    'skipped' => $stats['skipped'],
+                ]))
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            $this->branchesSyncResult = [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+
+            Notification::make()
+                ->title(__('system.sync_branches_failed'))
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        } finally {
+            $this->isSyncingBranches = false;
+        }
     }
 
     public function saveSandboxToken(): void

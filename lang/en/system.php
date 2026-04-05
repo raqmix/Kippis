@@ -243,6 +243,14 @@ return [
     'test_both_connections' => 'Test Both Connections',
     'test_sandbox_connection' => 'Test your sandbox API credentials',
     'test_live_connection' => 'Test your live API credentials',
+
+    // Sync Branches
+    'sync_branches' => 'Sync Branches',
+    'sync_branches_description' => 'Pull all branches from Foodics and update local stores',
+    'sync_branches_success' => 'Branches Synced Successfully',
+    'sync_branches_success_body' => 'Created: :created, Updated: :updated, Skipped: :skipped',
+    'sync_branches_failed' => 'Branch Sync Failed',
+    'syncing' => 'Syncing...',
     'connection_successful' => 'Connection Successful',
     'connection_failed' => 'Connection Failed',
     'base_url' => 'Base URL',

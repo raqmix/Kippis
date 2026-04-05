@@ -276,6 +276,79 @@
                 </div>
             </div>
         </div>
+
+        {{-- Sync Branches Section --}}
+        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+            <div class="fi-section-header-actions-container flex items-center gap-x-3 p-6">
+                <div class="grid gap-y-1 flex-1">
+                    <h3 class="fi-section-header-heading text-base font-semibold leading-6 text-gray-950 dark:text-white flex items-center gap-2">
+                        <svg class="h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+                        </svg>
+                        {{ __('system.sync_branches') }}
+                    </h3>
+                    <p class="fi-section-header-description text-sm text-gray-500 dark:text-gray-400">
+                        {{ __('system.sync_branches_description') }}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <x-filament::button
+                        wire:click="syncBranches"
+                        :disabled="$isSyncingBranches"
+                        color="success"
+                        icon="heroicon-o-arrow-path"
+                    >
+                        {{ $isSyncingBranches ? __('system.syncing') : __('system.sync_branches') }}
+                    </x-filament::button>
+                </div>
+            </div>
+
+            @if($branchesSyncResult)
+                <div class="fi-section-content-ctn divide-y divide-gray-100 dark:divide-white/10">
+                    <div class="fi-section-content p-6">
+                        <div class="p-4 rounded-lg {{ $branchesSyncResult['success'] ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' }}">
+                            <div class="flex items-start gap-3">
+                                @if($branchesSyncResult['success'])
+                                    <svg class="h-5 w-5 text-green-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-900 dark:text-white">{{ __('system.sync_branches_success') }}</div>
+                                        <div class="mt-2 grid grid-cols-3 gap-4 text-sm">
+                                            <div class="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                                                <div class="font-bold text-green-600 dark:text-green-400 text-lg">{{ $branchesSyncResult['stats']['created'] }}</div>
+                                                <div class="text-gray-500 dark:text-gray-400">{{ __('system.created') }}</div>
+                                            </div>
+                                            <div class="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                                                <div class="font-bold text-blue-600 dark:text-blue-400 text-lg">{{ $branchesSyncResult['stats']['updated'] }}</div>
+                                                <div class="text-gray-500 dark:text-gray-400">{{ __('system.updated') }}</div>
+                                            </div>
+                                            <div class="text-center p-2 bg-white dark:bg-gray-800 rounded">
+                                                <div class="font-bold text-gray-600 dark:text-gray-400 text-lg">{{ $branchesSyncResult['stats']['skipped'] }}</div>
+                                                <div class="text-gray-500 dark:text-gray-400">{{ __('system.skipped') }}</div>
+                                            </div>
+                                        </div>
+                                        @if(!empty($branchesSyncResult['stats']['errors']))
+                                            <div class="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+                                                {{ __('system.errors') }}: {{ $branchesSyncResult['stats']['errors'] }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <svg class="h-5 w-5 text-red-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-900 dark:text-white">{{ __('system.sync_branches_failed') }}</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ $branchesSyncResult['message'] }}</div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
     </div>
 </x-filament-panels::page>
 
