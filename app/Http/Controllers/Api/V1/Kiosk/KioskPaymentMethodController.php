@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Kiosk;
 
+use App\Core\Models\PaymentMethod;
 use App\Core\Repositories\PaymentMethodRepository;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\PaymentMethodResource;
@@ -37,27 +38,15 @@ class KioskPaymentMethodController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = [
-            'is_active' => $request->query('is_active', '1'),
-            'q' => $request->query('q'),
-            'sort_by' => $request->query('sort_by', 'created_at'),
-            'sort_order' => $request->query('sort_order', 'desc'),
-        ];
+        $codes = ['cash', 'card'];
+        $methods = PaymentMethod::with('channel')
+            ->whereIn('code', $codes)
+            ->where('is_active', true)
+            ->get()
+            ->sortBy(fn ($m) => array_search($m->code, $codes))
+            ->values();
 
-        $perPage = min($request->query('per_page', 15), 100);
-        $paymentMethods = $this->paymentMethodRepository->getPaginated($filters, $perPage);
-
-        return apiSuccess(
-            PaymentMethodResource::collection($paymentMethods),
-            null,
-            200,
-            [
-                'current_page' => $paymentMethods->currentPage(),
-                'per_page' => $paymentMethods->perPage(),
-                'total' => $paymentMethods->total(),
-                'last_page' => $paymentMethods->lastPage(),
-            ]
-        );
+        return apiSuccess(PaymentMethodResource::collection($methods));
     }
 
     /**

@@ -1,0 +1,12 @@
+PLACEHOLDER — Replace this file with the actual content downloaded from:
+Apple Developer Portal → Certificates, Identifiers & Profiles → Identifiers → Merchant ID → Apple Pay on the Web → Download Domain Association File
+
+Steps:
+1. Log in to https://developer.apple.com
+2. Navigate to Certificates, Identifiers & Profiles → Identifiers
+3. Select your Merchant ID (e.g. merchant.com.kippis)
+4. Under "Apple Pay on the Web", add your domain and download the association file
+5. Replace this entire file content with the downloaded file content (no whitespace before the token)
+
+The URL for this file must be publicly accessible at:
+https://<your-domain>/.well-known/apple-developer-merchantid-domain-association

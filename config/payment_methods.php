@@ -17,16 +17,6 @@ return [
             'code' => 'apple_pay',
             'channel_id' => null,
         ],
-        'google_pay' => [
-            'name' => 'Google Pay',
-            'code' => 'google_pay',
-            'channel_id' => null,
-        ],
-        'wallet' => [
-            'name' => 'Wallet',
-            'code' => 'wallet',
-            'channel_id' => null,
-        ],
     ],
 ];
 

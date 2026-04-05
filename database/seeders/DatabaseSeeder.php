@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             NotificationSeeder::class,
             StoreSeeder::class,
             ChannelSeeder::class,
+            PaymentMethodSeeder::class,
             CustomerSeeder::class,
             CategorySeeder::class,
             ProductSeeder::class,

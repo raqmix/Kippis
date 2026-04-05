@@ -95,6 +95,8 @@ Route::middleware('api.locale')->group(function () {
 
     Route::middleware('auth:api')->prefix('v1/payment')->group(function () {
         Route::post('/mastercard/session', [\App\Http\Controllers\Api\V1\MastercardHostedSessionController::class, 'createSession']);
+        Route::post('/apple-pay/merchant-session', [\App\Http\Controllers\Api\V1\ApplePayController::class, 'merchantSession']);
+        Route::post('/apple-pay/process', [\App\Http\Controllers\Api\V1\ApplePayController::class, 'process']);
     });
 
     // 3DS return — no auth, the browser is redirected here by the card issuer
