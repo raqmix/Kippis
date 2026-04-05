@@ -101,12 +101,12 @@ class StoreResource extends Resource
                             ->label(__('system.latitude'))
                             ->numeric()
                             ->step(0.00000001)
-                            ->maxLength(255),
+                            ->rules(['nullable', 'numeric', 'between:-90,90']),
                         Forms\Components\TextInput::make('longitude')
                             ->label(__('system.longitude'))
                             ->numeric()
                             ->step(0.00000001)
-                            ->maxLength(255),
+                            ->rules(['nullable', 'numeric', 'between:-180,180']),
                             Forms\Components\TextInput::make('phone')
                             ->label(__('system.phone'))
                             ->tel()
