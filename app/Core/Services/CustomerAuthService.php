@@ -282,6 +282,11 @@ class CustomerAuthService
     /**
      * Handle social login (Google or Apple).
      *
+     * Lookup priority:
+     *   1. Find by {provider}_id  — safest match, handles relay/changed emails
+     *   2. Find by email          — links an existing manual/other-social account
+     *   3. Create new account
+     *
      * @param string $provider ('google' or 'apple')
      * @param string $token (access_token for Google, id_token for Apple)
      * @param array|null $userData (Optional user data from client, used for Apple name on first login)
@@ -306,8 +311,7 @@ class CustomerAuthService
                 ->stateless() // @phpstan-ignore-next-line
                 ->userFromToken($token);
 
-            // Extract social user data
-            $email = $socialUser->getEmail();
+            $email      = $socialUser->getEmail();
             $providerId = $socialUser->getId();
             $socialName = $socialUser->getName();
             $socialAvatar = $socialUser->getAvatar();
@@ -321,61 +325,107 @@ class CustomerAuthService
                 }
             }
 
-            if (!$email) {
-                throw new \App\Http\Exceptions\ApiException(
-                    'EMAIL_REQUIRED',
-                    'Email is required from social provider.',
-                    400
-                );
+            $providerIdField = $provider . '_id';
+
+            // ── Step 1: Look up by provider_id (most reliable) ──────────────
+            $customer = $this->customerRepository->findByProviderId($provider, $providerId);
+
+            // ── Step 2: Look up by email (account linking) ───────────────────
+            if (!$customer && $email) {
+                $customer = $this->customerRepository->findByEmail($email);
             }
 
-            // Find existing customer by email
-            $customer = $this->customerRepository->findByEmail($email);
+            // ── Step 2.5: Look up by phone (handles same-number accounts) ────
+            // Client may supply phone in userData (e.g. Apple signup flow where
+            // the app already knows the user's phone from a previous step).
+            $clientPhone = isset($userData['phone']) ? trim((string) $userData['phone']) : null;
+            if (!$customer && $clientPhone !== null && $clientPhone !== '') {
+                $customer = $this->customerRepository->findByPhone($clientPhone);
+            }
 
             if ($customer) {
-                // Customer exists - link provider ID if not already linked
-                $providerIdField = $provider . '_id';
-                $providerTokenField = $provider . '_refresh_token';
-
+                // ── Existing customer — update any missing/changed fields ─────
                 $updateData = [];
 
-                // Update provider ID if not set or different
-                if (!$customer->$providerIdField || $customer->$providerIdField !== $providerId) {
+                // Link provider ID if not already set on this account
+                if (empty($customer->$providerIdField)) {
                     $updateData[$providerIdField] = $providerId;
                 }
 
-                // Update name if we received a better Apple name and current is empty/placeholder
-                if ($provider === 'apple' && $appleName && (trim((string) $customer->name) === '' || $customer->name === 'User')) {
+                // Correct a stale provider ID (e.g. account was merged)
+                if ($customer->$providerIdField !== $providerId) {
+                    $updateData[$providerIdField] = $providerId;
+                }
+
+                // Backfill email if the account row somehow has no email yet
+                if (!$customer->email && $email) {
+                    $updateData['email'] = $email;
+                }
+
+                // Update name from Apple if account name is empty
+                if ($provider === 'apple' && $appleName && in_array(trim((string) $customer->name), ['', 'User'])) {
                     $updateData['name'] = $appleName;
                 }
 
-                // Update social avatar if available
-                if ($socialAvatar && !$customer->avatar) {
+                // Seed social avatar when no custom avatar is uploaded yet
+                if ($socialAvatar && !$customer->avatar && !$customer->social_avatar) {
                     $updateData['social_avatar'] = $socialAvatar;
                 }
 
-                // Update customer if there are changes
+                // Ensure social accounts are always verified
+                if (!$customer->is_verified) {
+                    $updateData['is_verified'] = true;
+                }
+
                 if (!empty($updateData)) {
                     $this->customerRepository->update($customer->id, $updateData);
                     $customer->refresh();
                 }
             } else {
-                // Customer doesn't exist - create new one
+                // ── Step 3: No existing account — create new one ─────────────
+                if (!$email) {
+                    // Apple sometimes omits email on non-first-launch tokens;
+                    // we cannot create an account without it.
+                    throw new \App\Http\Exceptions\ApiException(
+                        'EMAIL_REQUIRED',
+                        'Email is required from social provider.',
+                        400
+                    );
+                }
+
                 $customerData = [
-                    'name' => $socialName ?: 'User',
-                    'email' => $email,
-                    'phone' => $userData['phone'] ?? null,
+                    'name'         => $socialName ?: 'User',
+                    'email'        => $email,
+                    'phone'        => $clientPhone ?: null,
                     'country_code' => $userData['country_code'] ?? null,
-                    'birthdate' => $userData['birthdate'] ?? now()->subYears(18)->toDateString(),
-                    'password' => Hash::make(Str::random(32)), // Random placeholder password
-                    'is_verified' => true, // Auto-verify social logins
+                    'birthdate'    => $userData['birthdate'] ?? now()->subYears(18)->toDateString(),
+                    'password'     => Hash::make(Str::random(32)),
+                    'is_verified'  => true,
                     'social_avatar' => $socialAvatar,
+                    $providerIdField => $providerId,
                 ];
 
-                // Set provider ID
-                $customerData[$provider . '_id'] = $providerId;
+                try {
+                    $customer = $this->customerRepository->create($customerData);
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Unique-constraint violation (email or phone race condition).
+                    // Re-attempt lookups and link instead of creating a duplicate.
+                    $customer = $this->customerRepository->findByEmail($email)
+                        ?? ($clientPhone ? $this->customerRepository->findByPhone($clientPhone) : null);
 
-                $customer = $this->customerRepository->create($customerData);
+                    if (!$customer) {
+                        // Truly unresolvable conflict; surface a clean error.
+                        throw new \App\Http\Exceptions\ApiException(
+                            'ACCOUNT_CONFLICT',
+                            'An account with this email or phone already exists. Please sign in manually first.',
+                            409
+                        );
+                    }
+
+                    // We found the conflicting row – link the provider and continue.
+                    $this->customerRepository->update($customer->id, [$providerIdField => $providerId]);
+                    $customer->refresh();
+                }
             }
 
             // Generate JWT token
@@ -383,7 +433,7 @@ class CustomerAuthService
 
             return [
                 'customer' => $customer,
-                'token' => $jwtToken,
+                'token'    => $jwtToken,
             ];
         } catch (\Laravel\Socialite\Two\InvalidStateException $e) {
             throw new \App\Http\Exceptions\ApiException(

@@ -41,6 +41,31 @@ class CustomerRepository
     }
 
     /**
+     * Find customer by social provider ID.
+     *
+     * @param string $provider  'google' or 'apple'
+     * @param string $providerId
+     * @return Customer|null
+     */
+    public function findByProviderId(string $provider, string $providerId): ?Customer
+    {
+        $column = $provider . '_id';
+
+        return Customer::where($column, $providerId)->first();
+    }
+
+    /**
+     * Find customer by phone number.
+     *
+     * @param string $phone
+     * @return Customer|null
+     */
+    public function findByPhone(string $phone): ?Customer
+    {
+        return Customer::where('phone', $phone)->first();
+    }
+
+    /**
      * Find customer by ID.
      *
      * @param int $id

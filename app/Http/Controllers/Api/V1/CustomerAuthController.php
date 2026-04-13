@@ -759,6 +759,8 @@ class CustomerAuthController extends Controller
                 'id_token' => 'required|string',
                 'user' => 'nullable|array',
                 'user.name' => 'nullable|string',
+                'user.phone' => 'nullable|string|max:20',
+                'user.country_code' => 'nullable|string|max:5',
             ]);
 
             $result = $this->authService->socialLogin(

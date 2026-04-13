@@ -24,7 +24,7 @@ class RegisterCustomerRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:customers,email'],
-            'phone' => ['required', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'max:20', 'unique:customers,phone'],
             'country_code' => ['required', 'string', 'max:5'],
             'birthdate' => ['required', 'date', 'before:today'],
             'password' => ['required', 'string', 'min:8', 'confirmed', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[#?!@$%^&*-])[A-Za-z\d#?!@$%^&*-]{8,}$/'],
@@ -45,6 +45,7 @@ class RegisterCustomerRequest extends FormRequest
             'email.email' => 'The email must be a valid email address.',
             'email.unique' => 'This email is already registered.',
             'phone.required' => 'The phone field is required.',
+            'phone.unique' => 'This phone number is already registered.',
             'country_code.required' => 'The country code field is required.',
             'birthdate.required' => 'The birthdate field is required.',
             'birthdate.before' => 'The birthdate must be before today.',
