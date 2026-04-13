@@ -408,22 +408,37 @@ class CustomerAuthService
                 try {
                     $customer = $this->customerRepository->create($customerData);
                 } catch (\Illuminate\Database\QueryException $e) {
-                    // Unique-constraint violation (email or phone race condition).
-                    // Re-attempt lookups and link instead of creating a duplicate.
-                    $customer = $this->customerRepository->findByEmail($email)
+                    // Unique-constraint violation — find the conflicting row and link.
+                    // Search with withTrashed=true because soft-deleted rows still
+                    // occupy the unique index and would block an INSERT.
+                    $customer = $this->customerRepository->findByProviderId($provider, $providerId)
+                        ?? ($email ? $this->customerRepository->findByEmail($email, true) : null)
                         ?? ($clientPhone ? $this->customerRepository->findByPhone($clientPhone) : null);
 
                     if (!$customer) {
-                        // Truly unresolvable conflict; surface a clean error.
+                        \Illuminate\Support\Facades\Log::error('Social login insert conflict unresolvable', [
+                            'provider'  => $provider,
+                            'email'     => $email,
+                            'error'     => $e->getMessage(),
+                        ]);
                         throw new \App\Http\Exceptions\ApiException(
                             'ACCOUNT_CONFLICT',
-                            'An account with this email or phone already exists. Please sign in manually first.',
+                            'Could not complete sign-in. Please contact support.',
                             409
                         );
                     }
 
-                    // We found the conflicting row – link the provider and continue.
-                    $this->customerRepository->update($customer->id, [$providerIdField => $providerId]);
+                    // Restore soft-deleted account so the user can log in again.
+                    if ($customer->trashed()) {
+                        $customer->restore();
+                        $customer->refresh();
+                    }
+
+                    // Link the provider and continue.
+                    $this->customerRepository->update($customer->id, [
+                        $providerIdField => $providerId,
+                        'is_verified'    => true,
+                    ]);
                     $customer->refresh();
                 }
             }
