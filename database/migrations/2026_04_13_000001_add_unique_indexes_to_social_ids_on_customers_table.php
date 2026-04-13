@@ -15,20 +15,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Drop the plain (non-unique) indexes added in an earlier migration
-        // before replacing them, to avoid "duplicate key name" errors.
         Schema::table('customers', function (Blueprint $table) {
-            // dropIndex is a no-op if the index doesn't exist in some drivers,
-            // so we check before dropping to keep things safe.
-            $sm = Schema::getConnection()->getDoctrineSchemaManager();
-            $indexes = array_keys($sm->listTableIndexes('customers'));
-
-            if (in_array('customers_google_id_index', $indexes)) {
-                $table->dropIndex(['google_id']);
-            }
-            if (in_array('customers_apple_id_index', $indexes)) {
-                $table->dropIndex(['apple_id']);
-            }
+            // Drop plain indexes first (ignore if they don't exist).
+            try { $table->dropIndex(['google_id']); } catch (\Exception) {}
+            try { $table->dropIndex(['apple_id']); } catch (\Exception) {}
 
             $table->unique('google_id');
             $table->unique('apple_id');
@@ -38,8 +28,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-            $table->dropUnique(['google_id']);
-            $table->dropUnique(['apple_id']);
+            try { $table->dropUnique(['google_id']); } catch (\Exception) {}
+            try { $table->dropUnique(['apple_id']); } catch (\Exception) {}
 
             $table->index('google_id');
             $table->index('apple_id');

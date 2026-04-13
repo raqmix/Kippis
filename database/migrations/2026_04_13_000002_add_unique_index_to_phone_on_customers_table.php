@@ -20,9 +20,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Null out duplicate phone values, keeping the oldest account.
-        //    This is a no-op on clean databases.
-        \DB::statement('
+        // Null out duplicate phone values, keeping the oldest account.
+        // This is a no-op on clean databases.
+        DB::statement('
             UPDATE customers c1
             JOIN (
                 SELECT phone, MIN(id) AS keep_id
@@ -35,12 +35,8 @@ return new class extends Migration
         ');
 
         Schema::table('customers', function (Blueprint $table) {
-            // Drop the old plain index before replacing it with a unique one.
-            try {
-                $table->dropIndex(['phone']);
-            } catch (\Exception $e) {
-                // Index may already be gone – safe to ignore.
-            }
+            // Drop the old plain index before replacing it (ignore if missing).
+            try { $table->dropIndex(['phone']); } catch (\Exception) {}
 
             $table->unique('phone');
         });
@@ -49,7 +45,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-            $table->dropUnique(['phone']);
+            try { $table->dropUnique(['phone']); } catch (\Exception) {}
             $table->index('phone');
         });
     }
