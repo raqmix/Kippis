@@ -9,7 +9,6 @@ use App\Core\Repositories\LoyaltyWalletRepository;
 use App\Helpers\FileHelper;
 use App\Http\Exceptions\AccountNotVerifiedException;
 use App\Http\Exceptions\InvalidOtpException;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Tymon\JWTAuth\Exceptions\TokenBlacklistedException;
@@ -312,6 +311,12 @@ class CustomerAuthService
                 $providerId = $claims['sub'];
                 $socialName = null;
                 $socialAvatar = null;
+
+                // Apple omits email from JWT on repeat authorizations.
+                // Use client-provided email as fallback (from the credential).
+                if (!$email && $userData && !empty($userData['email'])) {
+                    $email = $userData['email'];
+                }
             } else {
                 $claims = app(GoogleTokenVerifier::class)->verify($token);
 
@@ -349,6 +354,12 @@ class CustomerAuthService
             }
 
             if ($customer) {
+                // Restore soft-deleted account (user deleted & came back)
+                if ($customer->trashed()) {
+                    $customer->restore();
+                    $customer->refresh();
+                }
+
                 // ── Existing customer — update any missing/changed fields ─────
                 $updateData = [];
 
@@ -389,11 +400,13 @@ class CustomerAuthService
             } else {
                 // ── Step 3: No existing account — create new one ─────────────
                 if (!$email) {
-                    // Apple sometimes omits email on non-first-launch tokens;
-                    // we cannot create an account without it.
+                    // Apple sometimes omits email entirely. Without it we
+                    // cannot create an account. Ask the user to go to
+                    // Settings → Apple ID → Sign-In & Security → Apps Using
+                    // Apple ID, remove this app, then try again.
                     throw new \App\Http\Exceptions\ApiException(
                         'EMAIL_REQUIRED',
-                        'Email is required from social provider.',
+                        'We could not retrieve your email from Apple. Please go to Settings → Apple ID → Sign-In & Security → Apps Using Apple ID, remove Kippis, then try again.',
                         400
                     );
                 }

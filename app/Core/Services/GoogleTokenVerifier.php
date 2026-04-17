@@ -2,7 +2,6 @@
 
 namespace App\Core\Services;
 
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class GoogleTokenVerifier

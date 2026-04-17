@@ -51,7 +51,8 @@ class CustomerRepository
     {
         $column = $provider . '_id';
 
-        return Customer::where($column, $providerId)->first();
+        // Include soft-deleted rows so returning users can be restored.
+        return Customer::withTrashed()->where($column, $providerId)->first();
     }
 
     /**

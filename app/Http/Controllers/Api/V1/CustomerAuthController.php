@@ -598,6 +598,7 @@ class CustomerAuthController extends Controller
     public function update(UpdateCustomerRequest $request): JsonResponse
     {
         try {
+            /** @var \App\Core\Models\Customer|null $customer */
             $customer = auth('api')->user();
 
             if (!$customer) {
@@ -654,6 +655,7 @@ class CustomerAuthController extends Controller
     public function registerFcmToken(\Illuminate\Http\Request $request): JsonResponse
     {
         $request->validate(['fcm_token' => 'required|string']);
+        /** @var \App\Core\Models\Customer|null $customer */
         $customer = auth('api')->user();
         if (!$customer) {
             return apiError('UNAUTHORIZED', 'unauthorized', 401);
@@ -759,6 +761,7 @@ class CustomerAuthController extends Controller
                 'id_token' => 'required|string',
                 'user' => 'nullable|array',
                 'user.name' => 'nullable|string',
+                'user.email' => 'nullable|email|max:255',
                 'user.phone' => 'nullable|string|max:20',
                 'user.country_code' => 'nullable|string|max:5',
             ]);
