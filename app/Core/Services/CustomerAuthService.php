@@ -12,7 +12,6 @@ use App\Http\Exceptions\InvalidOtpException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Laravel\Socialite\Facades\Socialite;
 use Tymon\JWTAuth\Exceptions\TokenBlacklistedException;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 
@@ -305,16 +304,22 @@ class CustomerAuthService
                 );
             }
 
-            // Get user info from provider using Socialite
-            /** @var \Laravel\Socialite\Two\User $socialUser */
-            $socialUser = Socialite::driver($provider)
-                ->stateless() // @phpstan-ignore-next-line
-                ->userFromToken($token);
+            // Get user info from provider
+            if ($provider === 'apple') {
+                $claims = app(AppleTokenVerifier::class)->verify($token);
 
-            $email      = $socialUser->getEmail();
-            $providerId = $socialUser->getId();
-            $socialName = $socialUser->getName();
-            $socialAvatar = $socialUser->getAvatar();
+                $email      = $claims['email'] ?? null;
+                $providerId = $claims['sub'];
+                $socialName = null;
+                $socialAvatar = null;
+            } else {
+                $claims = app(GoogleTokenVerifier::class)->verify($token);
+
+                $email      = $claims['email'] ?? null;
+                $providerId = $claims['sub'];
+                $socialName = $claims['name'] ?? null;
+                $socialAvatar = $claims['picture'] ?? null;
+            }
 
             // For Apple, prioritize client-provided name on first login
             $appleName = null;
@@ -450,18 +455,6 @@ class CustomerAuthService
                 'customer' => $customer,
                 'token'    => $jwtToken,
             ];
-        } catch (\Laravel\Socialite\Two\InvalidStateException $e) {
-            throw new \App\Http\Exceptions\ApiException(
-                'INVALID_TOKEN',
-                'Invalid or expired social token.',
-                401
-            );
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
-            throw new \App\Http\Exceptions\ApiException(
-                'SOCIAL_AUTH_FAILED',
-                'Failed to authenticate with social provider.',
-                401
-            );
         } catch (\App\Http\Exceptions\ApiException $e) {
             // Re-throw our custom exceptions
             throw $e;
