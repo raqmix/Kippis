@@ -25,6 +25,9 @@ class AppleTokenVerifier
         try {
             $publicKeys = $this->getApplePublicKeys();
 
+            // Allow 30 seconds of clock skew between client/server/Apple
+            JWT::$leeway = 30;
+
             $decoded = JWT::decode($idToken, $publicKeys);
             $claims = (array) $decoded;
 
@@ -65,7 +68,8 @@ class AppleTokenVerifier
     private function getApplePublicKeys(): array
     {
         $jwks = Cache::remember('apple:public-jwks', self::KEYS_CACHE_TTL, function () {
-            $response = Http::get(self::APPLE_KEYS_URL);
+            /** @var \Illuminate\Http\Client\Response $response */
+            $response = Http::timeout(10)->get(self::APPLE_KEYS_URL);
 
             if (!$response->successful()) {
                 throw new \RuntimeException('Failed to fetch Apple public keys');
