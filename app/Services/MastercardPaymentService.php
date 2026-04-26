@@ -259,4 +259,64 @@ class MastercardPaymentService
             ];
         }
     }
+
+    /**
+     * Refund (or partial refund) a previously captured transaction.
+     *
+     * @param  string $gatewayOrderId  The gateway order ID stored at capture time.
+     * @param  string $transactionId   A new unique transaction ID for this refund.
+     * @param  string $amount          Amount to refund in major-unit string, e.g. "15.00"
+     * @param  string $currency        ISO-4217 currency code, e.g. "EGP"
+     * @return array{success: bool, gateway_reference?: string, raw_response?: array, error?: string, message?: string}
+     */
+    public function refund(string $gatewayOrderId, string $transactionId, string $amount, string $currency): array
+    {
+        [, $apiUsername, $apiPassword] = $this->authHeaders();
+
+        if (! $apiUsername || ! $apiPassword) {
+            return ['success' => false, 'error' => 'PAYMENT_CONFIG_MISSING', 'message' => 'payment_gateway_not_configured', 'status' => 503];
+        }
+
+        $url     = $this->txUrl($gatewayOrderId, $transactionId);
+        $payload = [
+            'apiOperation' => 'REFUND',
+            'order'        => ['amount' => $amount, 'currency' => $currency],
+        ];
+
+        try {
+            $response     = $this->makeClient()->put($url, [
+                'auth'    => [$apiUsername, $apiPassword],
+                'headers' => ['Accept' => 'application/json', 'Content-Type' => 'application/json'],
+                'body'    => json_encode($payload),
+            ]);
+            $statusCode   = $response->getStatusCode();
+            $responseBody = json_decode($response->getBody()->getContents(), true);
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                return [
+                    'success'           => true,
+                    'gateway_reference' => $responseBody['transaction']['id'] ?? $transactionId,
+                    'raw_response'      => $responseBody,
+                ];
+            }
+
+            Log::warning('Mastercard Refund failed', ['status' => $statusCode, 'body' => $responseBody]);
+            return [
+                'success' => false,
+                'error'   => 'REFUND_FAILED',
+                'message' => $responseBody['error']['explanation'] ?? $responseBody['error']['message'] ?? 'payment_gateway_error',
+                'status'  => $statusCode,
+            ];
+        } catch (RequestException $e) {
+            $statusCode   = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 502;
+            $responseBody = $e->hasResponse() ? json_decode($e->getResponse()->getBody()->getContents(), true) : null;
+            Log::warning('Mastercard Refund failed', ['status' => $statusCode, 'body' => $responseBody]);
+            return [
+                'success' => false,
+                'error'   => 'REFUND_FAILED',
+                'message' => $responseBody['error']['explanation'] ?? $responseBody['error']['message'] ?? $e->getMessage(),
+                'status'  => $statusCode,
+            ];
+        }
+    }
 }

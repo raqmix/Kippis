@@ -112,6 +112,11 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\OrderController::class, 'index']);
         Route::get('/{id}/pdf', [\App\Http\Controllers\Api\V1\OrderController::class, 'downloadPdf']);
         Route::get('/{id}/tracking', [\App\Http\Controllers\Api\V1\OrderController::class, 'tracking']);
+        Route::get('/{id}/status', [\App\Http\Controllers\Api\V1\OrderController::class, 'statusPoll']);
+        Route::get('/{id}/labels', [\App\Http\Controllers\Api\V1\LabelController::class, 'index']);
+        Route::get('/{id}/labels/{item}', [\App\Http\Controllers\Api\V1\LabelController::class, 'show']);
+        Route::post('/{order}/rating', [\App\Http\Controllers\Api\V1\OrderRatingController::class, 'store']);
+        Route::get('/{order}/rating', [\App\Http\Controllers\Api\V1\OrderRatingController::class, 'show']);
         Route::get('/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show']);
         Route::post('/{id}/reorder', [\App\Http\Controllers\Api\V1\OrderController::class, 'reorder']);
     });
@@ -192,6 +197,42 @@ Route::middleware('api.locale')->group(function () {
         // Payment Methods
         Route::get('/payment-methods', [\App\Http\Controllers\Api\V1\Kiosk\KioskPaymentMethodController::class, 'index']);
         Route::get('/payment-methods/{id}', [\App\Http\Controllers\Api\V1\Kiosk\KioskPaymentMethodController::class, 'show']);
+    });
+
+    // ==================== ADMIN API ====================
+    Route::middleware('auth:admin')->prefix('admin')->group(function () {
+        // Refunds & Voids
+        Route::prefix('orders/{order}')->group(function () {
+            Route::post('/void',    [\App\Http\Controllers\Api\Admin\RefundController::class, 'void']);
+            Route::post('/refund',  [\App\Http\Controllers\Api\Admin\RefundController::class, 'refund']);
+            Route::get('/refunds',  [\App\Http\Controllers\Api\Admin\RefundController::class, 'history']);
+        });
+
+        // Payment Reconciliation
+        Route::prefix('reconciliation')->group(function () {
+            Route::get('/',                   [\App\Http\Controllers\Api\Admin\ReconciliationController::class, 'report']);
+            Route::post('/mark-reconciled',   [\App\Http\Controllers\Api\Admin\ReconciliationController::class, 'markReconciled']);
+            Route::get('/export',             [\App\Http\Controllers\Api\Admin\ReconciliationController::class, 'export']);
+        });
+
+        // Queue Screen
+        Route::get('stores/{store}/queue',             [\App\Http\Controllers\Api\Admin\QueueController::class, 'index']);
+        Route::post('orders/{order}/transition',       [\App\Http\Controllers\Api\Admin\QueueController::class, 'transition']);
+
+        // Analytics
+        Route::prefix('analytics')->group(function () {
+            Route::get('/export',  [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'export']);
+            Route::get('/summary', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'summary']);
+        });
+    });
+
+    // Content Slots
+    Route::get('/v1/content-slots', [\App\Http\Controllers\Api\V1\ContentSlotController::class, 'index']);
+
+    // Daily Check-In Rewards
+    Route::middleware('auth:api')->prefix('v1/check-in')->group(function () {
+        Route::post('/', [\App\Http\Controllers\Api\V1\CheckInController::class, 'store']);
+        Route::get('/status', [\App\Http\Controllers\Api\V1\CheckInController::class, 'status']);
     });
 
     // ==================== LEGACY ROUTES (for backward compatibility) ====================

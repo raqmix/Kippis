@@ -24,6 +24,10 @@ class ProductResource extends JsonResource
             'description_en' => $this->getDescription('en'),
             'image' => $this->getImageUrl(),
             'base_price' => (float) $this->base_price,
+            'product_kind' => $this->product_kind,
+            'allergens' => $this->allergens ?? [],
+            'caffeine_mg' => $this->caffeine_mg,
+            'caffeine_level' => $this->caffeine_level,
             'category' => $this->whenLoaded('category', function () {
                 return [
                     'id' => $this->category->id,
@@ -33,6 +37,25 @@ class ProductResource extends JsonResource
             'external_source' => $this->external_source,
             'modifiers' => $this->getModifiersGroupedByType(),
             'foodics_modifiers' => $this->getFoodicsModifiers(),
+            'ingredients' => $this->whenLoaded('ingredients', fn () =>
+                $this->ingredients->map(fn ($ingredient) => [
+                    'id'      => $ingredient->id,
+                    'name_en' => $ingredient->name_en,
+                    'name_ar' => $ingredient->name_ar,
+                    'name'    => app()->getLocale() === 'ar' ? $ingredient->name_ar : $ingredient->name_en,
+                ])->values()->all()
+            ),
+            'combo_items' => $this->whenLoaded('comboItems', fn () =>
+                $this->comboItems->map(fn ($item) => [
+                    'id'          => $item->id,
+                    'product_id'  => $item->product_id,
+                    'name_en'     => $item->product?->getName('en'),
+                    'name_ar'     => $item->product?->getName('ar'),
+                    'name'        => $item->product?->getName(app()->getLocale()),
+                    'quantity'    => $item->quantity,
+                    'is_optional' => $item->is_optional,
+                ])->values()->all()
+            ),
         ];
     }
 

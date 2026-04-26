@@ -35,17 +35,21 @@ class Product extends Model
         'foodics_id',
         'last_synced_at',
         'product_kind',
+        'allergens',
+        'caffeine_mg',
+        'caffeine_level',
     ];
 
     protected function casts(): array
     {
         return [
-            'name_json' => 'array',
-            'description_json' => 'array',
-            'base_price' => 'decimal:2',
-            'is_active' => 'boolean',
-            'last_synced_at' => 'datetime',
-            'deleted_at' => 'datetime',
+            'name_json'       => 'array',
+            'description_json'=> 'array',
+            'allergens'       => 'array',
+            'base_price'      => 'decimal:2',
+            'is_active'       => 'boolean',
+            'last_synced_at'  => 'datetime',
+            'deleted_at'      => 'datetime',
         ];
     }
 
@@ -189,6 +193,32 @@ class Product extends Model
     public function mixBuilderBases()
     {
         return $this->hasMany(MixBuilderBase::class);
+    }
+
+    /**
+     * Ingredients belonging to this product (via pivot).
+     */
+    public function ingredients(): BelongsToMany
+    {
+        return $this->belongsToMany(Ingredient::class, 'product_ingredient')
+            ->withPivot('sort_order')
+            ->orderByPivot('sort_order');
+    }
+
+    /**
+     * Component items when this product is a combo.
+     */
+    public function comboItems()
+    {
+        return $this->hasMany(ComboItem::class, 'combo_product_id');
+    }
+
+    /**
+     * Scope: Combo products.
+     */
+    public function scopeCombo($query)
+    {
+        return $query->where('product_kind', 'combo');
     }
 }
 

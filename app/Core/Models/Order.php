@@ -5,6 +5,7 @@ namespace App\Core\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Database\Factories\OrderFactory;
 
@@ -36,6 +37,9 @@ class Order extends Model
         'modifiers_snapshot',
         'promo_code_id',
         'promo_discount',
+        'refund_status',
+        'refunded_amount',
+        'gateway_order_id',
     ];
 
     protected function casts(): array
@@ -49,6 +53,7 @@ class Order extends Model
             'items_snapshot' => 'array',
             'modifiers_snapshot' => 'array',
             'deleted_at' => 'datetime',
+            'refunded_amount' => 'integer',
         ];
     }
 
@@ -82,6 +87,16 @@ class Order extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
+    public function rating(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(OrderRating::class);
     }
 
     /**

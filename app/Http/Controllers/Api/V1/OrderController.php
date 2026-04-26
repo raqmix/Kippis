@@ -333,6 +333,28 @@ class OrderController extends Controller
     }
 
     /**
+     * Lightweight status poll — WebSocket fallback for active orders.
+     *
+     * @authenticated
+     * @urlParam id required The order ID. Example: 123
+     */
+    public function statusPoll($id): JsonResponse
+    {
+        $customer = auth('api')->user();
+        $order = $this->orderRepository->findByIdForCustomer((int) $id, $customer->id);
+
+        if (!$order) {
+            return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
+        }
+
+        return apiSuccess([
+            'id'         => $order->id,
+            'status'     => $order->status,
+            'updated_at' => $order->updated_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
      * Get order tracking information
      *
      * @authenticated

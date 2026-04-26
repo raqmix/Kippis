@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Core\Models\Order;
 use App\Core\Repositories\LoyaltyWalletRepository;
+use App\Events\OrderStatusUpdated;
 use Illuminate\Support\Facades\Log;
 
 class OrderObserver
@@ -14,12 +15,19 @@ class OrderObserver
     }
 
     /**
-     * Award loyalty points when an order is completed.
+     * Broadcast status change and award loyalty points when an order is completed.
      */
     public function updated(Order $order): void
     {
+        $oldStatus = $order->getOriginal('status');
+
+        // Broadcast status change whenever status transitions
+        if ($order->isDirty('status') && $oldStatus !== $order->status) {
+            OrderStatusUpdated::dispatch($order, $oldStatus);
+        }
+
         // Only process customer orders that just became completed
-        if ($order->status !== 'completed' || $order->getOriginal('status') === 'completed') {
+        if ($order->status !== 'completed' || $oldStatus === 'completed') {
             return;
         }
 
