@@ -29,6 +29,7 @@ class RegisterCustomerRequest extends FormRequest
             'birthdate' => ['nullable', 'date', 'before:today'],
             'password' => ['required', 'string', 'min:8', 'confirmed', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[#?!@$%^&*-])[A-Za-z\d#?!@$%^&*-]{8,}$/'],
             'avatar' => ['nullable', 'image', 'max:2048'],
+            'referral_code' => ['nullable', 'string', 'max:30'],
         ];
     }
 

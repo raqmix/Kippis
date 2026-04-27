@@ -73,6 +73,15 @@ class CustomerAuthController extends Controller
         try {
             $customer = $this->authService->register($request->validated());
 
+            // Apply referral code if provided
+            if ($referralCode = $request->input('referral_code')) {
+                try {
+                    app(\App\Services\ReferralService::class)->applyReferralCode($customer, $referralCode);
+                } catch (\Throwable) {
+                    // Referral errors are non-fatal — registration still succeeds
+                }
+            }
+
             return apiSuccess(
                 new CustomerResource($customer),
                 'registration_successful',

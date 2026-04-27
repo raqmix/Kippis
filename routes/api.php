@@ -197,6 +197,16 @@ Route::middleware('api.locale')->group(function () {
         // Payment Methods
         Route::get('/payment-methods', [\App\Http\Controllers\Api\V1\Kiosk\KioskPaymentMethodController::class, 'index']);
         Route::get('/payment-methods/{id}', [\App\Http\Controllers\Api\V1\Kiosk\KioskPaymentMethodController::class, 'show']);
+
+        // Reorder (Scan Wallet)
+        Route::get('/reorder/scan',    [\App\Http\Controllers\Api\V1\Kiosk\KioskReorderController::class, 'scan']);
+        Route::post('/reorder/confirm', [\App\Http\Controllers\Api\V1\Kiosk\KioskReorderController::class, 'confirm']);
+
+        // Top Picks
+        Route::get('/top-picks', [\App\Http\Controllers\Api\V1\Kiosk\KioskTopPicksController::class, 'index']);
+
+        // Creator Drops
+        Route::get('/drops', [\App\Http\Controllers\Api\V1\Kiosk\KioskDropController::class, 'index']);
     });
 
     // ==================== ADMIN API ====================
@@ -228,6 +238,35 @@ Route::middleware('api.locale')->group(function () {
 
     // Content Slots
     Route::get('/v1/content-slots', [\App\Http\Controllers\Api\V1\ContentSlotController::class, 'index']);
+
+    // Creator Drops & Creators (public)
+    Route::get('/v1/drops', [\App\Http\Controllers\Api\V1\DropController::class, 'index']);
+    Route::get('/v1/drops/{drop}', [\App\Http\Controllers\Api\V1\DropController::class, 'show']);
+    Route::get('/v1/creators', [\App\Http\Controllers\Api\V1\CreatorController::class, 'index']);
+    Route::get('/v1/creators/{creator}', [\App\Http\Controllers\Api\V1\CreatorController::class, 'show']);
+
+    // Widgets & Live Activity data (auth:api optional)
+    Route::get('/v1/widgets/data', [\App\Http\Controllers\Api\V1\WidgetDataController::class, 'index']);
+
+    // Referral
+    Route::middleware('auth:api')->prefix('v1/referral')->group(function () {
+        Route::get('/code', [\App\Http\Controllers\Api\V1\ReferralController::class, 'code']);
+        Route::post('/apply', [\App\Http\Controllers\Api\V1\ReferralController::class, 'apply']);
+    });
+
+    // Squad Order
+    Route::middleware('auth:api')->prefix('v1')->group(function () {
+        Route::post('/squad',                                   [\App\Http\Controllers\Api\V1\SquadController::class, 'create']);
+        Route::post('/squad/join',                              [\App\Http\Controllers\Api\V1\SquadController::class, 'join']);
+        Route::get('/squad/{session}',                          [\App\Http\Controllers\Api\V1\SquadController::class, 'show']);
+        Route::delete('/squad/{session}',                       [\App\Http\Controllers\Api\V1\SquadController::class, 'cancel']);
+        Route::post('/squad/{session}/lock',                    [\App\Http\Controllers\Api\V1\SquadController::class, 'lock']);
+        Route::post('/squad/{session}/checkout',                [\App\Http\Controllers\Api\V1\SquadController::class, 'checkout']);
+        Route::post('/squad/{session}/items',                   [\App\Http\Controllers\Api\V1\SquadItemController::class, 'store']);
+        Route::put('/squad/{session}/items/{item}',             [\App\Http\Controllers\Api\V1\SquadItemController::class, 'update']);
+        Route::delete('/squad/{session}/items/{item}',          [\App\Http\Controllers\Api\V1\SquadItemController::class, 'destroy']);
+        Route::get('/squad/{session}/cart',                     [\App\Http\Controllers\Api\V1\SquadCartController::class, 'show']);
+    });
 
     // Daily Check-In Rewards
     Route::middleware('auth:api')->prefix('v1/check-in')->group(function () {
