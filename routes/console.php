@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Run creator drop lifecycle transitions every minute
 Schedule::command('drops:lifecycle')->everyMinute()->withoutOverlapping();
+
+// Prune old analytics, anonymize archived orders, hard-delete expired customers — daily at 02:00
+Schedule::command('data:prune')->dailyAt('02:00')->withoutOverlapping()->runInBackground();
