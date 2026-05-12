@@ -49,9 +49,9 @@ class KioskTopPicksController extends Controller
             ->filter(fn ($id) => isset($products[$id]))
             ->map(fn ($id) => [
                 'id'          => $products[$id]->id,
-                'name_en'     => $products[$id]->name_en,
-                'name_ar'     => $products[$id]->name_ar,
-                'price'       => $products[$id]->price,
+                'name_en'     => $products[$id]->getName('en'),
+                'name_ar'     => $products[$id]->getName('ar'),
+                'price'       => (float) $products[$id]->base_price,
                 'image'       => $products[$id]->image,
                 'order_count' => $productCounts[$id],
             ])

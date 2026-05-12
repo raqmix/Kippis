@@ -114,7 +114,7 @@ class SquadController extends Controller
             'status'      => $session->status,
             'expires_at'  => $session->expires_at->toIso8601String(),
             'store'       => $session->relationLoaded('store')
-                ? ['id' => $session->store->id, 'name_en' => $session->store->name_en]
+                ? ['id' => $session->store->id, 'name_en' => $session->store->getNameLocalized('en')]
                 : null,
             'host'        => $session->relationLoaded('host')
                 ? ['id' => $session->host->id, 'name' => $session->host->name]
@@ -134,7 +134,7 @@ class SquadController extends Controller
                 'items'      => $session->cartItems->map(fn ($i) => [
                     'id'         => $i->id,
                     'product_id' => $i->product_id,
-                    'name_en'    => $i->product->name_en ?? '',
+                    'name_en'    => $i->product?->getName('en') ?? '',
                     'quantity'   => $i->quantity,
                     'unit_price' => $i->unit_price,
                     'line_total' => $i->lineTotal(),

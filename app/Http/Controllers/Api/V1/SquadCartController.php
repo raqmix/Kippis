@@ -27,8 +27,8 @@ class SquadCartController extends Controller
                 'items'      => $items->map(fn ($i) => [
                     'id'          => $i->id,
                     'product_id'  => $i->product_id,
-                    'name_en'     => $i->product->name_en ?? '',
-                    'name_ar'     => $i->product->name_ar ?? '',
+                    'name_en'     => $i->product?->getName('en') ?? '',
+                    'name_ar'     => $i->product?->getName('ar') ?? '',
                     'quantity'    => $i->quantity,
                     'unit_price'  => $i->unit_price,
                     'line_total'  => $i->lineTotal(),

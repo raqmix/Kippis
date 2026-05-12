@@ -70,7 +70,7 @@ class LabelController extends Controller
             'modifiers'        => $modifiers,
             'customer_name'    => $order->customer_name ?? 'Guest',
             'note'             => $item['note'] ?? $order->notes ?? '',
-            'store_name'       => $order->store?->name_en ?? '',
+            'store_name'       => $order->store?->getNameLocalized('en') ?? '',
             'timestamp'        => $order->created_at->toIso8601String(),
             'qr_data'          => "kippis://order/{$order->id}/item/{$index}",
         ];

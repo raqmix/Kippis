@@ -35,8 +35,8 @@ class KioskDropController extends Controller
                 ] : null,
                 'product'     => $d->product ? [
                     'id'    => $d->product->id,
-                    'name'  => $locale === 'ar' ? $d->product->name_ar : $d->product->name_en,
-                    'price' => $d->product->price,
+                    'name'  => $d->product->getName($locale),
+                    'price' => (float) $d->product->base_price,
                     'image' => $d->product->image,
                 ] : null,
             ]),

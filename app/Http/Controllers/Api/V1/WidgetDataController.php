@@ -30,7 +30,7 @@ class WidgetDataController extends Controller
             if ($order) {
                 $lastOrder = [
                     'id'         => $order->id,
-                    'store_name' => $order->store->name_en ?? '',
+                    'store_name' => $order->store?->getNameLocalized('en') ?? '',
                     'item_count' => is_array($order->items_snapshot) ? count($order->items_snapshot) : 0,
                     'total'      => (int) ($order->total * 100),
                 ];
@@ -39,12 +39,12 @@ class WidgetDataController extends Controller
 
         // Nearest store — return all stores, let the client decide by GPS
         $stores = Store::where('is_active', true)
-            ->select('id', 'name_en', 'name_ar', 'latitude', 'longitude')
+            ->select('id', 'name', 'name_localized', 'latitude', 'longitude')
             ->get()
             ->map(fn ($s) => [
                 'id'        => $s->id,
-                'name_en'   => $s->name_en,
-                'name_ar'   => $s->name_ar,
+                'name_en'   => $s->getNameLocalized('en'),
+                'name_ar'   => $s->getNameLocalized('ar'),
                 'latitude'  => $s->latitude,
                 'longitude' => $s->longitude,
             ]);

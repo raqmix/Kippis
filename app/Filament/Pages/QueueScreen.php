@@ -44,7 +44,7 @@ class QueueScreen extends Page
 
     public function mount(): void
     {
-        $stores = Store::query()->orderBy('name_en')->get();
+        $stores = Store::query()->orderBy('name')->get();
         if ($stores->isNotEmpty()) {
             $this->selectedStoreId = $stores->first()->id;
             $this->loadQueue();
@@ -92,7 +92,7 @@ class QueueScreen extends Page
         return [
             Select::make('selectedStoreId')
                 ->label('Store')
-                ->options(Store::query()->orderBy('name_en')->pluck('name_en', 'id'))
+                ->options(Store::query()->orderBy('name')->pluck('name', 'id'))
                 ->reactive()
                 ->afterStateUpdated(fn () => $this->loadQueue()),
         ];
@@ -100,6 +100,6 @@ class QueueScreen extends Page
 
     public function getStores(): array
     {
-        return Store::query()->orderBy('name_en')->pluck('name_en', 'id')->toArray();
+        return Store::query()->orderBy('name')->pluck('name', 'id')->toArray();
     }
 }

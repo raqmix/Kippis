@@ -182,8 +182,8 @@ class SquadOrderService
         // Build items_snapshot in the same format as a regular order
         $itemsSnapshot = $items->map(fn (SquadCartItem $item) => [
             'product_id'        => $item->product_id,
-            'name_en'           => $item->product->name_en ?? '',
-            'name_ar'           => $item->product->name_ar ?? '',
+            'name_en'           => $item->product?->getName('en') ?? '',
+            'name_ar'           => $item->product?->getName('ar') ?? '',
             'quantity'          => $item->quantity,
             'unit_price'        => $item->unit_price,
             'line_total'        => $item->lineTotal(),
@@ -254,7 +254,7 @@ class SquadOrderService
             'items'    => $items->map(fn ($i) => [
                 'id'          => $i->id,
                 'product_id'  => $i->product_id,
-                'name_en'     => $i->product->name_en ?? '',
+                'name_en'     => $i->product?->getName('en') ?? '',
                 'quantity'    => $i->quantity,
                 'unit_price'  => $i->unit_price,
                 'line_total'  => $i->lineTotal(),

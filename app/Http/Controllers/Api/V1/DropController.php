@@ -60,8 +60,8 @@ class DropController extends Controller
             ] : null,
             'product'      => $drop->product ? [
                 'id'       => $drop->product->id,
-                'name'     => $locale === 'ar' ? $drop->product->name_ar : $drop->product->name_en,
-                'price'    => $drop->product->price,
+                'name'     => $drop->product->getName($locale),
+                'price'    => (float) $drop->product->base_price,
                 'image'    => $drop->product->image,
             ] : null,
         ];
