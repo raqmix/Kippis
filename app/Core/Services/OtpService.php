@@ -17,15 +17,21 @@ class OtpService
     }
 
     /**
-     * Generate a 6-digit OTP.
-     * In dev environment, returns '111111' for testing.
-     *
-     * @return string
+     * Toggle for the static '111111' shortcut. Set OTP_STATIC_CODE=true in
+     * the env to bypass real OTP generation/sending — useful in local dev
+     * without an SMTP setup. Defaults to false so production is safe.
+     */
+    private function staticOtpEnabled(): bool
+    {
+        return (bool) env('OTP_STATIC_CODE', false);
+    }
+
+    /**
+     * Generate a 6-digit OTP. When OTP_STATIC_CODE=true, returns '111111'.
      */
     public function generateOtp(): string
     {
-        // In dev environment, return fixed OTP for testing
-        if (config('app.env') === 'dev' || config('app.env') === 'local') {
+        if ($this->staticOtpEnabled()) {
             return '111111';
         }
 
@@ -68,10 +74,7 @@ class OtpService
      */
     public function validateOtp(string $email, string $otp, string $type): CustomerOtp
     {
-        // In dev environment, accept '111111' as valid OTP
-        $isDev = config('app.env') === 'dev' || config('app.env') === 'local';
-        
-        if ($isDev && $otp === '111111') {
+        if ($this->staticOtpEnabled() && $otp === '111111') {
             // First try to find existing OTP record
             $otpRecord = $this->otpRepository->findByEmailAndType($email, $type);
             
@@ -126,16 +129,14 @@ class OtpService
      */
     public function sendOtp(string $email, string $otp, ?string $type = null): void
     {
-        $isDev = config('app.env') === 'dev' || config('app.env') === 'local';
-
-        // In dev environment, don't send email, just log the static OTP
-        if ($isDev) {
-            Log::info('OTP (dev mode - not sent via email)', [
+        // When the static-code flag is on, skip email sending entirely and
+        // just log the OTP — keeps local dev fast without SMTP.
+        if ($this->staticOtpEnabled()) {
+            Log::info('OTP (static-code mode - email skipped)', [
                 'email' => $email,
                 'otp' => $otp,
                 'type' => $type,
                 'timestamp' => now(),
-                'note' => 'In dev environment, OTP is static (111111) and not sent via email',
             ]);
             return;
         }
