@@ -15,15 +15,33 @@ class SquadController extends Controller
 {
     public function __construct(private SquadOrderService $service) {}
 
-    /** POST /api/v1/squad */
+    /** GET /api/v1/squad — list current user's active squads (host or member) */
+    public function index(): JsonResponse
+    {
+        $customer = auth('api')->user();
+
+        $sessions = SquadSession::query()
+            ->whereIn('status', ['open', 'locked'])
+            ->where(function ($q) use ($customer) {
+                $q->where('host_id', $customer->id)
+                  ->orWhereHas('members', fn ($m) => $m->where('customer_id', $customer->id));
+            })
+            ->with(['host', 'store', 'members', 'cartItems.product'])
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return apiSuccess([
+            'squads' => $sessions->map(fn ($s) => $this->formatSession($s))->values(),
+        ]);
+    }
+
+    /** POST /api/v1/squad — create a squad with no store assigned (set at checkout) */
     public function create(Request $request): JsonResponse
     {
-        $data     = $request->validate(['store_id' => ['required', 'integer']]);
         $customer = auth('api')->user();
-        $store    = Store::findOrFail($data['store_id']);
 
         try {
-            $session = $this->service->createSession($customer, $store);
+            $session = $this->service->createSession($customer);
         } catch (\DomainException $e) {
             return apiError('SQUAD_ERROR', $e->getMessage(), 422);
         }
@@ -79,14 +97,18 @@ class SquadController extends Controller
         return apiSuccess(['message' => 'Session locked.']);
     }
 
-    /** POST /api/v1/squad/{session}/checkout */
+    /** POST /api/v1/squad/{session}/checkout — host picks store here */
     public function checkout(Request $request, SquadSession $session): JsonResponse
     {
-        $data     = $request->validate(['promo_code' => ['nullable', 'string']]);
+        $data = $request->validate([
+            'store_id'   => ['required', 'integer', 'exists:stores,id'],
+            'promo_code' => ['nullable', 'string'],
+        ]);
         $customer = auth('api')->user();
+        $store    = Store::findOrFail($data['store_id']);
 
         try {
-            $order = $this->service->checkout($customer, $session, $data);
+            $order = $this->service->checkout($customer, $session, $store, $data);
         } catch (\DomainException $e) {
             return apiError('SQUAD_ERROR', $e->getMessage(), 422);
         }
@@ -113,7 +135,7 @@ class SquadController extends Controller
             'invite_code' => $session->invite_code,
             'status'      => $session->status,
             'expires_at'  => $session->expires_at->toIso8601String(),
-            'store'       => $session->relationLoaded('store')
+            'store'       => $session->relationLoaded('store') && $session->store !== null
                 ? ['id' => $session->store->id, 'name_en' => $session->store->getNameLocalized('en')]
                 : null,
             'host'        => $session->relationLoaded('host')

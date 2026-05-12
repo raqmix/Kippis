@@ -17,11 +17,14 @@ class SquadOrderService
     private const MAX_MEMBERS = 10;
     private const SESSION_TTL_MINUTES = 30;
 
-    public function createSession(Customer $host, Store $store): SquadSession
+    /**
+     * Create a squad with no store assigned. The host picks a store at checkout.
+     */
+    public function createSession(Customer $host): SquadSession
     {
         $session = SquadSession::create([
             'host_id'     => $host->id,
-            'store_id'    => $store->id,
+            'store_id'    => null,
             'invite_code' => $this->generateInviteCode(),
             'status'      => 'open',
             'expires_at'  => now()->addMinutes(self::SESSION_TTL_MINUTES),
@@ -165,18 +168,27 @@ class SquadOrderService
         ]));
     }
 
-    public function checkout(Customer $host, SquadSession $session, array $dto): Order
+    /**
+     * Host picks the store here. Allow checkout from either 'open' or 'locked'
+     * status — the store choice is what finalizes the squad.
+     */
+    public function checkout(Customer $host, SquadSession $session, Store $store, array $dto): Order
     {
         $this->guardIsHost($host, $session);
 
-        if ($session->status !== 'locked') {
-            throw new \DomainException('Session must be locked before checkout.');
+        if (! in_array($session->status, ['open', 'locked'], true)) {
+            throw new \DomainException('This squad cannot be checked out.');
         }
 
         $items = $session->cartItems()->with('product')->get();
 
         if ($items->isEmpty()) {
             throw new \DomainException('Cart is empty.');
+        }
+
+        // Persist the store choice on the session so subsequent fetches show it.
+        if ($session->store_id === null) {
+            $session->update(['store_id' => $store->id]);
         }
 
         // Build items_snapshot in the same format as a regular order
@@ -197,7 +209,7 @@ class SquadOrderService
 
         $order = Order::create([
             'customer_id'    => $host->id,
-            'store_id'       => $session->store_id,
+            'store_id'       => $store->id,
             'status'         => 'pending',
             'items_snapshot' => $itemsSnapshot,
             'total'          => $subtotal / 100,

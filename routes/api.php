@@ -256,6 +256,7 @@ Route::middleware('api.locale')->group(function () {
 
     // Squad Order
     Route::middleware('auth:api')->prefix('v1')->group(function () {
+        Route::get('/squad',                                    [\App\Http\Controllers\Api\V1\SquadController::class, 'index']);
         Route::post('/squad',                                   [\App\Http\Controllers\Api\V1\SquadController::class, 'create']);
         Route::post('/squad/join',                              [\App\Http\Controllers\Api\V1\SquadController::class, 'join']);
         Route::get('/squad/{session}',                          [\App\Http\Controllers\Api\V1\SquadController::class, 'show']);
