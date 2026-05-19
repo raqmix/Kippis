@@ -349,6 +349,51 @@
                 </div>
             @endif
         </div>
+
+        {{-- Retry Foodics Order Pushes --}}
+        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+            <div class="fi-section-header flex items-center justify-between p-6 pb-4">
+                <div>
+                    <h3 class="fi-section-header-heading text-base font-semibold text-gray-950 dark:text-white flex items-center gap-2">
+                        <svg class="h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        Retry Foodics Order Pushes
+                    </h3>
+                    <p class="fi-section-header-description text-sm text-gray-500 dark:text-gray-400">
+                        Re-queues app orders from the last 24h that haven't been pushed yet (kiosk/cash orders are skipped). Max 200 per click.
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <x-filament::button
+                        wire:click="retryFailedPushes"
+                        :disabled="$isRetryingPushes"
+                        color="warning"
+                        icon="heroicon-o-arrow-path"
+                    >
+                        {{ $isRetryingPushes ? 'Re-queueing…' : 'Retry pushes' }}
+                    </x-filament::button>
+                </div>
+            </div>
+
+            @if($retryPushesResult)
+                <div class="fi-section-content-ctn divide-y divide-gray-100 dark:divide-white/10">
+                    <div class="fi-section-content p-6">
+                        <div class="p-4 rounded-lg {{ $retryPushesResult['success'] ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' }}">
+                            @if($retryPushesResult['success'])
+                                <div class="text-sm text-gray-900 dark:text-white">
+                                    Re-queued <span class="font-bold">{{ $retryPushesResult['count'] }}</span> order(s) for Foodics push.
+                                </div>
+                            @else
+                                <div class="text-sm text-red-700 dark:text-red-300">
+                                    {{ $retryPushesResult['message'] }}
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
     </div>
 </x-filament-panels::page>
 

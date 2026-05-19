@@ -40,6 +40,8 @@ class Order extends Model
         'refund_status',
         'refunded_amount',
         'gateway_order_id',
+        'foodics_order_id',
+        'foodics_pushed_at',
     ];
 
     protected function casts(): array
@@ -54,6 +56,7 @@ class Order extends Model
             'modifiers_snapshot' => 'array',
             'deleted_at' => 'datetime',
             'refunded_amount' => 'integer',
+            'foodics_pushed_at' => 'datetime',
         ];
     }
 

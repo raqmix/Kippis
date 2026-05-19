@@ -30,20 +30,36 @@ class FoodicsClient
 
     /**
      * Make GET request to Foodics API.
-     *
-     * @param string $endpoint
-     * @param FoodicsQueryParamsDTO|null $queryParams
-     * @param string|null $mode 'sandbox' or 'live', null to use config default
-     * @param int $retryCount
-     * @return FoodicsResponseDTO
-     * @throws FoodicsException
      */
     public function get(string $endpoint, ?FoodicsQueryParamsDTO $queryParams = null, ?string $mode = null, int $retryCount = 0): FoodicsResponseDTO
     {
+        return $this->request('GET', $endpoint, null, $queryParams, $mode, $retryCount);
+    }
+
+    /**
+     * Make POST request to Foodics API with a JSON body. Same retry/exception
+     * semantics as get(): 429 and 503 trigger exponential backoff retries.
+     */
+    public function post(string $endpoint, array $body, ?string $mode = null, int $retryCount = 0): FoodicsResponseDTO
+    {
+        return $this->request('POST', $endpoint, $body, null, $mode, $retryCount);
+    }
+
+    /**
+     * Internal dispatcher used by every public verb. Centralizes auth, URL
+     * building, status-code handling, retry, exception mapping, and logging.
+     */
+    private function request(
+        string $method,
+        string $endpoint,
+        ?array $body = null,
+        ?FoodicsQueryParamsDTO $queryParams = null,
+        ?string $mode = null,
+        int $retryCount = 0,
+    ): FoodicsResponseDTO {
         try {
             $mode = $mode ?? config('foodics.mode', 'live');
             $token = $this->authService->getAccessToken($mode);
-            // Get base URL from current mode
             $baseUrls = config('foodics.base_urls', []);
             $baseUrl = $baseUrls[$mode] ?? config('foodics.base_url') ?? 'https://api.foodics.com';
             $url = rtrim($baseUrl, '/') . '/' . ltrim($endpoint, '/');
@@ -51,28 +67,33 @@ class FoodicsClient
             $query = $queryParams ? $queryParams->toQuery() : [];
 
             Log::info('Foodics API Request', [
-                'method' => 'GET',
+                'method' => $method,
                 'url' => $url,
                 'query' => $query,
+                'has_body' => $body !== null,
             ]);
 
-            $response = Http::timeout(config('foodics.timeout', 30))
+            $http = Http::timeout(config('foodics.timeout', 30))
                 ->withHeaders([
                     'Authorization' => "Bearer {$token}",
                     'Accept' => 'application/json',
-                ])
-                ->get($url, $query);
+                ]);
+
+            $response = match (strtoupper($method)) {
+                'GET' => $http->get($url, $query),
+                'POST' => $http->post($url, $body ?? []),
+                default => throw new FoodicsServerErrorException("Unsupported HTTP method: {$method}"),
+            };
 
             $statusCode = $response->status();
 
             Log::info('Foodics API Response', [
+                'method' => $method,
                 'status' => $statusCode,
                 'url' => $url,
             ]);
 
-            // Handle specific status codes
             if ($statusCode === 401) {
-                // Token refresh not implemented - tokens are managed manually via Foodics Test page
                 throw new FoodicsUnauthorizedException("Unauthorized. Please check your token in Foodics Test page for {$mode} mode.");
             }
 
@@ -95,10 +116,10 @@ class FoodicsClient
             if ($statusCode === 429) {
                 $maxRetries = config('foodics.retry.max_attempts', self::MAX_RETRIES);
                 $retryDelay = config('foodics.retry.delay_seconds', self::RETRY_DELAY);
-                
+
                 if ($retryCount < $maxRetries) {
                     sleep($retryDelay * ($retryCount + 1));
-                    return $this->get($endpoint, $queryParams, $mode, $retryCount + 1);
+                    return $this->request($method, $endpoint, $body, $queryParams, $mode, $retryCount + 1);
                 }
                 throw new FoodicsRateLimitException();
             }
@@ -110,18 +131,17 @@ class FoodicsClient
             if ($statusCode === 503) {
                 $maxRetries = config('foodics.retry.max_attempts', self::MAX_RETRIES);
                 $retryDelay = config('foodics.retry.delay_seconds', self::RETRY_DELAY);
-                
+
                 if ($retryCount < $maxRetries) {
                     sleep($retryDelay * ($retryCount + 1));
-                    return $this->get($endpoint, $queryParams, $mode, $retryCount + 1);
+                    return $this->request($method, $endpoint, $body, $queryParams, $mode, $retryCount + 1);
                 }
                 throw new FoodicsMaintenanceException();
             }
 
             if ($response->successful()) {
                 $responseData = $response->json();
-                
-                // Extract pagination if present
+
                 $paginationData = null;
                 if (isset($responseData['links']) && isset($responseData['meta'])) {
                     $paginationData = [
@@ -129,21 +149,17 @@ class FoodicsClient
                         'meta' => $responseData['meta'],
                     ];
                 }
-                
-                return FoodicsResponseDTO::success(
-                    $responseData,
-                    $statusCode,
-                    $paginationData
-                );
+
+                return FoodicsResponseDTO::success($responseData, $statusCode, $paginationData);
             }
 
-            // Unknown error
             $errorData = $response->json();
             $error = FoodicsErrorDTO::fromArray($errorData['error'] ?? ['message' => 'Unknown error']);
-            
+
             return FoodicsResponseDTO::error($error, $statusCode);
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::error('Foodics API Connection Error', [
+                'method' => $method,
                 'error' => $e->getMessage(),
                 'endpoint' => $endpoint,
             ]);
@@ -158,6 +174,7 @@ class FoodicsClient
             throw $e;
         } catch (\Exception $e) {
             Log::error('Foodics API Unexpected Error', [
+                'method' => $method,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'endpoint' => $endpoint,
@@ -167,4 +184,3 @@ class FoodicsClient
         }
     }
 }
-

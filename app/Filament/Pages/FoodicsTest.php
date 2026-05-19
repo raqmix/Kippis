@@ -2,8 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Core\Models\Order;
 use App\Integrations\Foodics\Models\FoodicsToken;
 use App\Integrations\Foodics\Services\FoodicsAuthService;
+use App\Jobs\PushOrderToFoodics;
 use App\Modules\Stores\Services\FoodicsBranchesSyncService;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -51,6 +53,9 @@ class FoodicsTest extends Page implements HasForms
 
     public bool $isSyncingBranches = false;
     public ?array $branchesSyncResult = null;
+
+    public bool $isRetryingPushes = false;
+    public ?array $retryPushesResult = null;
 
     public function mount(): void
     {
@@ -146,6 +151,54 @@ class FoodicsTest extends Page implements HasForms
                 ->send();
         } finally {
             $this->isSyncingBranches = false;
+        }
+    }
+
+    /**
+     * Re-dispatch the Foodics push job for app orders from the last 24h that
+     * have not been pushed yet (excludes kiosk/cash pos_code orders). Bounded
+     * to keep the queue from being flooded by a misconfigured trigger.
+     */
+    public function retryFailedPushes(): void
+    {
+        $this->isRetryingPushes = true;
+        $this->retryPushesResult = null;
+
+        try {
+            $orderIds = Order::query()
+                ->whereNull('foodics_pushed_at')
+                ->whereNull('pos_code')
+                ->where('created_at', '>=', now()->subDay())
+                ->limit(200)
+                ->pluck('id');
+
+            foreach ($orderIds as $id) {
+                PushOrderToFoodics::dispatch($id);
+            }
+
+            $this->retryPushesResult = [
+                'success' => true,
+                'count' => $orderIds->count(),
+            ];
+
+            Notification::make()
+                ->title('Foodics push retried')
+                ->body("Re-queued {$orderIds->count()} order(s) for Foodics push.")
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            $this->retryPushesResult = [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+
+            Notification::make()
+                ->title('Retry failed')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        } finally {
+            $this->isRetryingPushes = false;
         }
     }
 

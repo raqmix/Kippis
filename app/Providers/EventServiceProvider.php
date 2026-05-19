@@ -16,6 +16,7 @@ use App\Core\Listeners\SendFilamentNotification;
 use App\Core\Listeners\SendDatabaseNotification;
 use App\Events\OrderCreated;
 use App\Listeners\BroadcastNewOrder;
+use App\Listeners\PushOrderToFoodicsListener;
 use App\Listeners\SendNewOrderNotification;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Login;
@@ -43,6 +44,7 @@ class EventServiceProvider extends ServiceProvider
         OrderCreated::class => [
             SendNewOrderNotification::class,
             BroadcastNewOrder::class,
+            PushOrderToFoodicsListener::class,
         ],
         Logout::class => [
             HandleAdminLogout::class . '@handle',

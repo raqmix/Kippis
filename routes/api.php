@@ -275,6 +275,11 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/status', [\App\Http\Controllers\Api\V1\CheckInController::class, 'status']);
     });
 
+    // Foodics webhooks — authenticated via HMAC signature, not auth:api.
+    Route::prefix('v1/webhooks/foodics')->group(function () {
+        Route::post('/order-status', [\App\Http\Controllers\Api\V1\FoodicsWebhookController::class, 'orderStatus']);
+    });
+
     // ==================== LEGACY ROUTES (for backward compatibility) ====================
     // Keep old routes working but redirect to new structure
     Route::get('/v1/home', [\App\Http\Controllers\Api\V1\HomeController::class, 'index']);

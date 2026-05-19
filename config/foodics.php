@@ -38,5 +38,20 @@ return [
         'max_attempts' => env('FOODICS_RETRY_MAX_ATTEMPTS', 3),
         'delay_seconds' => env('FOODICS_RETRY_DELAY_SECONDS', 2),
     ],
+
+    // API endpoint paths. Keep relative — base_url is joined in FoodicsClient.
+    'endpoints' => [
+        'categories' => 'v5/categories',
+        'products'   => 'v5/products',
+        'modifiers'  => 'v5/modifiers',
+        'branches'   => 'v5/branches',
+        'orders'     => 'v5/orders',
+        'customers'  => 'v5/customers',
+    ],
+
+    // Shared secret used to verify HMAC SHA256 signature on incoming
+    // Foodics → Kippis webhooks (e.g. order-status updates). Configure the
+    // same secret on the Foodics dashboard side.
+    'webhook_secret' => env('FOODICS_WEBHOOK_SECRET'),
 ];
 
