@@ -171,7 +171,7 @@ class PushOrderToFoodics implements ShouldQueue
         $items = is_array($order->items_snapshot) ? $order->items_snapshot : [];
 
         $foodicsProductIds = $this->resolveProductFoodicsIds($items);
-        $foodicsOptionIds = $this->resolveFoodicsOptionIds($items);
+        $foodicsOptions = $this->resolveFoodicsOptions($items);
 
         $products = [];
         foreach ($items as $line) {
@@ -184,11 +184,24 @@ class PushOrderToFoodics implements ShouldQueue
                 continue;
             }
 
+            $options = $this->buildLineModifiers($order, $line, $foodicsOptions);
+
+            // Foodics prices the product base and each option separately, then
+            // sums them. Our line `price` is base + option prices combined, so we
+            // back out the option total to recover the base unit_price — otherwise
+            // Foodics adds the options on top and the order total no longer
+            // reconciles (rejected with a generic "id: Invalid payload").
+            $optionsTotal = array_sum(array_map(
+                static fn (array $opt): float => ((float) ($opt['unit_price'] ?? 0)) * ((int) ($opt['quantity'] ?? 1)),
+                $options
+            ));
+            $unitPrice = round((float) ($line['price'] ?? 0) - $optionsTotal, 2);
+
             $products[] = [
                 'product_id' => $foodicsProductIds[$kippisProductId],
                 'quantity' => (int) ($line['quantity'] ?? 1),
-                'unit_price' => (float) ($line['price'] ?? 0),
-                'modifiers' => $this->buildLineModifiers($order, $line, $foodicsOptionIds),
+                'unit_price' => max(0.0, $unitPrice),
+                'options' => $options,
                 'notes' => $line['note'] ?? null,
             ];
         }
@@ -293,12 +306,12 @@ class PushOrderToFoodics implements ShouldQueue
     }
 
     /**
-     * Bulk-resolve Kippis modifier-option ids → Foodics option ids.
+     * Bulk-resolve Kippis modifier-option ids → Foodics option id + price.
      * Selected options for both customized products and built mixes live in
      * each line's configuration.foodics_option_ids as Kippis option ids.
-     * Returns [kippis_option_id => foodics_id].
+     * Returns [kippis_option_id => ['foodics_id' => string, 'price' => float]].
      */
-    private function resolveFoodicsOptionIds(array $items): array
+    private function resolveFoodicsOptions(array $items): array
     {
         $ids = [];
         foreach ($items as $line) {
@@ -317,25 +330,35 @@ class PushOrderToFoodics implements ShouldQueue
         return FoodicsModifierOption::query()
             ->whereIn('id', array_values(array_unique($ids)))
             ->whereNotNull('foodics_id')
-            ->pluck('foodics_id', 'id')
+            ->get(['id', 'foodics_id', 'price'])
+            ->mapWithKeys(fn ($o): array => [
+                $o->id => ['foodics_id' => $o->foodics_id, 'price' => (float) $o->price],
+            ])
             ->all();
     }
 
     /**
-     * Build the Foodics modifiers array for one order line. Combines any legacy
+     * Build the Foodics options array for one order line. Combines any legacy
      * `modifiers` snapshot shape with the selected Foodics options stored in
      * `configuration.foodics_option_ids` (translated to Foodics option ids).
+     * Each option carries its own unit_price so Foodics reconciles the total.
+     *
+     * @param  array<int, array{foodics_id: string, price: float}>  $foodicsOptions
      */
-    private function buildLineModifiers(Order $order, array $line, array $foodicsOptionIds): array
+    private function buildLineModifiers(Order $order, array $line, array $foodicsOptions): array
     {
         $modifiers = $this->mapModifiers($line['modifiers'] ?? null);
 
         $cfg = $line['configuration'] ?? null;
         if (is_array($cfg) && ! empty($cfg['foodics_option_ids']) && is_array($cfg['foodics_option_ids'])) {
             foreach ($cfg['foodics_option_ids'] as $kippisOptionId) {
-                $foodicsOptionId = $foodicsOptionIds[(int) $kippisOptionId] ?? null;
-                if ($foodicsOptionId !== null) {
-                    $modifiers[] = ['option_id' => $foodicsOptionId];
+                $option = $foodicsOptions[(int) $kippisOptionId] ?? null;
+                if ($option !== null) {
+                    $modifiers[] = [
+                        'modifier_option_id' => $option['foodics_id'],
+                        'quantity' => 1,
+                        'unit_price' => $option['price'],
+                    ];
                 } else {
                     Log::warning('FOODICS_PUSH_UNMAPPED_OPTION', [
                         'order_id' => $order->id,
@@ -372,7 +395,7 @@ class PushOrderToFoodics implements ShouldQueue
                     ? ($opt['foodics_id'] ?? $opt['id'] ?? null)
                     : $opt;
                 if ($foodicsOptionId !== null) {
-                    $out[] = ['option_id' => $foodicsOptionId];
+                    $out[] = ['modifier_option_id' => $foodicsOptionId, 'quantity' => 1];
                 }
             }
         }
