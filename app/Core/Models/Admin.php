@@ -3,6 +3,8 @@
 namespace App\Core\Models;
 
 use Database\Factories\AdminFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,11 +14,16 @@ use Illuminate\Support\Facades\Hash;
 use PragmaRX\Google2FA\Google2FA;
 use Spatie\Permission\Traits\HasRoles;
 
-class Admin extends Authenticatable
+class Admin extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     protected $guard_name = 'admin';
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return (bool) $this->is_active;
+    }
 
     /**
      * Create a new factory instance for the model.
