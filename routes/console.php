@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Services\FoodicsSyncService;
+use App\Support\Heartbeat;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,11 @@ use Illuminate\Support\Facades\Schedule;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Scheduler liveness ping — surfaces in the Filament system-health widget.
+Schedule::call(fn () => Heartbeat::mark('scheduler'))
+    ->everyMinute()
+    ->name('heartbeat:scheduler');
 
 // Run creator drop lifecycle transitions every minute
 Schedule::command('drops:lifecycle')->everyMinute()->withoutOverlapping();

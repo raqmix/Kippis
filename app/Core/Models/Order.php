@@ -41,6 +41,7 @@ class Order extends Model
         'refunded_amount',
         'gateway_order_id',
         'foodics_order_id',
+        'foodics_reference',
         'foodics_pushed_at',
     ];
 

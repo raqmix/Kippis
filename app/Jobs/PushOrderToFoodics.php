@@ -103,6 +103,8 @@ class PushOrderToFoodics implements ShouldQueue
             Log::error('FOODICS_PUSH_VALIDATION_FAILED', [
                 'order_id' => $order->id,
                 'message' => $e->getMessage(),
+                'errors' => $e->errors,
+                'payload' => $payload,
             ]);
             $this->fail($e);
             return;
@@ -132,15 +134,18 @@ class PushOrderToFoodics implements ShouldQueue
         }
 
         $foodicsOrderId = $this->extractFoodicsOrderId($response->data);
+        $foodicsReference = $this->extractFoodicsReference($response->data);
 
         $order->update([
             'foodics_order_id' => $foodicsOrderId,
+            'foodics_reference' => $foodicsReference,
             'foodics_pushed_at' => now(),
         ]);
 
         Log::info('FOODICS_PUSH_SUCCESS', [
             'order_id' => $order->id,
             'foodics_order_id' => $foodicsOrderId,
+            'foodics_reference' => $foodicsReference,
         ]);
     }
 
@@ -186,10 +191,15 @@ class PushOrderToFoodics implements ShouldQueue
             ];
         }
 
+        // Foodics auto-assigns its own numeric `reference` (sequence per branch)
+        // and ignores `reference_x` / `number` on create — only `kitchen_notes`
+        // surfaces our pickup code to staff on the ticket.
         $payload = [
             'branch_id' => $branchId,
-            'reference' => 'KIPPIS-' . $order->id,
-            'type' => 5, // 5 = takeaway/pickup in Foodics v5 type enum
+            'type' => 2, // 2 = Takeaway in Foodics v5 order type enum (1=DineIn,2=Takeaway,3=Delivery,4=DriveThru)
+            'kitchen_notes' => $order->pickup_code
+                ? 'Pickup #' . $order->pickup_code
+                : 'Kippis #' . $order->id,
             'products' => $products,
             'discount_amount' => (float) ($order->discount ?? 0),
             'total' => (float) $order->total,
@@ -321,5 +331,15 @@ class PushOrderToFoodics implements ShouldQueue
             return (string) $data['data']['id'];
         }
         return isset($data['id']) ? (string) $data['id'] : null;
+    }
+
+    /**
+     * Foodics auto-assigns a per-branch numeric `reference` on order create —
+     * the human-readable number staff see on tickets.
+     */
+    private function extractFoodicsReference(array $data): ?string
+    {
+        $body = (isset($data['data']) && is_array($data['data'])) ? $data['data'] : $data;
+        return isset($body['reference']) ? (string) $body['reference'] : null;
     }
 }

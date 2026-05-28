@@ -107,6 +107,12 @@ class FoodicsClient
 
             if ($statusCode === 422) {
                 $errorData = $response->json();
+                Log::warning('Foodics API 422 validation body', [
+                    'method' => $method,
+                    'url' => $url,
+                    'body' => $errorData,
+                    'request_payload' => $body,
+                ]);
                 throw new FoodicsValidationException(
                     $errorData['message'] ?? 'Validation error',
                     $errorData['errors'] ?? null

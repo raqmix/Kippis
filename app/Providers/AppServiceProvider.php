@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Support\Heartbeat;
+use Illuminate\Queue\Events\Looping;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +31,11 @@ class AppServiceProvider extends ServiceProvider
         // Register observers
         \App\Core\Models\SupportTicket::observe(\App\Observers\SupportTicketObserver::class);
         \App\Core\Models\Order::observe(\App\Observers\OrderObserver::class);
+
+        // Queue worker liveness ping — Looping fires every poll, even when idle,
+        // so the system-health widget can tell a running-but-empty worker from
+        // a dead one.
+        Event::listen(Looping::class, fn () => Heartbeat::mark('queue'));
 
         // Share HTML direction for RTL support
         view()->composer('*', function ($view) {

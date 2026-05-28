@@ -11,6 +11,7 @@ use App\Filament\Widgets\RecentTicketRepliesWidget;
 use App\Filament\Widgets\SalesStatsWidget;
 use App\Filament\Widgets\StoreRevenueChartWidget;
 use App\Filament\Widgets\StoreStatsWidget;
+use App\Filament\Widgets\SystemHealthWidget;
 use App\Filament\Widgets\TicketStatsWidget;
 use App\Filament\Widgets\TopProductsWidget;
 use App\Filament\Widgets\TopStoresWidget;
@@ -26,6 +27,7 @@ class Dashboard extends BaseDashboard
     protected function getHeaderWidgets(): array
     {
         return [
+            SystemHealthWidget::class,
             SalesStatsWidget::class,
             StoreStatsWidget::class,
             CustomerStatsWidget::class,
