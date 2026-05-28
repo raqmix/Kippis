@@ -22,6 +22,7 @@ class FrameResource extends JsonResource
             'name_ar' => $this->getName('ar'),
             'name_en' => $this->getName('en'),
             'thumbnail_url' => $this->thumbnail_path ? $fileHelper->getUrl($this->thumbnail_path, 'public') : null,
+            'overlay_url' => $this->overlay_path ? $fileHelper->getUrl($this->overlay_path, 'public') : null,
         ];
     }
 }

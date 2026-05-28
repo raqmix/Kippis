@@ -97,7 +97,8 @@ class FrameResource extends Resource
                             ->directory('frames/thumbnails')
                             ->disk('public')
                             ->maxSize(2048)
-                            ->imageEditor(),
+                            ->imageEditor()
+                            ->helperText(__('system.thumbnail_helper')),
                         Forms\Components\FileUpload::make('overlay_path')
                             ->label(__('system.overlay'))
                             ->image()

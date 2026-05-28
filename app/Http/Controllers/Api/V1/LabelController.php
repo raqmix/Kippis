@@ -62,6 +62,10 @@ class LabelController extends Controller
             }
         }
 
+        $frameImageUrl = $order->frame_image_path
+            ? (new \App\Helpers\FileHelper())->getUrl($order->frame_image_path, 'public')
+            : null;
+
         return [
             'order_item_id'    => $index,
             'pos_code'         => $order->pos_code,
@@ -73,6 +77,7 @@ class LabelController extends Controller
             'store_name'       => $order->store?->getNameLocalized('en') ?? '',
             'timestamp'        => $order->created_at->toIso8601String(),
             'qr_data'          => "kippis://order/{$order->id}/item/{$index}",
+            'frame_image_url'  => $frameImageUrl,
         ];
     }
 

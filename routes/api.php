@@ -115,6 +115,7 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/{id}/status', [\App\Http\Controllers\Api\V1\OrderController::class, 'statusPoll']);
         Route::get('/{id}/labels', [\App\Http\Controllers\Api\V1\LabelController::class, 'index']);
         Route::get('/{id}/labels/{item}', [\App\Http\Controllers\Api\V1\LabelController::class, 'show']);
+        Route::post('/{id}/frame-image', [\App\Http\Controllers\Api\V1\OrderController::class, 'attachFrameImage']);
         Route::post('/{order}/rating', [\App\Http\Controllers\Api\V1\OrderRatingController::class, 'store']);
         Route::get('/{order}/rating', [\App\Http\Controllers\Api\V1\OrderRatingController::class, 'show']);
         Route::get('/{id}', [\App\Http\Controllers\Api\V1\OrderController::class, 'show']);

@@ -333,6 +333,44 @@ class OrderController extends Controller
     }
 
     /**
+     * Attach a customer "frame" story photo to the order, to be printed on its
+     * label. Image only; replaces any previously attached frame image.
+     *
+     * @authenticated
+     *
+     * @urlParam id required The order ID. Example: 123
+     * @bodyParam image file required The composed frame image (jpeg/png/webp, max 5MB).
+     */
+    public function attachFrameImage(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,webp|max:5120',
+        ]);
+
+        $customer = auth('api')->user();
+        $order = $this->orderRepository->findByIdForCustomer((int) $id, $customer->id);
+
+        if (!$order) {
+            return apiError('ORDER_NOT_FOUND', 'order_not_found', 404);
+        }
+
+        $fileHelper = new \App\Helpers\FileHelper();
+
+        // Replace any previously attached image so files aren't orphaned.
+        if ($order->frame_image_path) {
+            $fileHelper->delete($order->frame_image_path, 'public');
+        }
+
+        $path = $fileHelper->uploadImage($request->file('image'), 'orders/frames', 'public', 5120);
+        $order->update(['frame_image_path' => $path]);
+
+        return apiSuccess([
+            'order_id'        => $order->id,
+            'frame_image_url' => $fileHelper->getUrl($path, 'public'),
+        ], 'frame_image_attached');
+    }
+
+    /**
      * Lightweight status poll — WebSocket fallback for active orders.
      *
      * @authenticated

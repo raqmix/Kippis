@@ -43,6 +43,7 @@ class Order extends Model
         'foodics_order_id',
         'foodics_reference',
         'foodics_pushed_at',
+        'frame_image_path',
     ];
 
     protected function casts(): array
