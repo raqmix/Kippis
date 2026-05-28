@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Core\Models\Customer;
+use App\Core\Models\FoodicsModifierOption;
 use App\Core\Models\Order;
 use App\Core\Models\Product;
 use App\Integrations\Foodics\Exceptions\FoodicsException;
@@ -170,6 +171,7 @@ class PushOrderToFoodics implements ShouldQueue
         $items = is_array($order->items_snapshot) ? $order->items_snapshot : [];
 
         $foodicsProductIds = $this->resolveProductFoodicsIds($items);
+        $foodicsOptionIds = $this->resolveFoodicsOptionIds($items);
 
         $products = [];
         foreach ($items as $line) {
@@ -186,7 +188,7 @@ class PushOrderToFoodics implements ShouldQueue
                 'product_id' => $foodicsProductIds[$kippisProductId],
                 'quantity' => (int) ($line['quantity'] ?? 1),
                 'unit_price' => (float) ($line['price'] ?? 0),
-                'modifiers' => $this->mapModifiers($line['modifiers'] ?? null),
+                'modifiers' => $this->buildLineModifiers($order, $line, $foodicsOptionIds),
                 'notes' => $line['note'] ?? null,
             ];
         }
@@ -288,6 +290,62 @@ class PushOrderToFoodics implements ShouldQueue
             ->whereNotNull('foodics_id')
             ->pluck('foodics_id', 'id')
             ->all();
+    }
+
+    /**
+     * Bulk-resolve Kippis modifier-option ids → Foodics option ids.
+     * Selected options for both customized products and built mixes live in
+     * each line's configuration.foodics_option_ids as Kippis option ids.
+     * Returns [kippis_option_id => foodics_id].
+     */
+    private function resolveFoodicsOptionIds(array $items): array
+    {
+        $ids = [];
+        foreach ($items as $line) {
+            $cfg = $line['configuration'] ?? null;
+            if (is_array($cfg) && ! empty($cfg['foodics_option_ids']) && is_array($cfg['foodics_option_ids'])) {
+                foreach ($cfg['foodics_option_ids'] as $id) {
+                    $ids[] = (int) $id;
+                }
+            }
+        }
+
+        if (empty($ids)) {
+            return [];
+        }
+
+        return FoodicsModifierOption::query()
+            ->whereIn('id', array_values(array_unique($ids)))
+            ->whereNotNull('foodics_id')
+            ->pluck('foodics_id', 'id')
+            ->all();
+    }
+
+    /**
+     * Build the Foodics modifiers array for one order line. Combines any legacy
+     * `modifiers` snapshot shape with the selected Foodics options stored in
+     * `configuration.foodics_option_ids` (translated to Foodics option ids).
+     */
+    private function buildLineModifiers(Order $order, array $line, array $foodicsOptionIds): array
+    {
+        $modifiers = $this->mapModifiers($line['modifiers'] ?? null);
+
+        $cfg = $line['configuration'] ?? null;
+        if (is_array($cfg) && ! empty($cfg['foodics_option_ids']) && is_array($cfg['foodics_option_ids'])) {
+            foreach ($cfg['foodics_option_ids'] as $kippisOptionId) {
+                $foodicsOptionId = $foodicsOptionIds[(int) $kippisOptionId] ?? null;
+                if ($foodicsOptionId !== null) {
+                    $modifiers[] = ['option_id' => $foodicsOptionId];
+                } else {
+                    Log::warning('FOODICS_PUSH_UNMAPPED_OPTION', [
+                        'order_id' => $order->id,
+                        'kippis_option_id' => $kippisOptionId,
+                    ]);
+                }
+            }
+        }
+
+        return $modifiers;
     }
 
     /**

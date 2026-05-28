@@ -132,9 +132,92 @@ class MixController extends Controller
         $data = [
             'bases' => $bases ?? [], // Ensure bases is always an array, never null
             'modifiers' => $modifiersData,
+            'mix_product' => $this->getMixProduct(),
+            'sections' => $this->getMixSections(),
         ];
 
         return apiSuccess($data);
+    }
+
+    /**
+     * The Build Your Mix product (synced from Foodics) — base price + identity.
+     * The build-your-mix screen builds on top of this single product.
+     */
+    private function getMixProduct(): ?array
+    {
+        $product = $this->resolveMixProduct();
+        if (!$product) {
+            return null;
+        }
+
+        return [
+            'id' => $product->id,
+            'name' => $product->getName(app()->getLocale()),
+            'name_ar' => $product->getName('ar'),
+            'name_en' => $product->getName('en'),
+            'image' => $this->getImageUrl($product->image),
+            'base_price' => (float) $product->base_price,
+        ];
+    }
+
+    /**
+     * The Foodics modifier groups attached to the mix product, each one a
+     * build-your-mix "section" (Base Modifiers, Sweetener, Flavour, Topper)
+     * with its min/max/free constraints and active options.
+     */
+    private function getMixSections(): array
+    {
+        $product = $this->resolveMixProduct();
+        if (!$product) {
+            return [];
+        }
+
+        return $product->foodicsModifiers->map(function ($modifier) {
+            return [
+                'id'              => $modifier->id,
+                'name'            => $modifier->getName(app()->getLocale()),
+                'name_ar'         => $modifier->getName('ar'),
+                'name_en'         => $modifier->getName('en'),
+                'minimum_options' => (int) ($modifier->pivot->minimum_options ?? 0),
+                'maximum_options' => (int) ($modifier->pivot->maximum_options ?? 1),
+                'free_options'    => (int) ($modifier->pivot->free_options ?? 0),
+                'sort_order'      => (int) ($modifier->pivot->sort_order ?? 0),
+                'options'         => $modifier->activeOptions->map(function ($option) {
+                    return [
+                        'id'       => $option->id,
+                        'name'     => $option->getName(app()->getLocale()),
+                        'name_ar'  => $option->getName('ar'),
+                        'name_en'  => $option->getName('en'),
+                        'price'    => (float) $option->price,
+                        'calories' => $option->calories,
+                        'sku'      => $option->sku,
+                    ];
+                })->values()->all(),
+            ];
+        })->sortBy('sort_order')->values()->all();
+    }
+
+    /**
+     * Load (and memoize) the configured Build Your Mix product with its Foodics
+     * modifier groups + active options.
+     */
+    private ?Product $mixProduct = null;
+    private bool $mixProductResolved = false;
+
+    private function resolveMixProduct(): ?Product
+    {
+        if ($this->mixProductResolved) {
+            return $this->mixProduct;
+        }
+
+        $this->mixProductResolved = true;
+        $mixProductId = config('mix.foodics_product_id');
+
+        $this->mixProduct = $mixProductId
+            ? Product::with(['foodicsModifiers.activeOptions'])->find($mixProductId)
+            : null;
+
+        return $this->mixProduct;
     }
 
     /**

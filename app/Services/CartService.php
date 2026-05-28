@@ -92,6 +92,14 @@ class CartService
             throw new \InvalidArgumentException("Invalid item type: {$itemType}");
         }
 
+        // Foodics-native mix: the build is a single Foodics product (the
+        // configured Build Your Mix product) plus selected modifier options.
+        // Price = product base price + sum of selected option prices. We set
+        // product_id so the line maps cleanly through the Foodics order push.
+        if (!empty($configuration['foodics_option_ids'])) {
+            return $this->addFoodicsMixToCart($cart, $itemType, $configuration, $quantity, $refId, $name, $note);
+        }
+
         // Calculate price
         $priceResult = $this->mixPriceCalculator->calculate($configuration);
 
@@ -108,6 +116,60 @@ class CartService
             'name' => $name,
             'configuration' => $configuration,
             'note' => $note,
+        ];
+
+        return $this->cartRepository->addItemUnified($cart, $payload);
+    }
+
+    /**
+     * Add a Foodics-native build-your-mix to the cart. The mix resolves to the
+     * configured Build Your Mix product (config mix.foodics_product_id) plus the
+     * selected Foodics modifier option ids. Stored with product_id set so the
+     * order push can map it to Foodics; configuration carries the option ids.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function addFoodicsMixToCart(
+        Cart $cart,
+        string $itemType,
+        array $configuration,
+        int $quantity,
+        ?int $refId,
+        ?string $name,
+        ?string $note
+    ): \App\Core\Models\CartItem {
+        $mixProductId = config('mix.foodics_product_id');
+        $product = $mixProductId ? Product::find($mixProductId) : null;
+
+        if (!$product || !$product->is_active) {
+            throw new \InvalidArgumentException('Build Your Mix product is not configured or inactive.');
+        }
+
+        $optionIds = array_values(array_unique(array_map(
+            'intval',
+            (array) $configuration['foodics_option_ids']
+        )));
+
+        $optionsTotal = (float) \App\Core\Models\FoodicsModifierOption::query()
+            ->whereIn('id', $optionIds)
+            ->where('is_active', true)
+            ->sum('price');
+
+        $price = round((float) $product->base_price + $optionsTotal, 2);
+
+        if (!$name) {
+            $name = $itemType === 'creator_mix' ? 'Creator Mix' : 'Custom Mix';
+        }
+
+        $payload = [
+            'product_id'    => $product->id,
+            'quantity'      => $quantity,
+            'price'         => $price,
+            'item_type'     => $itemType,
+            'ref_id'        => $refId,
+            'name'          => $name,
+            'configuration' => ['foodics_option_ids' => $optionIds],
+            'note'          => $note,
         ];
 
         return $this->cartRepository->addItemUnified($cart, $payload);

@@ -83,6 +83,25 @@ return [
             ]) : [],
         ],
 
+        // Read-only inspection connection to the LIVE production DB.
+        // Use ONLY with a SELECT-granted MySQL user, over an SSH tunnel:
+        //   ssh -L 33060:127.0.0.1:3306 <ssh-user>@host.raversys.uk
+        // Defaults assume that tunnel (localhost:33060). Never set as `default`.
+        'live' => [
+            'driver' => 'mysql',
+            'host' => env('DB_LIVE_HOST', '127.0.0.1'),
+            'port' => env('DB_LIVE_PORT', '33060'),
+            'database' => env('DB_LIVE_DATABASE'),
+            'username' => env('DB_LIVE_USERNAME'),
+            'password' => env('DB_LIVE_PASSWORD'),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+        ],
+
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
