@@ -32,7 +32,7 @@ class CartControllerTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonStructure([
                 'success',
-                'data' => ['cart_id', 'session_id'],
+                'data' => ['cart_id'],
             ]);
     }
 
@@ -65,8 +65,8 @@ class CartControllerTest extends TestCase
             'store_id' => $store->id,
         ]);
 
-        // Guest carts should work with session
-        $response->assertStatus(201);
+        // The customer cart endpoints are behind auth:api; guests are rejected.
+        $response->assertStatus(401);
     }
 }
 

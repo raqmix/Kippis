@@ -21,11 +21,10 @@ class ViewStore extends ViewRecord
                 ->modalHeading('Generate Kiosk API Key')
                 ->modalDescription('This will generate a new API key for this store. The old key (if any) will be replaced.')
                 ->action(function () {
-                    $apiKey = \Illuminate\Support\Str::uuid()->toString();
-                    $this->record->update(['kiosk_api_key' => $apiKey]);
+                    $apiKey = $this->record->generateKioskApiKey();
                     \Filament\Notifications\Notification::make()
                         ->title('API Key Generated Successfully')
-                        ->body('New API key: ' . $apiKey . "\n\nCopy this key and use it in the X-Kiosk-API-Key header along with X-Store-ID: " . $this->record->id)
+                        ->body('New API key (copy it now — it is stored hashed and cannot be shown again): ' . $apiKey . "\n\nUse it in the X-Kiosk-API-Key header along with X-Store-ID: " . $this->record->id)
                         ->success()
                         ->persistent()
                         ->send();

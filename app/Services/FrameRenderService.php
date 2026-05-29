@@ -152,10 +152,9 @@ class FrameRenderService
 
         $image = $this->imageManager->read($imagePath);
 
-        // Auto-orient based on EXIF
-        $image->orientate();
-
-        // Resize and crop to fit (maintain aspect ratio, center crop)
+        // Resize and crop to fit (maintain aspect ratio, center crop). Intervention
+        // Image v3 honors EXIF orientation on read, so no manual orient step is needed
+        // (the v2 orientate() method no longer exists and would fatal).
         $image->cover($width, $height);
 
         return $image;

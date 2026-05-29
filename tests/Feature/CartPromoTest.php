@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Core\Models\Product;
 use App\Core\Models\Cart;
 use App\Core\Models\PromoCode;
 
 class CartPromoTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_apply_promo_code_updates_totals_correctly(): void
     {
         $product = Product::factory()->create(['base_price' => 50.00]);

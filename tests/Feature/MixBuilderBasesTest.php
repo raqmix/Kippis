@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Core\Models\Product;
 use App\Core\Models\Modifier;
 use App\Core\Models\MixBuilderBase;
 
 class MixBuilderBasesTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_mix_builder_options_returns_bases_list(): void
     {
         // Create a mix base product
@@ -97,10 +100,10 @@ class MixBuilderBasesTest extends TestCase
 
         $response = $this->postJson('/api/v1/mix/preview', $payload);
 
-        // Should fail validation if base is not assigned to builder
-        // (unless base is global - mix_builder_id is null)
-        // For this test, we expect it to work if base is global, or fail if not assigned
-        $response->assertStatus(200); // If global bases work, or 400 if strict validation
+        // A base assigned to no builder (and not global) is rejected when a
+        // builder_id is supplied — the calculator enforces builder membership.
+        $response->assertStatus(400);
+        $response->assertJsonPath('error.code', 'INVALID_CONFIGURATION');
     }
 
     public function test_mix_preview_rejects_invalid_base_for_builder(): void
@@ -132,7 +135,7 @@ class MixBuilderBasesTest extends TestCase
 
         // Should fail because base is assigned to otherBuilderId, not builderId
         $response->assertStatus(400);
-        $response->assertJsonPath('error', 'INVALID_CONFIGURATION');
+        $response->assertJsonPath('error.code', 'INVALID_CONFIGURATION');
     }
 
     public function test_regular_products_excluded_from_bases_list(): void
@@ -178,7 +181,7 @@ class MixBuilderBasesTest extends TestCase
 
         // Should work without builder_id (backward compatibility)
         $response->assertStatus(200);
-        $response->assertJsonPath('data.total', 17.00); // 15.00 + 2.00
+        $this->assertEquals(17.00, (float) $response->json('data.total')); // 15.00 + 2.00
     }
 
     public function test_mix_base_product_kind_validation(): void
@@ -200,7 +203,7 @@ class MixBuilderBasesTest extends TestCase
 
         // Should fail because regular product cannot be used as base
         $response->assertStatus(400);
-        $response->assertJsonPath('error', 'INVALID_CONFIGURATION');
+        $response->assertJsonPath('error.code', 'INVALID_CONFIGURATION');
     }
 }
 

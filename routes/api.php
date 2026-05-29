@@ -175,7 +175,9 @@ Route::middleware('api.locale')->group(function () {
     });
 
     // ==================== KIOSK APIs ====================
-    Route::middleware('kiosk.auth')->prefix('v1/kiosk')->group(function () {
+    // StartSession is required for the session-keyed kiosk cart to persist across
+    // requests; the default `api` group does not start sessions.
+    Route::middleware([\Illuminate\Session\Middleware\StartSession::class, 'kiosk.auth'])->prefix('v1/kiosk')->group(function () {
         // Catalog
         Route::get('/home', [\App\Http\Controllers\Api\V1\Kiosk\KioskCatalogController::class, 'home']);
         Route::get('/categories', [\App\Http\Controllers\Api\V1\Kiosk\KioskCatalogController::class, 'categories']);

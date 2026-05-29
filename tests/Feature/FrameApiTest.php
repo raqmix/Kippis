@@ -186,7 +186,7 @@ class FrameApiTest extends TestCase
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['image']);
+            ->assertJsonStructure(['error' => ['errors' => ['image']]]);
     }
 
     public function test_render_frame_with_file_too_large_returns_validation_error(): void
@@ -206,7 +206,7 @@ class FrameApiTest extends TestCase
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['image']);
+            ->assertJsonStructure(['error' => ['errors' => ['image']]]);
     }
 
     public function test_render_frame_creates_frame_render_record(): void

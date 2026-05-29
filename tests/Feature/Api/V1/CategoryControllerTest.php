@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Core\Models\Category;
+use App\Core\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -28,8 +29,10 @@ class CategoryControllerTest extends TestCase
 
     public function test_can_filter_by_source(): void
     {
-        Category::factory()->create(['external_source' => 'local']);
-        Category::factory()->create(['external_source' => 'foodics']);
+        $local = Category::factory()->create(['external_source' => 'local']);
+        $foodics = Category::factory()->create(['external_source' => 'foodics']);
+        Product::factory()->create(['category_id' => $local->id]);
+        Product::factory()->create(['category_id' => $foodics->id]);
 
         $response = $this->getJson('/api/v1/categories?source=local');
 
@@ -39,7 +42,8 @@ class CategoryControllerTest extends TestCase
 
     public function test_supports_pagination(): void
     {
-        Category::factory()->count(25)->create();
+        Category::factory()->count(25)->create()
+            ->each(fn (Category $c) => Product::factory()->create(['category_id' => $c->id]));
 
         $response = $this->getJson('/api/v1/categories?per_page=10');
 

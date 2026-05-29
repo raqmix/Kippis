@@ -16,6 +16,7 @@ class LoyaltyWalletResource extends JsonResource
     {
         return [
             'points' => $this->points,
+            'qr_token' => $this->qr_token,
             'transactions' => LoyaltyTransactionResource::collection($this->whenLoaded('transactions')),
         ];
     }

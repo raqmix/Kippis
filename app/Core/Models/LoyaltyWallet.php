@@ -23,6 +23,7 @@ class LoyaltyWallet extends Model
     protected $fillable = [
         'customer_id',
         'points',
+        'qr_token',
     ];
 
     protected function casts(): array
@@ -30,6 +31,17 @@ class LoyaltyWallet extends Model
         return [
             'points' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Assign a non-enumerable reorder token so the kiosk can identify a
+        // wallet by scanned QR without exposing the sequential primary key.
+        static::creating(function (LoyaltyWallet $wallet) {
+            if (empty($wallet->qr_token)) {
+                $wallet->qr_token = (string) \Illuminate\Support\Str::uuid();
+            }
+        });
     }
 
     /**

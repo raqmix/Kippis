@@ -53,6 +53,31 @@ class Store extends Model
     }
 
     /**
+     * Issue a new kiosk API key. The plaintext is returned for one-time display
+     * and only its SHA-256 hash is persisted, so the usable key never lives in
+     * the database at rest.
+     */
+    public function generateKioskApiKey(): string
+    {
+        $plain = (string) \Illuminate\Support\Str::uuid();
+        $this->update(['kiosk_api_key' => hash('sha256', $plain)]);
+
+        return $plain;
+    }
+
+    /**
+     * Verify a presented kiosk API key against the stored hash in constant time.
+     */
+    public function verifyKioskApiKey(?string $presented): bool
+    {
+        if (empty($this->kiosk_api_key) || empty($presented)) {
+            return false;
+        }
+
+        return hash_equals($this->kiosk_api_key, hash('sha256', $presented));
+    }
+
+    /**
      * Get localized name for a specific locale.
      *
      * @param string $locale

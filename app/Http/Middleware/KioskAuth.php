@@ -59,8 +59,8 @@ class KioskAuth
             ], 403);
         }
 
-        // Validate API key
-        if (!$store->kiosk_api_key || $store->kiosk_api_key !== $apiKey) {
+        // Validate API key against the stored hash with a timing-safe comparison
+        if (!$store->verifyKioskApiKey($apiKey)) {
             return response()->json([
                 'success' => false,
                 'error' => 'INVALID_API_KEY',

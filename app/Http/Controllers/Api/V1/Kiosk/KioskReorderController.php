@@ -20,13 +20,12 @@ class KioskReorderController extends Controller
         $request->validate(['qr_data' => ['required', 'string', 'max:255']]);
         $store = $request->attributes->get('kiosk_store');
 
-        // QR payload can be a wallet_id, customer_id, or encoded deep link
+        // The QR payload carries the wallet's non-enumerable token (qr_token),
+        // never the sequential primary key — so wallets can't be harvested by
+        // walking ids.
         $qrData = $request->input('qr_data');
 
-        // Try to find a loyalty wallet by the qr_data (wallet_id or encoded value)
-        $wallet = \App\Core\Models\LoyaltyWallet::where('id', $qrData)
-            ->orWhere('qr_code', $qrData)
-            ->first();
+        $wallet = \App\Core\Models\LoyaltyWallet::where('qr_token', $qrData)->first();
 
         if (! $wallet) {
             return apiError('WALLET_NOT_FOUND', 'No wallet found for this QR code.', 404);
@@ -63,12 +62,26 @@ class KioskReorderController extends Controller
      */
     public function confirm(Request $request): JsonResponse
     {
-        $data  = $request->validate(['order_id' => ['required', 'integer']]);
+        $data = $request->validate([
+            'qr_data'  => ['required', 'string', 'max:255'],
+            'order_id' => ['required', 'integer'],
+        ]);
         $store = $request->attributes->get('kiosk_store');
 
-        $order = Order::find($data['order_id']);
+        // Bind the order to the scanned wallet so an arbitrary order id can't be
+        // used to read another customer's order contents.
+        $wallet = \App\Core\Models\LoyaltyWallet::where('qr_token', $data['qr_data'])->first();
+        if (! $wallet) {
+            return apiError('WALLET_NOT_FOUND', 'No wallet found for this QR code.', 404);
+        }
 
-        if (! $order || $order->store_id !== $store->id) {
+        $order = Order::where('id', $data['order_id'])
+            ->where('store_id', $store->id)
+            ->where('customer_id', $wallet->customer_id)
+            ->where('status', 'completed')
+            ->first();
+
+        if (! $order) {
             return apiError('ORDER_NOT_FOUND', 'Order not found.', 404);
         }
 

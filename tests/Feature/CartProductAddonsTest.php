@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Core\Models\Product;
 use App\Core\Models\Modifier;
 use App\Core\Models\Cart;
@@ -10,6 +11,8 @@ use App\Core\Models\ProductModifierGroup;
 
 class CartProductAddonsTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_add_product_with_addons_to_cart_stores_addons_and_correct_price(): void
     {
         $product = Product::factory()->create(['base_price' => 15.00]);
@@ -61,7 +64,7 @@ class CartProductAddonsTest extends TestCase
         $item = $cart->items()->first();
 
         $this->assertEquals('product', $item->item_type);
-        $this->assertEquals(20.00, (float)$item->price); // 15.00 + (2.00 * 2) + (1.50 * 1)
+        $this->assertEquals(20.50, (float)$item->price); // 15.00 + (2.00 * 2) + (1.50 * 1)
         $this->assertNotNull($item->configuration);
         $this->assertArrayHasKey('addons', $item->configuration);
         $this->assertCount(2, $item->configuration['addons']);
@@ -120,7 +123,7 @@ class CartProductAddonsTest extends TestCase
             ->postJson('/api/v1/cart/items', $payload);
 
         $response->assertStatus(400);
-        $response->assertJsonPath('error', 'INVALID_CONFIGURATION');
+        $response->assertJsonPath('error.code', 'INVALID_CONFIGURATION');
     }
 }
 

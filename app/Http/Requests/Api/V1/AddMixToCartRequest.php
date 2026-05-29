@@ -37,6 +37,12 @@ class AddMixToCartRequest extends FormRequest
             'configuration.extras.*' => [new ExtraItemRule()],
             'configuration.foodics_option_ids' => 'nullable|array',
             'configuration.foodics_option_ids.*' => 'integer|exists:foodics_modifier_options,id',
+            // Product addons (item_type=product). Without these rules the field is
+            // stripped by validate(), silently dropping addon pricing/validation.
+            'addons' => 'nullable|array',
+            'addons.*.modifier_id' => 'nullable|integer|exists:modifiers,id',
+            'addons.*.id' => 'nullable|integer|exists:modifiers,id',
+            'addons.*.level' => 'nullable|integer|min:0',
             'ref_id' => 'nullable|integer',
             'name' => 'nullable|string|max:255',
             'product_id' => 'required_if:item_type,product|exists:products,id',

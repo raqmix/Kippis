@@ -153,9 +153,9 @@ class StoreResource extends Resource
                         Forms\Components\TextInput::make('kiosk_api_key')
                             ->label('Kiosk API Key')
                             ->disabled()
-                            ->dehydrated()
-                            ->helperText('Use this key in the X-Kiosk-API-Key header along with X-Store-ID header for kiosk authentication. Generate a new key using the action buttons.')
-                            ->default('Not generated'),
+                            ->dehydrated(false)
+                            ->formatStateUsing(fn ($state) => $state ? 'Configured (hidden — regenerate to issue a new key)' : 'Not generated')
+                            ->helperText('The key is stored hashed and shown only once when generated. Use the "Generate API Key" button to issue a new one, then send it in the X-Kiosk-API-Key header with X-Store-ID.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -259,11 +259,10 @@ class StoreResource extends Resource
                     ->modalHeading('Generate Kiosk API Key')
                     ->modalDescription('This will generate a new API key for this store. The old key (if any) will be replaced.')
                     ->action(function (Store $record) {
-                        $apiKey = \Illuminate\Support\Str::uuid()->toString();
-                        $record->update(['kiosk_api_key' => $apiKey]);
+                        $apiKey = $record->generateKioskApiKey();
                         \Filament\Notifications\Notification::make()
                             ->title('API Key Generated Successfully')
-                            ->body('New API key: ' . $apiKey)
+                            ->body('New API key (copy it now — it is stored hashed and cannot be shown again): ' . $apiKey)
                             ->success()
                             ->persistent()
                             ->send();

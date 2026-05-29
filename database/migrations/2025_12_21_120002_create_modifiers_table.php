@@ -13,7 +13,11 @@ return new class extends Migration
     {
         Schema::create('modifiers', function (Blueprint $table) {
             $table->id();
-            $table->enum('type', ['sweetness', 'fizz', 'caffeine', 'extra']);
+            // Stored as a string; allowed values are enforced at the application
+            // level (and tightened to a MySQL ENUM by a later migration). Using a
+            // plain string avoids a stale SQLite CHECK constraint that the later
+            // ENUM alter intentionally skips on SQLite.
+            $table->string('type');
             $table->json('name_json'); // {ar: "...", en: "..."}
             $table->integer('max_level')->nullable(); // For sweetness/fizz/caffeine levels
             $table->decimal('price', 10, 2)->default(0);

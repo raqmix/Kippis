@@ -3,14 +3,17 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Core\Models\Product;
 use App\Core\Models\Modifier;
 
 class MixPreviewTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_mix_preview_returns_total_and_breakdown(): void
     {
-        $product = Product::factory()->create(['base_price' => 10.00]);
+        $product = Product::factory()->create(['base_price' => 10.00, 'product_kind' => 'mix_base']);
         $modifier = Modifier::factory()->create(['price' => 2.50, 'max_level' => 5]);
 
         $payload = [
@@ -23,7 +26,7 @@ class MixPreviewTest extends TestCase
         $response = $this->postJson('/api/v1/mix/preview', $payload);
 
         $response->assertStatus(200);
-        $response->assertJsonPath('data.total', 15.00); // 10.00 + (2.50 * 2)
+        $this->assertEquals(15.00, (float) $response->json('data.total')); // 10.00 + (2.50 * 2)
         $this->assertArrayHasKey('breakdown', $response->json('data'));
         
         $breakdown = $response->json('data.breakdown');
@@ -34,7 +37,7 @@ class MixPreviewTest extends TestCase
 
     public function test_mix_preview_with_extras(): void
     {
-        $baseProduct = Product::factory()->create(['base_price' => 12.00]);
+        $baseProduct = Product::factory()->create(['base_price' => 12.00, 'product_kind' => 'mix_base']);
         $extraProduct = Product::factory()->create(['base_price' => 5.00]);
         $modifier = Modifier::factory()->create(['price' => 1.00, 'max_level' => 3]);
 
@@ -49,12 +52,12 @@ class MixPreviewTest extends TestCase
         $response = $this->postJson('/api/v1/mix/preview', $payload);
 
         $response->assertStatus(200);
-        $response->assertJsonPath('data.total', 18.00); // 12.00 + 1.00 + 5.00
+        $this->assertEquals(18.00, (float) $response->json('data.total')); // 12.00 + 1.00 + 5.00
     }
 
     public function test_mix_preview_validates_modifier_level(): void
     {
-        $product = Product::factory()->create(['base_price' => 10.00]);
+        $product = Product::factory()->create(['base_price' => 10.00, 'product_kind' => 'mix_base']);
         $modifier = Modifier::factory()->create(['price' => 2.50, 'max_level' => 3]);
 
         $payload = [
@@ -67,6 +70,6 @@ class MixPreviewTest extends TestCase
         $response = $this->postJson('/api/v1/mix/preview', $payload);
 
         $response->assertStatus(400);
-        $response->assertJsonPath('error', 'INVALID_CONFIGURATION');
+        $response->assertJsonPath('error.code', 'INVALID_CONFIGURATION');
     }
 }

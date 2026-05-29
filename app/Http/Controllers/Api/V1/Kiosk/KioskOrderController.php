@@ -26,10 +26,7 @@ class KioskOrderController extends Controller
      * Creates an order from locally managed cart items. Order will have customer_id = null (guest order).
      *
      * @bodyParam payment_method string required Payment method. Options: `cash`, `card`, `online`. Example: cash
-     * @bodyParam items array required Array of cart items. Each item should have: product_id, item_type, name, quantity, price, modifiers (optional), configuration (optional), note (optional)
-     * @bodyParam subtotal float required Cart subtotal
-     * @bodyParam discount float required Cart discount (from promo code if applicable)
-     * @bodyParam total float required Cart total
+     * @bodyParam items array required Array of cart items. Each item should have: product_id, item_type, name, quantity, modifiers (optional), configuration (optional), note (optional). Prices are recomputed server-side and any client-supplied price/subtotal/discount/total is ignored.
      * @bodyParam promo_code string optional Promo code to apply
      *
      * @response 201 {
@@ -57,19 +54,21 @@ class KioskOrderController extends Controller
         
         $paymentMethod = $request->input('payment_method');
         
+        // Money fields (items.*.price, subtotal, discount, total) are accepted for
+        // backward compatibility but ignored — prices are recomputed server-side.
         $rules = [
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'nullable|integer|exists:products,id',
             'items.*.item_type' => 'required|string|in:product,mix,creator_mix',
             'items.*.name' => 'required|string|max:255',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.price' => 'required|numeric|min:0',
+            'items.*.price' => 'sometimes|nullable|numeric|min:0',
             'items.*.modifiers' => 'nullable|array',
             'items.*.configuration' => 'nullable|array',
             'items.*.note' => 'nullable|string|max:1000',
-            'subtotal' => 'required|numeric|min:0',
-            'discount' => 'required|numeric|min:0',
-            'total' => 'required|numeric|min:0',
+            'subtotal' => 'sometimes|nullable|numeric|min:0',
+            'discount' => 'sometimes|nullable|numeric|min:0',
+            'total' => 'sometimes|nullable|numeric|min:0',
             'promo_code' => 'nullable|string|max:50',
         ];
         
@@ -85,9 +84,6 @@ class KioskOrderController extends Controller
         $store = $request->attributes->get('kiosk_store');
         $items = $request->input('items');
         $paymentMethod = $request->input('payment_method');
-        $subtotal = (float) $request->input('subtotal');
-        $discount = (float) $request->input('discount');
-        $total = (float) $request->input('total');
         $promoCode = $request->input('promo_code');
         $posCode = $request->input('pos_code'); // 4-digit code for cash payments
 
@@ -96,14 +92,12 @@ class KioskOrderController extends Controller
         }
 
         try {
-            // Create guest order directly from items
+            // Create guest order directly from items. Prices/totals are recomputed
+            // server-side inside the repository — client money fields are ignored.
             $order = $this->orderRepository->createFromItems(
                 $store->id,
                 $items,
                 $paymentMethod,
-                $subtotal,
-                $discount,
-                $total,
                 $promoCode,
                 $posCode
             );

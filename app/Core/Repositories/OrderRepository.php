@@ -2,14 +2,24 @@
 
 namespace App\Core\Repositories;
 
+use App\Core\Models\FoodicsModifierOption;
 use App\Core\Models\Order;
 use App\Core\Models\PaymentMethod;
+use App\Core\Models\Product;
+use App\Core\Models\PromoCode;
 use App\Core\Models\PromoCodeUsage;
 use App\Events\OrderCreated;
+use App\Services\MixPriceCalculator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class OrderRepository
 {
+    public function __construct(
+        private MixPriceCalculator $mixPriceCalculator
+    ) {
+    }
+
     /**
      * Create order from cart.
      *
@@ -79,90 +89,184 @@ class OrderRepository
     /**
      * Create order directly from items array (for kiosk local cart).
      *
+     * Prices are recomputed server-side from the catalog; client-supplied
+     * per-item prices and totals are never trusted. The subtotal is the sum of
+     * recomputed line prices, the discount is derived from the validated promo
+     * code, and the total is subtotal minus discount.
+     *
      * @param int $storeId
-     * @param array $items Array of items with: product_id, item_type, name, quantity, price, modifiers, configuration, note
+     * @param array $items Array of items with: product_id, item_type, name, quantity, modifiers, configuration, note
      * @param string $paymentMethodCode Payment method code (cash, card, online)
-     * @param float $subtotal Calculated subtotal
-     * @param float $discount Calculated discount (from promo code if applicable)
-     * @param float $total Calculated total
      * @param string|null $promoCode Optional promo code to apply
+     * @param string|null $posCode Optional 4-digit POS code for cash payments
      * @return Order
      */
     public function createFromItems(
         int $storeId,
         array $items,
         string $paymentMethodCode,
-        float $subtotal,
-        float $discount,
-        float $total,
         ?string $promoCode = null,
         ?string $posCode = null
     ): Order {
-        $pickupCode = $this->generatePickupCode();
-
-        // Get payment method by code
         $paymentMethod = PaymentMethod::where('code', $paymentMethodCode)->first();
         if (!$paymentMethod) {
             throw new \InvalidArgumentException("Invalid payment method: {$paymentMethodCode}");
         }
 
-        // Find promo code if provided
+        // Recompute every line price from the catalog — never trust client prices.
+        $subtotal = 0.0;
+        $snapshotItems = [];
+        foreach ($items as $item) {
+            $quantity = max(1, (int) ($item['quantity'] ?? 1));
+            $unitPrice = $this->computeLineUnitPrice($item);
+            $subtotal += $unitPrice * $quantity;
+
+            $snapshotItems[] = [
+                'product_id' => $item['product_id'] ?? null,
+                'item_type' => $item['item_type'] ?? 'product',
+                'name' => $item['name'] ?? 'Unknown',
+                'image' => $item['image'] ?? null,
+                'quantity' => $quantity,
+                'price' => $unitPrice,
+                'modifiers' => $item['modifiers'] ?? null,
+                'configuration' => $item['configuration'] ?? null,
+                'note' => $item['note'] ?? null,
+            ];
+        }
+        $subtotal = round($subtotal, 2);
+
+        // Resolve the promo and recompute its discount against the server subtotal.
+        $discount = 0.0;
         $promoCodeModel = null;
         if ($promoCode) {
-            $promoCodeModel = \App\Core\Models\PromoCode::where('code', strtoupper($promoCode))
+            $promoCodeModel = PromoCode::where('code', strtoupper($promoCode))
                 ->valid()
                 ->first();
 
-            // If promo code found, validate minimum order amount
-            if ($promoCodeModel && $subtotal < $promoCodeModel->minimum_order_amount) {
-                throw new \InvalidArgumentException("Minimum order amount not met for promo code");
+            if ($promoCodeModel) {
+                if ($subtotal < (float) $promoCodeModel->minimum_order_amount) {
+                    throw new \InvalidArgumentException("Minimum order amount not met for promo code");
+                }
+                $discount = round(min($promoCodeModel->calculateDiscount($subtotal), $subtotal), 2);
             }
         }
+
+        $total = round($subtotal - $discount, 2);
 
         // For cash payments with POS code, set status to pending_payment
         // Order will be updated to 'received' when cashier confirms payment
         $status = ($paymentMethodCode === 'cash' && $posCode) ? 'pending_payment' : 'received';
-        
-        $order = Order::create([
-            'store_id' => $storeId,
-            'customer_id' => null, // Guest order for kiosk
-            'status' => $status,
-            'total' => $total,
-            'subtotal' => $subtotal,
-            'discount' => $discount,
-            'payment_method' => $paymentMethodCode, // Keep for backward compatibility
-            'payment_method_id' => $paymentMethod->id,
-            'pos_code' => $posCode, // 4-digit code for cash POS processing
-            'pickup_code' => $pickupCode,
-            'items_snapshot' => array_map(function ($item) {
-                return [
-                    'product_id' => $item['product_id'] ?? null,
-                    'item_type' => $item['item_type'] ?? 'product',
-                    'name' => $item['name'] ?? 'Unknown',
-                    'image' => $item['image'] ?? null,
-                    'quantity' => $item['quantity'] ?? 1,
-                    'price' => $item['price'] ?? 0.0,
-                    'modifiers' => $item['modifiers'] ?? null,
-                    'configuration' => $item['configuration'] ?? null,
-                    'note' => $item['note'] ?? null,
-                ];
-            }, $items),
-            'modifiers_snapshot' => array_map(function ($item) {
-                return $item['modifiers'] ?? null;
-            }, $items),
-            'promo_code_id' => $promoCodeModel?->id,
-            'promo_discount' => $discount,
-        ]);
 
-        // Increment promo code usage count (for guest orders, don't track customer usage)
-        if ($promoCodeModel) {
-            $promoCodeModel->increment('used_count');
+        $pickupCode = $this->generatePickupCode();
+
+        return DB::transaction(function () use (
+            $storeId,
+            $status,
+            $total,
+            $subtotal,
+            $discount,
+            $paymentMethodCode,
+            $paymentMethod,
+            $posCode,
+            $pickupCode,
+            $snapshotItems,
+            $items,
+            $promoCodeModel
+        ) {
+            $order = Order::create([
+                'store_id' => $storeId,
+                'customer_id' => null, // Guest order for kiosk
+                'status' => $status,
+                'total' => $total,
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'payment_method' => $paymentMethodCode, // Keep for backward compatibility
+                'payment_method_id' => $paymentMethod->id,
+                'pos_code' => $posCode, // 4-digit code for cash POS processing
+                'pickup_code' => $pickupCode,
+                'items_snapshot' => $snapshotItems,
+                'modifiers_snapshot' => array_map(function ($item) {
+                    return $item['modifiers'] ?? null;
+                }, $items),
+                'promo_code_id' => $promoCodeModel?->id,
+                'promo_discount' => $discount,
+            ]);
+
+            // Increment promo code usage count (for guest orders, don't track customer usage)
+            if ($promoCodeModel) {
+                $promoCodeModel->increment('used_count');
+            }
+
+            // Dispatch event for real-time notification
+            event(new OrderCreated($order));
+
+            return $order;
+        });
+    }
+
+    /**
+     * Recompute the authoritative unit price for a single kiosk line item from
+     * the catalog, mirroring the app-side CartService pricing. Throws when the
+     * referenced product/configuration is invalid so a tampered or malformed
+     * cart fails rather than creating a mispriced order.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function computeLineUnitPrice(array $item): float
+    {
+        $type = $item['item_type'] ?? 'product';
+        $config = $item['configuration'] ?? [];
+        if (!is_array($config)) {
+            $config = [];
         }
 
-        // Dispatch event for real-time notification
-        event(new OrderCreated($order));
+        if ($type === 'product') {
+            $product = isset($item['product_id']) ? Product::find($item['product_id']) : null;
+            if (!$product || !$product->is_active) {
+                throw new \InvalidArgumentException('Product not found or inactive.');
+            }
 
-        return $order;
+            $addons = $config['addons'] ?? $item['modifiers'] ?? [];
+            if (!is_array($addons)) {
+                $addons = [];
+            }
+
+            $result = $this->mixPriceCalculator->calculateProductWithAddons($product, $addons);
+
+            return round($result['total'] + $this->foodicsOptionsTotal($config['foodics_option_ids'] ?? []), 2);
+        }
+
+        // Foodics-native build-your-mix: configured product base + option prices.
+        if (!empty($config['foodics_option_ids'])) {
+            $mixProductId = config('mix.foodics_product_id');
+            $product = $mixProductId ? Product::find($mixProductId) : null;
+            if (!$product || !$product->is_active) {
+                throw new \InvalidArgumentException('Build Your Mix product is not configured or inactive.');
+            }
+
+            return round((float) $product->base_price + $this->foodicsOptionsTotal($config['foodics_option_ids']), 2);
+        }
+
+        // Legacy / non-Foodics mix configuration.
+        $result = $this->mixPriceCalculator->calculate($config);
+
+        return round($result['total'], 2);
+    }
+
+    /**
+     * Sum the active Foodics modifier option prices for the given option ids.
+     */
+    private function foodicsOptionsTotal($optionIds): float
+    {
+        $ids = array_values(array_unique(array_map('intval', (array) $optionIds)));
+        if (empty($ids)) {
+            return 0.0;
+        }
+
+        return (float) FoodicsModifierOption::query()
+            ->whereIn('id', $ids)
+            ->where('is_active', true)
+            ->sum('price');
     }
 
     /**
