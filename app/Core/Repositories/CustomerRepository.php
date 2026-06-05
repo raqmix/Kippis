@@ -109,6 +109,8 @@ class CustomerRepository
      */
     public function updatePassword(int $id, string $password): bool
     {
-        return $this->update($id, ['password' => Hash::make($password)]);
+        // Pass the plaintext through — update() already hashes any 'password'
+        // key, so hashing here too would double-hash and lock the user out.
+        return $this->update($id, ['password' => $password]);
     }
 }
