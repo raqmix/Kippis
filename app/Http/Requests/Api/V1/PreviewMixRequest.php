@@ -33,6 +33,8 @@ class PreviewMixRequest extends FormRequest
             'configuration.modifiers.*.level' => 'nullable|integer|min:0',
             'configuration.extras' => 'nullable|array',
             'configuration.extras.*' => [new ExtraItemRule()],
+            'configuration.foodics_option_ids' => 'nullable|array',
+            'configuration.foodics_option_ids.*' => 'integer|exists:foodics_modifier_options,id',
         ];
     }
 }

@@ -277,7 +277,14 @@ class MixController extends Controller
         $configuration = $request->input('configuration', []);
 
         try {
-            $result = $this->mixPriceCalculator->calculate($configuration);
+            // Foodics-native BYM: price = configured mix product base + sum of
+            // selected active modifier-option prices. Mirrors
+            // CartService::addFoodicsMixToCart so /mix/preview and the cart agree.
+            if (!empty($configuration['foodics_option_ids'])) {
+                $result = $this->previewFoodicsMix($configuration['foodics_option_ids']);
+            } else {
+                $result = $this->mixPriceCalculator->calculate($configuration);
+            }
         } catch (\InvalidArgumentException $e) {
             return apiError('INVALID_CONFIGURATION', $e->getMessage(), 400);
         } catch (\Exception $e) {
@@ -285,6 +292,49 @@ class MixController extends Controller
         }
 
         return apiSuccess(['total' => $result['total'], 'breakdown' => $result['breakdown']]);
+    }
+
+    /**
+     * Compute a Foodics-native build-your-mix preview total + breakdown.
+     *
+     * @param array<int> $optionIds
+     * @return array{total: float, breakdown: array<int, array<string, mixed>>}
+     * @throws \InvalidArgumentException
+     */
+    private function previewFoodicsMix(array $optionIds): array
+    {
+        $product = $this->resolveMixProduct();
+        if (!$product || !$product->is_active) {
+            throw new \InvalidArgumentException('Build Your Mix product is not configured or inactive.');
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $optionIds)));
+
+        $options = \App\Core\Models\FoodicsModifierOption::query()
+            ->whereIn('id', $ids)
+            ->where('is_active', true)
+            ->get(['id', 'name_json', 'price']);
+
+        $locale = app()->getLocale();
+        $total = (float) $product->base_price;
+        $breakdown = [[
+            'label' => $product->getName($locale),
+            'amount' => round((float) $product->base_price, 2),
+            'type' => 'product',
+        ]];
+
+        foreach ($options as $option) {
+            $price = (float) $option->price;
+            $total += $price;
+            $breakdown[] = [
+                'label' => $option->getName($locale),
+                'amount' => round($price, 2),
+                'type' => 'foodics_option',
+                'option_id' => $option->id,
+            ];
+        }
+
+        return ['total' => round($total, 2), 'breakdown' => $breakdown];
     }
 
     /**
