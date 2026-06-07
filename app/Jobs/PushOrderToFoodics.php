@@ -408,12 +408,21 @@ class PushOrderToFoodics implements ShouldQueue
     }
 
     /**
-     * Foodics auto-assigns a per-branch numeric `reference` on order create —
-     * the human-readable number staff see on tickets.
+     * Pull the human-readable check number Foodics assigns to the order —
+     * what kitchen staff actually look at on the POS, and what the kiosk
+     * receipt prints as "Check #…". Prefer `check_number`, fall back to
+     * `number` (some Foodics order shapes use that key instead), and as a
+     * last resort the per-branch `reference` so we always surface something
+     * useful even if the field names drift across API versions.
      */
     private function extractFoodicsReference(array $data): ?string
     {
         $body = (isset($data['data']) && is_array($data['data'])) ? $data['data'] : $data;
-        return isset($body['reference']) ? (string) $body['reference'] : null;
+        foreach (['check_number', 'number', 'reference'] as $key) {
+            if (isset($body[$key]) && $body[$key] !== '' && $body[$key] !== null) {
+                return (string) $body[$key];
+            }
+        }
+        return null;
     }
 }
