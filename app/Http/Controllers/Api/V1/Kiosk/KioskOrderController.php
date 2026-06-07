@@ -6,8 +6,11 @@ use App\Core\Repositories\CartRepository;
 use App\Core\Repositories\OrderRepository;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\OrderResource;
+use App\Integrations\Foodics\Services\FoodicsClient;
+use App\Jobs\PushOrderToFoodics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @group Kiosk Order APIs
@@ -101,15 +104,52 @@ class KioskOrderController extends Controller
                 $posCode
             );
 
+            // Push to Foodics inline so the kiosk can print the Foodics POS
+            // number on the receipt right away. Bounded by a short timeout
+            // (kiosk customers can't wait the global 30s ceiling); on any
+            // failure we fall back to the OrderCreated → queued job path so
+            // the kitchen still gets the order, just async.
+            $this->pushToFoodicsInline($order);
+            $order->refresh();
+
             return apiSuccess([
                 'order_id' => $order->id,
                 'pickup_code' => $order->pickup_code,
                 'total' => (float) $order->total,
+                'foodics_reference' => $order->foodics_reference,
+                'foodics_order_id' => $order->foodics_order_id,
             ], 'order_created', 201);
         } catch (\InvalidArgumentException $e) {
             return apiError('INVALID_DATA', $e->getMessage(), 400);
         } catch (\Exception $e) {
             return apiError('ERROR', $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Run the Foodics push job synchronously so the response carries the
+     * Foodics reference. Short-circuits on any failure: the async listener
+     * has already queued the same job, so the queue worker will retry. We
+     * never let a Foodics outage block the kiosk customer.
+     */
+    private function pushToFoodicsInline(\App\Core\Models\Order $order): void
+    {
+        $previousTimeout = config('foodics.timeout');
+        // 10s ceiling for inline path — Foodics typically answers in 1–3s.
+        // The queued fallback uses the default 30s when it retries.
+        config(['foodics.timeout' => (int) config('foodics.kiosk_inline_timeout', 10)]);
+        try {
+            (new PushOrderToFoodics($order->id))->handle(app(FoodicsClient::class));
+        } catch (\Throwable $e) {
+            Log::warning('FOODICS_PUSH_INLINE_FAILED_FALLBACK_QUEUED', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            // The OrderCreated listener has already enqueued a PushOrderToFoodics
+            // job — when it runs, it'll see the order has no foodics_order_id
+            // yet and retry per the job's backoff schedule.
+        } finally {
+            config(['foodics.timeout' => $previousTimeout]);
         }
     }
 }
