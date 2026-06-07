@@ -72,12 +72,11 @@ class KioskOrderController extends Controller
             'promo_code' => 'nullable|string|max:50',
         ];
         
-        // POS code is required for cash payments
-        if ($paymentMethod === 'cash') {
-            $rules['pos_code'] = 'required|string|size:4|regex:/^[0-9]{4}$/';
-        } else {
-            $rules['pos_code'] = 'nullable|string|size:4|regex:/^[0-9]{4}$/';
-        }
+        // pos_code is the legacy "tell counter staff this 4-digit code so they
+        // ring the cash sale on the Foodics POS" handoff. With the kiosk now
+        // pushing orders to Foodics directly, the counter loop is gone — keep
+        // it nullable for backward-compat but never require it.
+        $rules['pos_code'] = 'nullable|string|size:4|regex:/^[0-9]{4}$/';
         
         $request->validate($rules);
 
