@@ -23,8 +23,9 @@ use Illuminate\Support\Facades\Log;
  * Pushes a freshly-created Kippis order to Foodics POS.
  *
  * Triggered by [[push-order-to-foodics-listener]] in response to OrderCreated.
- * Idempotent — exits early if already pushed. Skipped entirely for kiosk/cash
- * orders (pos_code set) and for stores not yet mapped to a Foodics branch.
+ * Idempotent — exits early if already pushed. Skipped only when the store has
+ * no Foodics branch mapping. Kiosk orders (which may carry a legacy pos_code
+ * handoff for counter cash) push to Foodics like any other order.
  */
 class PushOrderToFoodics implements ShouldQueue
 {
@@ -49,14 +50,6 @@ class PushOrderToFoodics implements ShouldQueue
 
         if (! $order) {
             Log::warning('FOODICS_PUSH_SKIPPED_MISSING_ORDER', ['order_id' => $this->orderId]);
-            return;
-        }
-
-        if ($order->pos_code !== null) {
-            Log::info('FOODICS_PUSH_SKIPPED_POS_CASH', [
-                'order_id' => $order->id,
-                'pos_code' => $order->pos_code,
-            ]);
             return;
         }
 
