@@ -23,6 +23,7 @@ class Order extends Model
 
     protected $fillable = [
         'store_id',
+        'channel_id',
         'customer_id',
         'status',
         'total',
@@ -68,6 +69,14 @@ class Order extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
+    }
+
+    /**
+     * Get the channel this order was placed through.
+     */
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(Channel::class);
     }
 
     /**
