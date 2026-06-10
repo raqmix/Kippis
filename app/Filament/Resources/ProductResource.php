@@ -182,6 +182,13 @@ class ProductResource extends Resource
                             ->label(__('system.is_active'))
                             ->default(true)
                             ->required(),
+                        Forms\Components\Select::make('stores')
+                            ->label('Available at')
+                            ->multiple()
+                            ->relationship('stores', 'name')
+                            ->preload()
+                            ->helperText('Choose which branches show this product. Leave empty to make it available at every store (the legacy default).')
+                            ->columnSpanFull(),
                     ]),
                 Components\Section::make(__('system.foodics_integration'))
                     ->schema([
@@ -277,6 +284,20 @@ class ProductResource extends Resource
                     ->label(__('system.is_active'))
                     ->boolean()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('status_badge')
+                    ->label('Status')
+                    ->badge()
+                    ->getStateUsing(function ($record): string {
+                        if ($record->is_draft) {
+                            return 'Draft';
+                        }
+                        return $record->is_active ? 'Active' : 'Inactive';
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'Draft' => 'warning',
+                        'Active' => 'success',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('external_source')
                     ->label(__('system.external_source'))
                     ->badge()
@@ -311,6 +332,11 @@ class ProductResource extends Resource
                     ->placeholder(__('system.all'))
                     ->trueLabel(__('system.active'))
                     ->falseLabel(__('system.inactive')),
+                Tables\Filters\TernaryFilter::make('is_draft')
+                    ->label('Draft')
+                    ->placeholder('All')
+                    ->trueLabel('Drafts awaiting activation')
+                    ->falseLabel('Activated'),
                 Tables\Filters\SelectFilter::make('external_source')
                     ->label(__('system.external_source'))
                     ->options([
@@ -341,6 +367,16 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Actions\ViewAction::make(),
+                Actions\Action::make('activate_draft')
+                    ->label('Activate')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->is_draft)
+                    ->requiresConfirmation()
+                    ->modalDescription('Make this product visible to customers on kiosk + app.')
+                    ->action(function ($record) {
+                        $record->update(['is_draft' => false]);
+                    }),
                 Actions\EditAction::make(),
                 Actions\Action::make('clear_foodics_overrides')
                     ->label('Clear overrides')

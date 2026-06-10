@@ -40,7 +40,7 @@ class KioskTopPicksController extends Controller
         $topIds = array_slice(array_keys($productCounts), 0, 6);
 
         $products = Product::whereIn('id', $topIds)
-            ->where('is_active', true)
+            ->active()
             ->get()
             ->keyBy('id');
 

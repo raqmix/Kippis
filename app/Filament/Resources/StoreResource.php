@@ -140,6 +140,10 @@ class StoreResource extends Resource
                             ->maxLength(255)
                             ->disabled()
                             ->dehydrated(),
+                        Forms\Components\TextInput::make('foodics_menu_group_id')
+                            ->label('Foodics Menu Group ID')
+                            ->helperText('Copy from Foodics → Menus → this branch\'s menu group. Catalog sync only pulls products from this group; new ones land as drafts.')
+                            ->maxLength(255),
                         Forms\Components\DateTimePicker::make('synced_from_foodics_at')
                             ->label(__('system.synced_from_foodics_at'))
                             ->disabled()

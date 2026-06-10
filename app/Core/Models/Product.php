@@ -31,6 +31,7 @@ class Product extends Model
         'image',
         'base_price',
         'is_active',
+        'is_draft',
         'sort_order',
         'external_source',
         'foodics_id',
@@ -50,6 +51,7 @@ class Product extends Model
             'allergens'       => 'array',
             'base_price'      => 'decimal:2',
             'is_active'       => 'boolean',
+            'is_draft'        => 'boolean',
             'last_synced_at'  => 'datetime',
             'deleted_at'      => 'datetime',
             'locally_overridden_fields' => 'array',
@@ -118,11 +120,48 @@ class Product extends Model
     }
 
     /**
-     * Scope: Active products.
+     * Stores where this product is available. Populated by per-branch
+     * Foodics menu-group sync and editable in Filament. Empty list means
+     * "available at every store" — a legacy/global product.
+     */
+    public function stores(): BelongsToMany
+    {
+        return $this->belongsToMany(Store::class, 'product_store')
+            ->withTimestamps();
+    }
+
+    /**
+     * Scope: products visible at a specific store. Returns products that
+     * are either explicitly linked to that store, OR have no store links
+     * at all (the "available everywhere" legacy default).
+     */
+    public function scopeAvailableAtStore($query, int $storeId)
+    {
+        return $query->where(function ($q) use ($storeId) {
+            $q->whereHas('stores', fn ($s) => $s->where('stores.id', $storeId))
+              ->orWhereDoesntHave('stores');
+        });
+    }
+
+    /**
+     * Scope: Active products — customer-facing.
+     *
+     * Drafts (newly-pulled Foodics products awaiting admin activation) are
+     * excluded so they never surface in the kiosk or customer app. The
+     * Filament admin panel queries Product directly, so the draft row
+     * stays visible to operators who need to activate it.
      */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->where('is_active', true)->where('is_draft', false);
+    }
+
+    /**
+     * Scope: Draft products awaiting activation.
+     */
+    public function scopeDraft($query)
+    {
+        return $query->where('is_draft', true);
     }
 
     /**

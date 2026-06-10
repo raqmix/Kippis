@@ -45,10 +45,11 @@ class ProductRepository
             $query->where('category_id', $filters['category_id']);
         }
 
-        // Filter by store (if products have store relationship)
-        if (isset($filters['store_id'])) {
-            // Products don't have direct store relationship, but categories might
-            // This would need to be implemented based on your business logic
+        // Filter by store using the per-branch product_store pivot. Products
+        // without any pivot rows are treated as globally available (legacy
+        // catalog) — the scope returns them for every store.
+        if (!empty($filters['store_id'])) {
+            $query->availableAtStore((int) $filters['store_id']);
         }
 
         // Price range filters

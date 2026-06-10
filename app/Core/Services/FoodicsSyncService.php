@@ -6,6 +6,7 @@ use App\Core\Models\Category;
 use App\Core\Models\Product;
 use App\Core\Models\FoodicsModifier;
 use App\Core\Models\FoodicsModifierOption;
+use App\Core\Models\Store;
 use App\Integrations\Foodics\Services\FoodicsClient;
 use Illuminate\Support\Facades\Log;
 
@@ -146,7 +147,7 @@ class FoodicsSyncService
      *
      * @param string|null $mode 'sandbox' or 'live', null to use config default
      */
-    public function syncProducts(?string $mode = null): array
+    public function syncProducts(?string $mode = null, array $filters = [], ?Store $attachTo = null): array
     {
         $synced = 0;
         $updated = 0;
@@ -174,6 +175,7 @@ class FoodicsSyncService
                     'page' => $page,
                     'per_page' => 50,
                     'include' => ['category', 'modifiers', 'modifiers.options'],
+                    'filters' => $filters,
                 ]), $mode);
 
                 if (!$response->ok) {
@@ -243,10 +245,17 @@ class FoodicsSyncService
                                     unset($productData[$field]);
                                 }
                             }
+                            // Never re-flag an existing product as draft — an
+                            // admin may have already activated it. Drafts are
+                            // an insert-time default only.
                             $existing->update($productData);
                             $updated++;
                             $savedProduct = $existing;
                         } else {
+                            // Newly-pulled Foodics products land as drafts so
+                            // an operator explicitly opts each one in before
+                            // it surfaces on the kiosk / customer app.
+                            $productData['is_draft'] = true;
                             $savedProduct = Product::create($productData);
                             $synced++;
                         }
@@ -254,6 +263,14 @@ class FoodicsSyncService
                         // Sync Foodics modifiers (option groups + options) attached to this product
                         if (!empty($productItem['modifiers'])) {
                             $this->syncProductModifiers($savedProduct, $productItem['modifiers']);
+                        }
+
+                        // Link to the originating store when this is a per-branch
+                        // menu-group sync — idempotent so re-syncs don't fail.
+                        // syncWithoutDetaching keeps any other branches the
+                        // admin has already added via Filament.
+                        if ($attachTo) {
+                            $savedProduct->stores()->syncWithoutDetaching([$attachTo->id]);
                         }
                     } catch (\Exception $e) {
                         $errors[] = "Error syncing product {$productItem['id']}: " . $e->getMessage();
@@ -288,6 +305,57 @@ class FoodicsSyncService
             'updated' => $updated,
             'errors' => $errors,
         ];
+    }
+
+    /**
+     * Pull just the products in a single store's Foodics menu group.
+     * The store must have `foodics_menu_group_id` set (configured per
+     * branch on the Filament StoreResource). Newly-discovered products
+     * land as drafts; existing products are updated honoring local
+     * overrides — same rules as the global syncProducts() path.
+     */
+    public function syncProductsForStore(Store $store, ?string $mode = null): array
+    {
+        if (! $store->foodics_menu_group_id) {
+            return [
+                'synced' => 0,
+                'updated' => 0,
+                'errors' => ["Store '{$store->name}' has no Foodics menu group configured."],
+            ];
+        }
+
+        return $this->syncProducts(
+            $mode,
+            ['menu_group_id' => $store->foodics_menu_group_id],
+            $store,
+        );
+    }
+
+    /**
+     * Sync every store that has a Foodics menu group configured. Per-store
+     * errors are namespaced with the store name so the operator can tell
+     * which branch each error belongs to.
+     */
+    public function syncAllStoreMenus(?string $mode = null): array
+    {
+        $totals = ['synced' => 0, 'updated' => 0, 'errors' => []];
+        $stores = Store::whereNotNull('foodics_menu_group_id')->get();
+
+        if ($stores->isEmpty()) {
+            $totals['errors'][] = 'No stores have a Foodics menu group configured.';
+            return $totals;
+        }
+
+        foreach ($stores as $store) {
+            $result = $this->syncProductsForStore($store, $mode);
+            $totals['synced'] += $result['synced'];
+            $totals['updated'] += $result['updated'];
+            foreach ($result['errors'] as $err) {
+                $totals['errors'][] = "[{$store->name}] {$err}";
+            }
+        }
+
+        return $totals;
     }
 
     /**

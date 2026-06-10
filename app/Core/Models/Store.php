@@ -33,6 +33,7 @@ class Store extends Model
         'is_active',
         'receive_online_orders',
         'foodics_branch_id',
+        'foodics_menu_group_id',
         'synced_from_foodics_at',
         'kiosk_api_key',
     ];
@@ -163,6 +164,17 @@ class Store extends Model
     public function promoCodes(): BelongsToMany
     {
         return $this->belongsToMany(PromoCode::class, 'promo_code_stores');
+    }
+
+    /**
+     * Products available at this branch (per-branch Foodics menu group).
+     * A product with no rows in product_store is treated as available
+     * everywhere — see Product::scopeAvailableAtStore().
+     */
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_store')
+            ->withTimestamps();
     }
 }
 

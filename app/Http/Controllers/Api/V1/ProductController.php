@@ -22,6 +22,7 @@ class ProductController extends Controller
      * Get list of products
      *
      * @queryParam store_id integer optional Filter by store ID. Example: 1
+     * @queryParam store_id integer optional Only return products available at this store (per-branch menu). Omit to see the global catalog. Example: 10
      * @queryParam category_id integer optional Filter by category ID. Example: 2
      * @queryParam q string optional Search query. Example: "pizza"
      * @queryParam source string optional Filter by source (all, foodics, manual). Default: "all". Example: "foodics"
