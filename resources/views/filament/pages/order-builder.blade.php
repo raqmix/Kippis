@@ -126,7 +126,7 @@
                             {{-- Note --}}
                             <input
                                 type="text"
-                                wire:model.lazy="cart.{{ $loop->index }}.note"
+                                wire:model.blur="cart.{{ $loop->index }}.note"
                                 placeholder="{{ __('system.note') }}"
                                 class="fi-input mt-2 block w-full rounded-lg border-gray-200 text-xs shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
                             />

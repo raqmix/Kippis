@@ -419,4 +419,18 @@ return [
     'reacted_to_your_post' => ':action',
     'order_total' => 'الإجمالي: :total',
     'no_data' => 'لا توجد بيانات متاحة',
+
+    // Order builder
+    'create_order' => 'إنشاء طلب',
+    'save_order' => 'حفظ الطلب',
+    'clear' => 'مسح',
+    'note' => 'ملاحظة',
+    'guest' => 'زائر',
+    'search' => 'بحث',
+    'no_results' => 'لا توجد نتائج',
+    'drag_or_click_to_add' => 'اسحب أو انقر للإضافة',
+    'drag_products_here' => 'اسحب المنتجات هنا لإنشاء الطلب',
+    'please_select_store' => 'يرجى اختيار المتجر',
+    'cart_is_empty' => 'السلة فارغة',
+    'order_created_successfully' => 'تم إنشاء الطلب بنجاح',
 ];

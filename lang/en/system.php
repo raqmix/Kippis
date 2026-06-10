@@ -456,4 +456,18 @@ return [
     'reacted_to_your_post' => ':action',
     'order_total' => 'Total: :total',
     'no_data' => 'No Data Available',
+
+    // Order builder
+    'create_order' => 'Create Order',
+    'save_order' => 'Save Order',
+    'clear' => 'Clear',
+    'note' => 'Note',
+    'guest' => 'Guest',
+    'search' => 'Search',
+    'no_results' => 'No results',
+    'drag_or_click_to_add' => 'Drag or click to add',
+    'drag_products_here' => 'Drag products here to build the order',
+    'please_select_store' => 'Please select a store',
+    'cart_is_empty' => 'The cart is empty',
+    'order_created_successfully' => 'Order created successfully',
 ];
