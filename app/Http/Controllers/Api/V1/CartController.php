@@ -694,6 +694,125 @@ class CartController extends Controller
     }
 
     /**
+     * Replace the entire cart with the client-supplied items array.
+     *
+     * Used by the local-first mobile app: the personal cart lives on
+     * the customer's device and only round-trips to the server at
+     * promo-apply or checkout time. This endpoint accepts the local
+     * items array, wipes the server-side cart's existing items, and
+     * re-adds each one through the canonical CartService so prices,
+     * addon validation, and stock checks all run server-side.
+     *
+     * If the cart had a promo code attached, we re-apply it post-sync.
+     *
+     * @bodyParam items array required The full cart items array. Same per-item shape as POST /cart/items.
+     * @bodyParam store_id integer optional Store id (used only when no cart exists yet).
+     */
+    public function sync(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => 'present|array',
+            'items.*.item_type' => 'required|in:product,mix,creator_mix',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.note' => 'nullable|string|max:1000',
+            'items.*.product_id' => 'nullable|integer|exists:products,id',
+            'items.*.addons' => 'nullable|array',
+            'items.*.foodics_option_ids' => 'nullable|array',
+            'items.*.configuration' => 'nullable|array',
+            'items.*.ref_id' => 'nullable|integer',
+            'items.*.name' => 'nullable|string|max:255',
+            'store_id' => 'nullable|exists:stores,id',
+        ]);
+
+        $customer = auth('api')->user();
+
+        $cart = $this->getOrCreateCart($customer->id, $validated['store_id'] ?? null);
+
+        if (!$cart) {
+            return apiError('STORE_NOT_AVAILABLE', 'No active store available for cart creation', 400);
+        }
+
+        // Remember the attached promo so we can re-apply it after the
+        // line items are rebuilt; promo discount is recalculated against
+        // the new subtotal.
+        $cart->load('promoCode');
+        $existingPromo = $cart->promoCode;
+
+        // Wipe existing lines. We do this rather than diff-patching
+        // because the client's local cart is authoritative on shape;
+        // expressing the delta would be more code than just replacing.
+        $cart->items()->delete();
+
+        try {
+            foreach ($validated['items'] as $payload) {
+                if ($payload['item_type'] === 'product') {
+                    if (empty($payload['product_id'])) {
+                        continue;
+                    }
+                    $product = $this->productRepository->findById($payload['product_id']);
+                    if (!$product || !$product->is_active) {
+                        continue; // Drop dead products silently; server cart shrinks vs local.
+                    }
+                    $addons = $payload['addons'] ?? [];
+                    if (!empty($addons)) {
+                        $addons = array_map(function ($addon) {
+                            return [
+                                'modifier_id' => $addon['modifier_id'] ?? $addon['id'] ?? null,
+                                'level' => $addon['level'] ?? 1,
+                            ];
+                        }, $addons);
+                    }
+                    $this->cartService->addProductToCart(
+                        $cart,
+                        $product,
+                        $payload['quantity'],
+                        $addons,
+                        $payload['note'] ?? null,
+                        $payload['foodics_option_ids'] ?? []
+                    );
+                } else {
+                    // mix or creator_mix
+                    $this->cartService->addMixToCart(
+                        $cart,
+                        $payload['item_type'],
+                        $payload['configuration'] ?? [],
+                        $payload['quantity'],
+                        $payload['ref_id'] ?? null,
+                        $payload['name'] ?? null,
+                        $payload['note'] ?? null
+                    );
+                }
+            }
+        } catch (\InvalidArgumentException $e) {
+            return apiError('INVALID_CONFIGURATION', $e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return apiError('SYNC_FAILED', $e->getMessage(), 500);
+        }
+
+        // Re-apply previous promo if it's still valid against the new
+        // subtotal; otherwise silently drop it (the client will surface
+        // a "promo invalidated" state via the returned cart).
+        if ($existingPromo) {
+            $promo = $this->promoCodeRepository->findValidByCode($existingPromo->code);
+            if ($promo) {
+                $this->cartRepository->recalculate($cart);
+                $cart->refresh();
+                if ($cart->subtotal >= $promo->minimum_order_amount
+                    && (!$customer || $this->promoCodeRepository->isValidForCustomer($promo, $customer->id, $cart->subtotal))
+                ) {
+                    $this->cartRepository->applyPromoCode($cart, $promo);
+                }
+            }
+        }
+
+        $this->cartRepository->recalculate($cart);
+
+        $includeProduct = $request->boolean('include_product', false);
+        $cart->load($this->getCartRelationships($includeProduct));
+        return apiSuccess(new CartResource($cart), 'cart_synced');
+    }
+
+    /**
      * Abandon/clear cart
      *
      * @response 200 {

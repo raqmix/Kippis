@@ -82,6 +82,11 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/items', [\App\Http\Controllers\Api\V1\CartController::class, 'addItem']);
         Route::patch('/items/{id}', [\App\Http\Controllers\Api\V1\CartController::class, 'updateItem']);
         Route::delete('/items/{id}', [\App\Http\Controllers\Api\V1\CartController::class, 'removeItem']);
+        // Bulk replace the user's server cart with the client's local
+        // cart. Used by the local-first mobile app immediately before
+        // promo-apply / checkout so the server is in sync with what
+        // the customer sees on-device.
+        Route::post('/sync', [\App\Http\Controllers\Api\V1\CartController::class, 'sync']);
         Route::post('/apply-promo', [\App\Http\Controllers\Api\V1\CartController::class, 'applyPromo']);
         Route::post('/remove-promo', [\App\Http\Controllers\Api\V1\CartController::class, 'removePromo']);
         Route::post('/abandon', [\App\Http\Controllers\Api\V1\CartController::class, 'abandon']);
