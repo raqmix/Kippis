@@ -16,6 +16,7 @@ class TransactionsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('id')
+            ->modifyQueryUsing(fn ($query) => $query->with('creator'))
             ->columns([
                 Tables\Columns\TextColumn::make('type')
                     ->label(__('system.type'))
@@ -36,7 +37,7 @@ class TransactionsRelationManager extends RelationManager
                     ->limit(50),
                 Tables\Columns\TextColumn::make('created_by')
                     ->label(__('system.created_by'))
-                    ->formatStateUsing(fn ($state) => $state ? \App\Core\Models\Admin::find($state)?->name : '-')
+                    ->formatStateUsing(fn ($state, $record) => $record->creator?->name ?? '-')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label(__('system.created_at'))

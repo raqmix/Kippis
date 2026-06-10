@@ -76,6 +76,11 @@ class SecurityLogResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with(['admin']);
+    }
+
     public static function table(Table $table): Table
     {
         return $table

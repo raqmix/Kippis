@@ -104,6 +104,11 @@ class NotificationCenterResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with(['user']);
+    }
+
     public static function table(Table $table): Table
     {
         return $table

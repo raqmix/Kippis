@@ -18,6 +18,7 @@ class RendersRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('id')
+            ->modifyQueryUsing(fn ($query) => $query->with('customer'))
             ->columns([
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Customer')

@@ -27,6 +27,11 @@ class ReferralResource extends Resource
         return 'Marketing';
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with(['inviter', 'invitee']);
+    }
+
     public static function table(Table $table): Table
     {
         return $table

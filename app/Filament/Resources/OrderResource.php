@@ -95,6 +95,11 @@ class OrderResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with(['customer', 'store']);
+    }
+
     public static function table(Table $table): Table
     {
         return $table

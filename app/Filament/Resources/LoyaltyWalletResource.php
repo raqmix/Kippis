@@ -87,6 +87,13 @@ class LoyaltyWalletResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['customer'])
+            ->withMax('transactions', 'created_at');
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -104,7 +111,9 @@ class LoyaltyWalletResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('last_transaction')
                     ->label(__('system.last_transaction'))
-                    ->formatStateUsing(fn ($record) => $record->transactions()->latest()->first()?->created_at?->format('Y-m-d H:i'))
+                    ->formatStateUsing(fn ($record) => $record->transactions_max_created_at
+                        ? \Illuminate\Support\Carbon::parse($record->transactions_max_created_at)->format('Y-m-d H:i')
+                        : null)
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
