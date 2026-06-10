@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.raqmix.kippis",
+      "sha256_cert_fingerprints": [
+        "C4:1B:8A:7D:EB:52:45:C6:AC:38:F3:84:20:10:0B:F5:84:2C:27:EC:B5:25:03:14:1B:D2:BD:AF:13:C4:60:17",
+        "53:21:BE:26:67:4B:92:8C:67:C5:CD:4A:1A:F7:84:F5:AF:49:F3:74:9F:0C:1D:A0:93:1E:AE:AB:E4:87:80:F4"
+      ]
+    }
+  }
+]

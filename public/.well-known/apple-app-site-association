@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["24ZU3YJF3K.com.raqmix.kippis"],
+        "components": [
+          {
+            "/": "/squad/join",
+            "?": { "code": "?*" },
+            "comment": "Squad invite — opens the app's deep-link landing route."
+          }
+        ]
+      }
+    ]
+  }
+}
