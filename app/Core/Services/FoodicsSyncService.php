@@ -229,6 +229,20 @@ class FoodicsSyncService
                         ];
 
                         if ($existing) {
+                            // Honor admin overrides set on the Filament edit
+                            // page so manual catalog tweaks (image, category,
+                            // translations, etc.) survive subsequent syncs.
+                            // foodics_id + last_synced_at always win — they're
+                            // sync correlation metadata, not editable.
+                            $overrides = $existing->locally_overridden_fields ?? [];
+                            if (is_array($overrides) && !empty($overrides)) {
+                                foreach ($overrides as $field) {
+                                    if ($field === 'foodics_id' || $field === 'last_synced_at') {
+                                        continue;
+                                    }
+                                    unset($productData[$field]);
+                                }
+                            }
                             $existing->update($productData);
                             $updated++;
                             $savedProduct = $existing;

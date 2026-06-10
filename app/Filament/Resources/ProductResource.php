@@ -58,16 +58,19 @@ class ProductResource extends Resource
 
     public static function canEdit($record): bool
     {
-        // Foodics items are read-only
-        if ($record->external_source === 'foodics') {
-            return false;
-        }
+        // Foodics items used to be hard-blocked from editing. Admins now
+        // need to override per-product fields (image, category, sort, etc.)
+        // — the catalog sync respects those edits via
+        // products.locally_overridden_fields, so the catalog re-sync no
+        // longer wipes them on the next run.
         return Gate::forUser(auth()->guard('admin')->user())->allows('manage_products');
     }
 
     public static function canDelete($record): bool
     {
-        // Foodics items cannot be deleted
+        // Deleting a Foodics-synced product would just be re-created on
+        // the next sync, so we still block it. Use is_active to hide
+        // instead — that field is editable and tracked as a local override.
         if ($record->external_source === 'foodics') {
             return false;
         }
@@ -78,6 +81,23 @@ class ProductResource extends Resource
     {
         return $schema
             ->schema([
+                // Friendly heads-up on Foodics-synced products so admins
+                // know edits stick across catalog re-syncs.
+                Components\Section::make()
+                    ->schema([
+                        Forms\Components\Placeholder::make('foodics_edit_notice')
+                            ->hiddenLabel()
+                            ->content(new \Illuminate\Support\HtmlString(
+                                '<div style="color:#92400e">'
+                                . '<strong>Foodics-synced product.</strong> '
+                                . 'Any field you change here will be preserved when the '
+                                . 'catalog re-syncs from Foodics. The original Foodics '
+                                . 'value will only come back if you clear the override.'
+                                . '</div>'
+                            )),
+                    ])
+                    ->visible(fn ($record) => $record && $record->external_source === 'foodics')
+                    ->compact(),
                 Components\Section::make(__('system.product_information'))
                     ->schema([
                         Forms\Components\Select::make('category_id')
@@ -151,7 +171,6 @@ class ProductResource extends Resource
                             ])
                             ->default('regular')
                             ->required()
-                            ->disabled(fn ($record) => $record && $record->external_source === 'foodics')
                             ->helperText(__('system.product_kind_helper')),
                         Forms\Components\TextInput::make('base_price')
                             ->label(__('system.base_price'))
@@ -184,6 +203,21 @@ class ProductResource extends Resource
                             ->label(__('system.last_synced_at'))
                             ->disabled()
                             ->dehydrated(),
+                        Forms\Components\Placeholder::make('locally_overridden_fields_view')
+                            ->label('Locally overridden fields')
+                            ->columnSpanFull()
+                            ->content(function ($record) {
+                                $list = $record?->locally_overridden_fields ?? [];
+                                if (!is_array($list) || empty($list)) {
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<span style="color:#6b7280">None — the sync controls every field.</span>'
+                                    );
+                                }
+                                return new \Illuminate\Support\HtmlString(
+                                    '<code>' . htmlspecialchars(implode(', ', $list)) . '</code>'
+                                );
+                            })
+                            ->visible(fn ($record) => $record && $record->external_source === 'foodics'),
                     ])
                     ->columns(3)
                     ->collapsible()
@@ -307,8 +341,19 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Actions\ViewAction::make(),
-                Actions\EditAction::make()
-                    ->visible(fn ($record) => $record->external_source !== 'foodics'),
+                Actions\EditAction::make(),
+                Actions\Action::make('clear_foodics_overrides')
+                    ->label('Clear overrides')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalDescription('Drops all local edits on this Foodics product. The next catalog sync will replace those fields with Foodics\' values.')
+                    ->visible(fn ($record) => $record->external_source === 'foodics'
+                        && is_array($record->locally_overridden_fields)
+                        && !empty($record->locally_overridden_fields))
+                    ->action(function ($record) {
+                        $record->update(['locally_overridden_fields' => []]);
+                    }),
                 Actions\DeleteAction::make()
                     ->visible(fn ($record) => $record->external_source !== 'foodics'),
                 Actions\RestoreAction::make(),

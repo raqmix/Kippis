@@ -39,6 +39,7 @@ class Product extends Model
         'allergens',
         'caffeine_mg',
         'caffeine_level',
+        'locally_overridden_fields',
     ];
 
     protected function casts(): array
@@ -51,6 +52,7 @@ class Product extends Model
             'is_active'       => 'boolean',
             'last_synced_at'  => 'datetime',
             'deleted_at'      => 'datetime',
+            'locally_overridden_fields' => 'array',
         ];
     }
 
