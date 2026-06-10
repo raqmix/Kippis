@@ -15,6 +15,7 @@ class EventRequestController extends Controller
 
         return apiSuccess([
             'id' => $eventRequest->id,
+            'reference_number' => $eventRequest->reference_number,
             'event_title' => $eventRequest->event_title,
             'event_date' => $eventRequest->event_date->format('Y-m-d'),
             'status' => $eventRequest->status,
