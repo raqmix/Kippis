@@ -260,8 +260,13 @@ class ProductResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label(__('system.category'))
-                    ->relationship('category', 'name_json')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale())),
+                    ->options(fn () => Category::query()
+                        ->get()
+                        ->mapWithKeys(fn ($category) => [
+                            $category->id => $category->getName(app()->getLocale()),
+                        ])
+                        ->all())
+                    ->searchable(),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label(__('system.is_active'))
                     ->placeholder(__('system.all'))
