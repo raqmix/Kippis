@@ -199,14 +199,15 @@ class PushOrderToFoodics implements ShouldQueue
             ];
         }
 
-        // Surface the pickup code on the printed receipt instead of the
-        // kitchen ticket — kitchen staff already see the Foodics check
-        // number; cashier/customer-facing receipts need the Kippis pickup
-        // code so customers can be paged by it.
+        // Surface the pickup code on the printed receipt, not the kitchen
+        // ticket — kitchen staff already see the Foodics check number;
+        // customer-facing receipts carry the Kippis pickup code so the
+        // counter can page customers by it. Field name is `customer_notes`
+        // per the v5 Postman collection's POST /orders schema.
         $payload = [
             'branch_id' => $branchId,
             'type' => 2, // 2 = Takeaway in Foodics v5 order type enum (1=DineIn,2=Takeaway,3=Delivery,4=DriveThru)
-            'receipt_notes' => $order->pickup_code
+            'customer_notes' => $order->pickup_code
                 ? 'Pickup #' . $order->pickup_code
                 : 'Kippis #' . $order->id,
             'products' => $products,

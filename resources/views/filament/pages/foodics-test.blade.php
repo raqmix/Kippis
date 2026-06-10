@@ -394,6 +394,75 @@
                 </div>
             @endif
         </div>
+
+        {{-- Endpoint health check — pings every v5 endpoint Kippis depends on,
+             reports per-row status + latency so an operator can tell at a
+             glance whether an issue is auth, a specific path, or the whole
+             integration being down. --}}
+        <div class="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Endpoint health check</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                Probes /apps, /branches, /categories, /products, /modifiers. Each call uses per_page=1 so the network footprint is minimal.
+            </p>
+            <div class="flex gap-2 mb-4">
+                <button
+                    type="button"
+                    wire:click="checkEndpointHealthLive"
+                    :disabled="$isCheckingHealth"
+                    wire:loading.attr="disabled"
+                    class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                >
+                    {{ $isCheckingHealth ? 'Checking…' : 'Check live' }}
+                </button>
+                <button
+                    type="button"
+                    wire:click="checkEndpointHealthSandbox"
+                    :disabled="$isCheckingHealth"
+                    wire:loading.attr="disabled"
+                    class="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:opacity-50"
+                >
+                    {{ $isCheckingHealth ? 'Checking…' : 'Check sandbox' }}
+                </button>
+            </div>
+
+            @if($healthResult)
+                <div class="mt-4 p-4 rounded-lg {{ $healthResult['all_ok'] ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' }}">
+                    <div class="font-semibold mb-2 text-gray-900 dark:text-white">
+                        {{ $healthResult['all_ok'] ? 'All green' : 'One or more endpoints failed' }}
+                        <span class="text-xs text-gray-500 ml-2">{{ $healthResult['mode'] }} · {{ $healthResult['checked_at'] }}</span>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-gray-500 dark:text-gray-400">
+                                <th class="py-1 pr-3">Endpoint</th>
+                                <th class="py-1 pr-3">Status</th>
+                                <th class="py-1 pr-3">Latency</th>
+                                <th class="py-1">Error</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($healthResult['checks'] as $check)
+                                <tr class="border-t border-gray-200 dark:border-gray-700">
+                                    <td class="py-1 pr-3 font-mono text-gray-900 dark:text-white">
+                                        {{ $check['endpoint'] }}
+                                        <span class="text-gray-500 text-xs">({{ $check['label'] }})</span>
+                                    </td>
+                                    <td class="py-1 pr-3">
+                                        @if($check['ok'])
+                                            <span class="px-2 py-0.5 rounded bg-green-200 text-green-900 text-xs font-semibold">OK {{ $check['status'] }}</span>
+                                        @else
+                                            <span class="px-2 py-0.5 rounded bg-red-200 text-red-900 text-xs font-semibold">FAIL {{ $check['status'] ?? '—' }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="py-1 pr-3 text-gray-700 dark:text-gray-300">{{ $check['latency_ms'] }}ms</td>
+                                    <td class="py-1 text-red-700 dark:text-red-300 text-xs">{{ $check['error'] }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
     </div>
 </x-filament-panels::page>
 

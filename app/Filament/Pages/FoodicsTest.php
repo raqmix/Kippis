@@ -3,8 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Core\Models\Order;
+use App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO;
 use App\Integrations\Foodics\Models\FoodicsToken;
 use App\Integrations\Foodics\Services\FoodicsAuthService;
+use App\Integrations\Foodics\Services\FoodicsClient;
 use App\Jobs\PushOrderToFoodics;
 use App\Modules\Stores\Services\FoodicsBranchesSyncService;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -56,6 +58,9 @@ class FoodicsTest extends Page implements HasForms
 
     public bool $isRetryingPushes = false;
     public ?array $retryPushesResult = null;
+
+    public bool $isCheckingHealth = false;
+    public ?array $healthResult = null;
 
     public function mount(): void
     {
@@ -113,6 +118,90 @@ class FoodicsTest extends Page implements HasForms
     {
         $this->testSandbox();
         $this->testLive();
+    }
+
+    /**
+     * Ping every Foodics v5 endpoint Kippis depends on and report
+     * status + latency per endpoint. Useful as a one-button "is the
+     * integration green right now?" check before running a real sync
+     * or chasing a customer-reported issue.
+     *
+     * Uses per_page=1 so each probe is the smallest possible payload —
+     * we only care that auth + path + tier-permissions all line up.
+     */
+    public function checkEndpointHealth(string $mode = 'live'): void
+    {
+        $this->isCheckingHealth = true;
+        $this->healthResult = null;
+
+        $client = app(FoodicsClient::class);
+
+        $checks = [
+            ['label' => 'List Apps',       'endpoint' => 'v5/apps',       'params' => []],
+            ['label' => 'List Branches',   'endpoint' => 'v5/branches',   'params' => ['per_page' => 1]],
+            ['label' => 'List Categories', 'endpoint' => 'v5/categories', 'params' => ['per_page' => 1]],
+            ['label' => 'List Products',   'endpoint' => 'v5/products',   'params' => ['per_page' => 1]],
+            ['label' => 'List Modifiers',  'endpoint' => 'v5/modifiers',  'params' => ['per_page' => 1]],
+        ];
+
+        $rows = [];
+        $allOk = true;
+        foreach ($checks as $check) {
+            $start = microtime(true);
+            $row = [
+                'label' => $check['label'],
+                'endpoint' => $check['endpoint'],
+                'status' => null,
+                'latency_ms' => null,
+                'ok' => false,
+                'error' => null,
+            ];
+            try {
+                $response = $client->get(
+                    $check['endpoint'],
+                    FoodicsQueryParamsDTO::fromArray($check['params']),
+                    $mode,
+                );
+                $row['latency_ms'] = (int) ((microtime(true) - $start) * 1000);
+                $row['status'] = $response->status_code;
+                $row['ok'] = (bool) $response->ok;
+                if (! $response->ok && $response->error) {
+                    $row['error'] = $response->error->message ?? null;
+                }
+            } catch (\Throwable $e) {
+                $row['latency_ms'] = (int) ((microtime(true) - $start) * 1000);
+                $row['error'] = $e->getMessage();
+            }
+            if (! $row['ok']) {
+                $allOk = false;
+            }
+            $rows[] = $row;
+        }
+
+        $this->healthResult = [
+            'mode' => $mode,
+            'all_ok' => $allOk,
+            'checks' => $rows,
+            'checked_at' => now()->toDateTimeString(),
+        ];
+        $this->isCheckingHealth = false;
+
+        Notification::make()
+            ->title($allOk ? 'All Foodics endpoints healthy' : 'One or more Foodics endpoints failed')
+            ->body($mode . ' — see breakdown below.')
+            ->when($allOk, fn ($n) => $n->success())
+            ->when(! $allOk, fn ($n) => $n->danger())
+            ->send();
+    }
+
+    public function checkEndpointHealthLive(): void
+    {
+        $this->checkEndpointHealth('live');
+    }
+
+    public function checkEndpointHealthSandbox(): void
+    {
+        $this->checkEndpointHealth('sandbox');
     }
 
     public function syncBranches(): void
