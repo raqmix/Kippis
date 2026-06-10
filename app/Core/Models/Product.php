@@ -31,6 +31,7 @@ class Product extends Model
         'image',
         'base_price',
         'is_active',
+        'sort_order',
         'external_source',
         'foodics_id',
         'last_synced_at',

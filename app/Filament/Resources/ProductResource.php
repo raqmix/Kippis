@@ -321,7 +321,8 @@ class ProductResource extends Resource
                     Actions\ForceDeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->reorderable('sort_order')
+            ->defaultSort('sort_order', 'asc');
     }
 
     public static function getRelations(): array
