@@ -292,6 +292,7 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/squad/join',                              [\App\Http\Controllers\Api\V1\SquadController::class, 'join']);
         Route::get('/squad/{session}',                          [\App\Http\Controllers\Api\V1\SquadController::class, 'show']);
         Route::delete('/squad/{session}',                       [\App\Http\Controllers\Api\V1\SquadController::class, 'cancel']);
+        Route::post('/squad/{session}/leave',                   [\App\Http\Controllers\Api\V1\SquadController::class, 'leave']);
         Route::post('/squad/{session}/lock',                    [\App\Http\Controllers\Api\V1\SquadController::class, 'lock']);
         Route::post('/squad/{session}/checkout',                [\App\Http\Controllers\Api\V1\SquadController::class, 'checkout']);
         Route::post('/squad/{session}/items',                   [\App\Http\Controllers\Api\V1\SquadItemController::class, 'store']);

@@ -85,6 +85,39 @@ class SquadController extends Controller
         return apiSuccess(['message' => 'Session cancelled.']);
     }
 
+    /**
+     * POST /api/v1/squad/{session}/leave
+     *
+     * A non-host member removes themselves from the squad. Host can't
+     * call this — they have to use `cancel` (DELETE), which ends the
+     * session for everyone. Membership row + their cart lines are
+     * removed; the squad continues for the remaining members.
+     */
+    public function leave(SquadSession $session): JsonResponse
+    {
+        $customer = auth('api')->user();
+        $membership = $session->members()->where('customer_id', $customer->id)->first();
+        if (!$membership) {
+            return apiError('SQUAD_ERROR', 'You are not a member of this squad.', 422);
+        }
+        if ($membership->is_host) {
+            return apiError(
+                'SQUAD_ERROR',
+                'Hosts must cancel the squad instead of leaving.',
+                422,
+            );
+        }
+
+        // Drop this member's cart lines along with their membership
+        // so totals reflect reality post-leave.
+        \DB::transaction(function () use ($session, $membership, $customer) {
+            $session->cartItems()->where('added_by_member_id', $membership->id)->delete();
+            $membership->delete();
+        });
+
+        return apiSuccess(['message' => 'You left the squad.']);
+    }
+
     /** POST /api/v1/squad/{session}/lock */
     public function lock(SquadSession $session): JsonResponse
     {
