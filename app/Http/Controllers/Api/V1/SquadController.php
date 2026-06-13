@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Services\SquadOrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SquadController extends Controller
 {
@@ -110,8 +111,8 @@ class SquadController extends Controller
 
         // Drop this member's cart lines along with their membership
         // so totals reflect reality post-leave.
-        \DB::transaction(function () use ($session, $membership, $customer) {
-            $session->cartItems()->where('added_by_member_id', $membership->id)->delete();
+        DB::transaction(function () use ($session, $membership, $customer) {
+            $session->cartItems()->where('squad_member_id', $membership->id)->delete();
             $membership->delete();
         });
 
