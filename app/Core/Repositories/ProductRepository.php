@@ -13,7 +13,12 @@ class ProductRepository
      */
     public function getPaginated(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = Product::with('category');
+        // Eager-load the full modifier graph so the menu list payload is
+        // a complete Product snapshot. The Flutter app passes that snapshot
+        // straight into the drink-details screen (no extra fetch), so a
+        // sparse list response would leave the detail screen with no
+        // size/extra/customize/foodics modifiers.
+        $query = Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions']);
 
         // Filter by is_active (default to active only if not specified)
         if (isset($filters['is_active'])) {
@@ -100,7 +105,7 @@ class ProductRepository
      */
     public function getAllActive(array $filters = []): Collection
     {
-        $query = Product::with('category')->active();
+        $query = Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions'])->active();
 
         // Exclude mix bases from regular product listings unless explicitly requested
         if (!isset($filters['include_bases']) || $filters['include_bases'] !== true) {
