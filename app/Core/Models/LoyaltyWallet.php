@@ -67,7 +67,7 @@ class LoyaltyWallet extends Model
     {
         $this->increment('points', $points);
 
-        return $this->transactions()->create([
+        $transaction = $this->transactions()->create([
             'type' => $type,
             'points' => $points,
             'description' => $description,
@@ -75,6 +75,14 @@ class LoyaltyWallet extends Model
             'reference_id' => $referenceId,
             'created_by' => $createdBy,
         ]);
+
+        // Fan out the wallet-state change to Apple Wallet (APNs push)
+        // and Google Wallet (LoyaltyObject.patch) so installed passes
+        // refresh within the §7 60s SLA. Each provider is independently
+        // feature-flagged so this is a no-op until creds land.
+        \App\Events\LoyaltyWalletUpdated::dispatch($this->fresh() ?? $this, $type);
+
+        return $transaction;
     }
 
     /**
@@ -84,7 +92,7 @@ class LoyaltyWallet extends Model
     {
         $this->decrement('points', $points);
 
-        return $this->transactions()->create([
+        $transaction = $this->transactions()->create([
             'type' => $type,
             'points' => -$points,
             'description' => $description,
@@ -92,6 +100,10 @@ class LoyaltyWallet extends Model
             'reference_id' => $referenceId,
             'created_by' => $createdBy,
         ]);
+
+        \App\Events\LoyaltyWalletUpdated::dispatch($this->fresh() ?? $this, $type);
+
+        return $transaction;
     }
 }
 

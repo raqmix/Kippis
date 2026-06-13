@@ -92,6 +92,29 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/abandon', [\App\Http\Controllers\Api\V1\CartController::class, 'abandon']);
     });
 
+    // ==================== WALLET PASS (Loyalty membership) ============
+    // Mobile-app facing endpoints (auth'd) for fetching the signed
+    // .pkpass file (iOS) and the Google Wallet save URL (Android).
+    Route::middleware('auth:api')->prefix('v1/wallet')->group(function () {
+        Route::get('/state', [\App\Http\Controllers\Api\V1\WalletPassController::class, 'state']);
+        Route::get('/apple/pass', [\App\Http\Controllers\Api\V1\WalletPassController::class, 'applePass']);
+        Route::get('/google/save-url', [\App\Http\Controllers\Api\V1\WalletPassController::class, 'googleSaveUrl']);
+    });
+
+    // Apple PassKit web service. Path shape is fixed by Apple — DO NOT
+    // rename. Auth is the Authorization: ApplePass <token> header,
+    // validated inside each handler.
+    Route::post('/v1/devices/{deviceLib}/registrations/{passType}/{serial}',
+        [\App\Http\Controllers\Api\V1\WalletPassController::class, 'registerDevice']);
+    Route::delete('/v1/devices/{deviceLib}/registrations/{passType}/{serial}',
+        [\App\Http\Controllers\Api\V1\WalletPassController::class, 'unregisterDevice']);
+    Route::get('/v1/devices/{deviceLib}/registrations/{passType}',
+        [\App\Http\Controllers\Api\V1\WalletPassController::class, 'listUpdates']);
+    Route::get('/v1/passes/{passType}/{serial}',
+        [\App\Http\Controllers\Api\V1\WalletPassController::class, 'getPass']);
+    Route::post('/v1/log',
+        [\App\Http\Controllers\Api\V1\WalletPassController::class, 'log']);
+
     // ==================== PAYMENT METHODS APIs ====================
     Route::prefix('v1/payment-methods')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\PaymentMethodController::class, 'index']);

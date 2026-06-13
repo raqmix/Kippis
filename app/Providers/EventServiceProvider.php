@@ -14,9 +14,11 @@ use App\Core\Listeners\HandleAdminLogout;
 use App\Core\Listeners\HandleAdminLogin;
 use App\Core\Listeners\SendFilamentNotification;
 use App\Core\Listeners\SendDatabaseNotification;
+use App\Events\LoyaltyWalletUpdated;
 use App\Events\OrderCreated;
 use App\Listeners\BroadcastNewOrder;
 use App\Listeners\PushOrderToFoodicsListener;
+use App\Listeners\PushWalletUpdateListener;
 use App\Listeners\SendNewOrderNotification;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Login;
@@ -45,6 +47,9 @@ class EventServiceProvider extends ServiceProvider
             SendNewOrderNotification::class,
             BroadcastNewOrder::class,
             PushOrderToFoodicsListener::class,
+        ],
+        LoyaltyWalletUpdated::class => [
+            PushWalletUpdateListener::class,
         ],
         Logout::class => [
             HandleAdminLogout::class . '@handle',
