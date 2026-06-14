@@ -101,7 +101,7 @@ return [
     |
     */
 
-    'ttl' => env('JWT_TTL', null), // Never expire for mobile apps
+    'ttl' => is_numeric(env('JWT_TTL')) ? (int) env('JWT_TTL') : null, // Never expire for mobile apps if unset
 
     /*
     |--------------------------------------------------------------------------
@@ -120,7 +120,7 @@ return [
     |
     */
 
-    'refresh_ttl' => env('JWT_REFRESH_TTL', 20160),
+    'refresh_ttl' => is_numeric(env('JWT_REFRESH_TTL')) ? (int) env('JWT_REFRESH_TTL') : 20160,
 
     /*
     |--------------------------------------------------------------------------
