@@ -27,7 +27,7 @@ return [
          | Team ID (10 chars). Used inside pass.json's teamIdentifier
          | and to sign APNs JWTs.
          */
-        'team_id' => env('WALLET_APPLE_TEAM_ID', '24ZU3YJF3K'),
+        'team_id' => env('WALLET_APPLE_TEAM_ID', '48JPQ36F3F'),
 
         /*
          | Pass Type ID signing certificate (.p12 export from Keychain)

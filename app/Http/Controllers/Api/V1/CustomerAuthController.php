@@ -676,10 +676,18 @@ class CustomerAuthController extends Controller
     /**
      * Login with Google.
      *
-     * Authenticate a customer using Google OAuth. The client app handles the OAuth flow and sends the access_token.
-     * If an account with the email already exists, it will be linked. Otherwise, a new account is created.
+     * Authenticate a customer using Google OAuth. The client app handles the
+     * OAuth flow and sends Google's `id_token` (JWT). The legacy `access_token`
+     * field is still accepted for backward compatibility with older app
+     * builds, but new clients MUST send `id_token` — the access_token path is
+     * being phased out because Google's userinfo endpoint accepts tokens
+     * minted for any OAuth client (account-takeover risk).
      *
-     * @bodyParam access_token string required The Google OAuth access token from the client. Example: ya29.a0AfH6SMBx...
+     * If an account with the same Google sub or verified email exists, it
+     * will be linked. Otherwise, a new account is created.
+     *
+     * @bodyParam id_token string required The Google id_token (JWT) from the client. Example: eyJhbGciOiJSUzI1NiIsImtpZCI6...
+     * @bodyParam access_token string optional Deprecated — accepted for legacy app builds only.
      *
      * @response 200 {
      *   "success": true,
@@ -704,13 +712,20 @@ class CustomerAuthController extends Controller
         try {
             $request = request();
 
+            // Prefer id_token (JWT, signature-verified server-side).
+            // Fall back to access_token for unupgraded clients — the
+            // service rejects access_token unless a transition flag is
+            // set (see CustomerAuthService::socialLogin).
             $validated = $request->validate([
-                'access_token' => 'required|string',
+                'id_token'     => 'nullable|string|required_without:access_token',
+                'access_token' => 'nullable|string|required_without:id_token',
             ]);
+
+            $token = $validated['id_token'] ?? $validated['access_token'];
 
             $result = $this->authService->socialLogin(
                 'google',
-                $validated['access_token'],
+                $token,
                 null
             );
 

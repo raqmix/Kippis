@@ -130,32 +130,37 @@ class OtpService
     public function sendOtp(string $email, string $otp, ?string $type = null): void
     {
         // When the static-code flag is on, skip email sending entirely and
-        // just log the OTP — keeps local dev fast without SMTP.
+        // log the OTP — but only outside production. With LOG_LEVEL=debug
+        // and any log shipper / Filament log viewer, plaintext OTPs in the
+        // log line are readable within the 5-min validity window (#35).
         if ($this->staticOtpEnabled()) {
-            Log::info('OTP (static-code mode - email skipped)', [
-                'email' => $email,
-                'otp' => $otp,
-                'type' => $type,
-                'timestamp' => now(),
-            ]);
+            if (app()->environment('local', 'testing')) {
+                Log::info('OTP (static-code mode - email skipped)', [
+                    'email' => $email,
+                    'otp' => $otp,
+                    'type' => $type,
+                    'timestamp' => now(),
+                ]);
+            }
             return;
         }
 
-        // In production, send OTP via email
+        // In production, send OTP via email. The send path no longer
+        // logs the OTP — only the email + type so we can still
+        // correlate failures without leaking the code.
         try {
             Mail::to($email)->send(new OtpMail($otp, $type));
 
             Log::info('OTP sent via email', [
                 'email' => $email,
-                'otp' => $otp,
                 'type' => $type,
                 'timestamp' => now(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send OTP email', [
                 'email' => $email,
+                'type' => $type,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

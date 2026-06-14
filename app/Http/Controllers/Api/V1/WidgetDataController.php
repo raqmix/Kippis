@@ -6,6 +6,7 @@ use App\Core\Models\CreatorDrop;
 use App\Core\Models\Order;
 use App\Core\Models\Store;
 use App\Http\Controllers\Controller;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,7 +33,7 @@ class WidgetDataController extends Controller
                     'id'         => $order->id,
                     'store_name' => $order->store?->getNameLocalized('en') ?? '',
                     'item_count' => is_array($order->items_snapshot) ? count($order->items_snapshot) : 0,
-                    'total'      => (int) ($order->total * 100),
+                    'total'      => Money::toPiasters((float) $order->total),
                 ];
             }
         }

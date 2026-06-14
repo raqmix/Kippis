@@ -10,6 +10,7 @@ use App\Core\Models\Refund;
 use App\Core\Repositories\LoyaltyWalletRepository;
 use App\Core\Services\ActivityLogService;
 use App\Services\MastercardPaymentService;
+use App\Support\Money;
 use Illuminate\Support\Str;
 
 class RefundService
@@ -43,7 +44,7 @@ class RefundService
             $result = $this->mastercard->refund(
                 $order->gateway_order_id,
                 'VOID-' . Str::upper(Str::random(8)),
-                $this->piasersToDecimalString((int) ($order->total * 100)),
+                Money::piastersToDecimalString(Money::toPiasters((float) $order->total)),
                 'EGP',
             );
 
@@ -59,7 +60,7 @@ class RefundService
             'order_id'          => $order->id,
             'admin_id'          => $admin->id,
             'type'              => 'void',
-            'amount'            => (int) ($order->total * 100),
+            'amount'            => Money::toPiasters((float) $order->total),
             'reason'            => $reason,
             'status'            => $status,
             'gateway_reference' => $gatewayReference,
@@ -69,12 +70,15 @@ class RefundService
 
         if ($status === 'completed') {
             $order->update(['status' => 'voided', 'refund_status' => 'voided']);
-            $this->deductLoyaltyPoints($order);
+            // No loyalty deduction here: void() only fires on `received` /
+            // `pending_payment`, statuses for which OrderObserver never
+            // awarded points. Calling deductLoyaltyPoints() would drive the
+            // wallet negative against unrelated past earnings (#25).
 
             PaymentTransaction::create([
                 'order_id'          => $order->id,
                 'type'              => 'void',
-                'amount'            => (int) ($order->total * 100),
+                'amount'            => Money::toPiasters((float) $order->total),
                 'gateway'           => $order->payment_method === 'cash' ? 'cash' : 'mastercard',
                 'gateway_reference' => $gatewayReference,
                 'gateway_status'    => 'voided',
@@ -100,7 +104,7 @@ class RefundService
             throw new \DomainException('Order has already been refunded.');
         }
 
-        return $this->issueRefund($order, $admin, 'full', (int) ($order->total * 100), $reason);
+        return $this->issueRefund($order, $admin, 'full', Money::toPiasters((float) $order->total), $reason);
     }
 
     /**
@@ -114,7 +118,7 @@ class RefundService
             throw new \DomainException('Only completed orders can be refunded.');
         }
 
-        $totalPiasters = (int) ($order->total * 100);
+        $totalPiasters = Money::toPiasters((float) $order->total);
         $alreadyRefunded = $order->refunded_amount;
         $available = $totalPiasters - $alreadyRefunded;
 
@@ -135,7 +139,7 @@ class RefundService
             $result = $this->mastercard->refund(
                 $order->gateway_order_id,
                 'REFUND-' . Str::upper(Str::random(8)),
-                $this->piasersToDecimalString($amountPiasters),
+                Money::piastersToDecimalString($amountPiasters),
                 'EGP',
             );
 
@@ -160,7 +164,7 @@ class RefundService
         ]);
 
         if ($status === 'completed') {
-            $totalPiasters = (int) ($order->total * 100);
+            $totalPiasters = Money::toPiasters((float) $order->total);
             $newRefunded   = $order->refunded_amount + $amountPiasters;
             $newStatus     = $newRefunded >= $totalPiasters ? 'full' : 'partial';
 
@@ -215,8 +219,4 @@ class RefundService
         }
     }
 
-    private function piasersToDecimalString(int $piasters): string
-    {
-        return number_format($piasters / 100, 2, '.', '');
-    }
 }

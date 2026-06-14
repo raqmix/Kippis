@@ -36,7 +36,21 @@ return [
     ],
 
     'google' => [
+        // Single client_id (legacy). Prefer client_ids below for mobile
+        // since Google issues one OAuth client per platform.
         'client_id' => env('GOOGLE_CLIENT_ID'),
+
+        // Comma-separated list of acceptable id_token audiences. GoogleTokenVerifier
+        // verifies the `aud` claim against this allowlist + client_id_* below.
+        // Example: GOOGLE_CLIENT_IDS="<web>.apps.googleusercontent.com,<ios>.apps.googleusercontent.com"
+        'client_ids' => env('GOOGLE_CLIENT_IDS'),
+
+        // Convenience per-platform overrides. Either set these or pack
+        // everything into GOOGLE_CLIENT_IDS — both are honored.
+        'client_id_web'     => env('GOOGLE_WEB_CLIENT_ID'),
+        'client_id_android' => env('GOOGLE_ANDROID_CLIENT_ID'),
+        'client_id_ios'     => env('GOOGLE_IOS_CLIENT_ID'),
+
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],

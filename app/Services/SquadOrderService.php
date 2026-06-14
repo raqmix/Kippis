@@ -10,6 +10,7 @@ use App\Core\Models\SquadMember;
 use App\Core\Models\SquadSession;
 use App\Core\Models\Store;
 use App\Events\SquadEvent;
+use App\Support\Money;
 use Illuminate\Support\Str;
 
 class SquadOrderService
@@ -93,7 +94,7 @@ class SquadOrderService
         }
 
         $product = Product::findOrFail($dto['product_id']);
-        $unitPrice = (int) ($product->base_price * 100); // convert to piasters
+        $unitPrice = Money::toPiasters((float) $product->base_price);
 
         $item = SquadCartItem::create([
             'squad_session_id' => $session->id,

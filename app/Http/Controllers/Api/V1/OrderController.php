@@ -15,6 +15,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -76,19 +78,56 @@ class OrderController extends Controller
             return apiError('UNAUTHORIZED', 'unauthorized', 401);
         }
 
+        // Idempotency: if the client sends the same Idempotency-Key
+        // twice (rapid double-tap, retry-on-timeout, etc.) return the
+        // first response instead of re-charging. Cached for 30 min —
+        // long enough for the 3DS window. Bound by customer so a key
+        // collision across users can't leak a result.
+        $idempotencyKey = $request->header('Idempotency-Key');
+        $cacheKey       = $idempotencyKey
+            ? 'checkout_idemp:' . $customer->id . ':' . substr(hash('sha256', $idempotencyKey), 0, 32)
+            : null;
+        if ($cacheKey) {
+            $cached = Cache::get($cacheKey);
+            if ($cached) {
+                return response()->json($cached['body'], $cached['status']);
+            }
+        }
+
         $paymentMethod = PaymentMethod::findOrFail($request->input('payment_method_id'));
         if ($paymentMethod->code === 'card') {
             $request->validate(['mastercard_session_id' => 'required|string|max:100']);
         }
 
-        $cart = $this->cartRepository->findActiveCart($customer->id);
+        // Lock the active cart for the duration of the flow so a
+        // concurrent /cart/sync, /cart/items, or duplicate checkout
+        // tap can't slip past the empty-check or recompute the total
+        // out from under us. The unwrapped pay() call still hits the
+        // gateway outside any DB lock — wrapping a 5–30s 3DS roundtrip
+        // in a row lock would block every other request from this
+        // customer — so the idempotency-key + post-pay re-check is
+        // what protects against double-charges.
+        $lockResult = DB::transaction(function () use ($customer) {
+            $cart = $this->cartRepository->findActiveCart($customer->id);
+            if (!$cart || $cart->items->isEmpty()) {
+                return ['error' => 'CART_EMPTY'];
+            }
+            \App\Core\Models\Cart::query()
+                ->whereKey($cart->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $this->cartRepository->recalculate($cart);
+            return ['cart_id' => $cart->fresh()->id];
+        });
 
-        if (!$cart || $cart->items->isEmpty()) {
+        if (isset($lockResult['error'])) {
             return apiError('CART_EMPTY', 'cart_empty', 400);
         }
 
-        $this->cartRepository->recalculate($cart);
-        $cart->refresh();
+        $cart = $this->cartRepository->findActiveCart($customer->id);
+        if (!$cart || $cart->items->isEmpty()) {
+            return apiError('CART_EMPTY', 'cart_empty', 400);
+        }
 
         if ($paymentMethod->code === 'card') {
             $gatewayOrderId = 'ord_' . $customer->id . '_' . time();
@@ -134,12 +173,23 @@ class OrderController extends Controller
                         'gateway_order_id'  => $gatewayOrderId,
                         'amount'            => $amount,
                         'currency'          => $currency,
+                        // Snapshot the idempotency key so a retried checkout
+                        // tap during the 3DS window can be deduped after the
+                        // browser returns from the challenge.
+                        'idempotency_key'   => $idempotencyKey,
                     ], now()->addMinutes(30));
 
-                    return apiSuccess([
-                        'requires_3ds'  => true,
-                        'redirect_html' => $authResult['redirect_html'],
-                    ]);
+                    $body = [
+                        'success' => true,
+                        'data' => [
+                            'requires_3ds'  => true,
+                            'redirect_html' => $authResult['redirect_html'],
+                        ],
+                    ];
+                    if ($cacheKey) {
+                        Cache::put($cacheKey, ['body' => $body, 'status' => 200], now()->addMinutes(30));
+                    }
+                    return response()->json($body, 200);
                 }
             }
 
@@ -157,15 +207,32 @@ class OrderController extends Controller
         }
 
         $storeId = $request->input('store_id') ?? $cart->store_id;
-        $order = $this->orderRepository->createFromCart($cart, $request->input('payment_method_id'), $storeId);
+        // Pass gateway_order_id when this was a card payment so refunds
+        // can actually reach MPGS. $gatewayOrderId is set above for the
+        // 'card' branch and remains undefined for cash/online — `?? null`
+        // keeps the cash path unchanged.
+        $order = $this->orderRepository->createFromCart(
+            $cart,
+            $request->input('payment_method_id'),
+            $storeId,
+            $gatewayOrderId ?? null
+        );
 
         $this->cartRepository->abandon($cart);
 
-        return apiSuccess([
-            'order_id' => $order->id,
-            'pickup_code' => $order->pickup_code,
-            'total' => (float) $order->total,
-        ], 'order_created', 201);
+        $body = [
+            'success' => true,
+            'message' => 'order_created',
+            'data' => [
+                'order_id' => $order->id,
+                'pickup_code' => $order->pickup_code,
+                'total' => (float) $order->total,
+            ],
+        ];
+        if ($cacheKey) {
+            Cache::put($cacheKey, ['body' => $body, 'status' => 201], now()->addMinutes(30));
+        }
+        return response()->json($body, 201);
     }
 
     /**
@@ -207,16 +274,48 @@ class OrderController extends Controller
 
         if (!$cart || $cart->items->isEmpty()) {
             Cache::forget('mpgs_pending_' . $ref);
-            // Payment charged but order could not be created — log and surface error
-            \Illuminate\Support\Facades\Log::error('3DS return: cart not found after PAY', $pending);
+            // Payment charged but cart vanished between auth and return.
+            // We can't safely create an order without items, and we
+            // can't roll back the charge inline from this redirect
+            // handler — surface a loud error log keyed on the gateway
+            // order id so the operator can issue a manual refund (#7).
+            Log::critical('3DS_RETURN_CART_GONE_AFTER_PAY', [
+                'gateway_order_id' => $pending['gateway_order_id'] ?? null,
+                'customer_id'      => $pending['customer_id'] ?? null,
+                'amount'           => $pending['amount'] ?? null,
+                'action_required'  => 'Manual MPGS refund needed — charge captured, no order persisted.',
+            ]);
             $url = htmlspecialchars($frontendUrl . '/checkout?payment_error=order_failed', ENT_QUOTES, 'UTF-8');
+            return response('<html><head></head><body><script>window.top.location.href="' . $url . '"</script></body></html>', 200, ['Content-Type' => 'text/html']);
+        }
+
+        // The amount the gateway captured is frozen from initiate-time
+        // (`$pending['amount']`); if the cart total drifted between auth
+        // and return (item add/remove mid-3DS, promo apply/remove) the
+        // order would be persisted at a different price than what we
+        // collected. Refuse to commit and let the operator manually
+        // reconcile (#16).
+        $this->cartRepository->recalculate($cart);
+        $cart->refresh();
+        $currentAmount = number_format((float) $cart->total, 2, '.', '');
+        if ($currentAmount !== $pending['amount']) {
+            Cache::forget('mpgs_pending_' . $ref);
+            Log::critical('3DS_RETURN_AMOUNT_MISMATCH', [
+                'gateway_order_id' => $pending['gateway_order_id'] ?? null,
+                'customer_id'      => $pending['customer_id'] ?? null,
+                'captured_amount'  => $pending['amount'] ?? null,
+                'cart_amount_now'  => $currentAmount,
+                'action_required'  => 'Manual MPGS refund needed — captured amount differs from current cart.',
+            ]);
+            $url = htmlspecialchars($frontendUrl . '/checkout?payment_error=amount_mismatch', ENT_QUOTES, 'UTF-8');
             return response('<html><head></head><body><script>window.top.location.href="' . $url . '"</script></body></html>', 200, ['Content-Type' => 'text/html']);
         }
 
         $order = $this->orderRepository->createFromCart(
             $cart,
             $pending['payment_method_id'],
-            $pending['store_id']
+            $pending['store_id'],
+            $pending['gateway_order_id']
         );
 
         $this->cartRepository->abandon($cart);

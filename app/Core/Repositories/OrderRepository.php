@@ -28,62 +28,126 @@ class OrderRepository
      * @param int|null $storeId Optional store ID. If provided, overrides the cart's store_id.
      * @return Order
      */
-    public function createFromCart(\App\Core\Models\Cart $cart, int $paymentMethodId, ?int $storeId = null): Order
+    public function createFromCart(
+        \App\Core\Models\Cart $cart,
+        int $paymentMethodId,
+        ?int $storeId = null,
+        ?string $gatewayOrderId = null
+    ): Order
     {
         $pickupCode = $this->generatePickupCode();
 
         // Get payment method details
         $paymentMethod = PaymentMethod::findOrFail($paymentMethodId);
 
-        $order = Order::create([
-            'store_id' => $storeId ?? $cart->store_id,
-            'customer_id' => $cart->customer_id,
-            'status' => 'received',
-            'total' => $cart->total,
-            'subtotal' => $cart->subtotal,
-            'discount' => $cart->discount,
-            'payment_method' => $paymentMethod->code, // Keep for backward compatibility
-            'payment_method_id' => $paymentMethodId,
-            'pickup_code' => $pickupCode,
-            'items_snapshot' => $cart->items->map(function ($item) {
-                $img = $item->product?->image;
-                $imageUrl = $img ? (str_starts_with($img, 'http') ? $img : asset('storage/' . $img)) : null;
-                return [
-                    'product_id' => $item->product_id,
-                    'item_type' => $item->item_type ?? 'product',
-                    'name' => $item->name ?? ($item->product ? $item->product->getName(app()->getLocale()) : 'Unknown'),
-                    'image' => $imageUrl,
-                    'quantity' => $item->quantity,
-                    'price' => $item->price,
-                    'modifiers' => $item->modifiers_snapshot,
-                    'configuration' => $item->configuration,
-                ];
-            })->toArray(),
-            'modifiers_snapshot' => $cart->items->pluck('modifiers_snapshot')->toArray(),
-            'promo_code_id' => $cart->promo_code_id,
-            'promo_discount' => $cart->discount,
-        ]);
+        // Atomic: Order + PromoCodeUsage + promo.used_count increment all
+        // succeed or none do (#17). Lock the promo row so two parallel
+        // checkouts can't blow past `usage_limit` between the read and
+        // the increment (#24). Discount is recomputed against the locked
+        // row's discount_value/discount_type so a mid-flight admin edit
+        // is honoured atomically.
+        return DB::transaction(function () use (
+            $cart,
+            $paymentMethodId,
+            $storeId,
+            $gatewayOrderId,
+            $paymentMethod,
+            $pickupCode
+        ) {
+            $promoCode = null;
+            $discount = (float) $cart->discount;
+            $promoCodeId = $cart->promo_code_id;
 
-        // Record promo code usage (only if customer is authenticated)
-        if ($cart->promoCode && $cart->customer_id) {
-            PromoCodeUsage::create([
-                'promo_code_id' => $cart->promoCode->id,
+            if ($cart->promo_code_id) {
+                $promoCode = PromoCode::query()
+                    ->whereKey($cart->promo_code_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($promoCode && $promoCode->isValid()) {
+                    // Recompute the discount from the locked row in case
+                    // admin edited discount_value while the cart sat.
+                    $discount = round(min(
+                        $promoCode->calculateDiscount((float) $cart->subtotal),
+                        (float) $cart->subtotal
+                    ), 2);
+                } else {
+                    // Promo expired or exhausted between cart load and
+                    // checkout — drop it silently. (For card orders the
+                    // gateway charge already used cart.total at pay()
+                    // time; we honour what the customer was charged by
+                    // keeping the existing discount but null the promo
+                    // refs so used_count doesn't get bumped against a
+                    // dead code.)
+                    $promoCode = null;
+                    $promoCodeId = null;
+                }
+            }
+
+            $order = Order::create([
+                'store_id' => $storeId ?? $cart->store_id,
                 'customer_id' => $cart->customer_id,
-                'order_id' => $order->id,
-                'discount_amount' => $cart->discount,
-                'used_at' => now(),
+                'status' => 'received',
+                'total' => round(((float) $cart->subtotal) - $discount, 2),
+                'subtotal' => $cart->subtotal,
+                'discount' => $discount,
+                'payment_method' => $paymentMethod->code, // Keep for backward compatibility
+                'payment_method_id' => $paymentMethodId,
+                // Persist the MPGS gateway order id so RefundService::void()
+                // and ::issueRefund() can actually call the gateway. Without
+                // this, the refund gate (`if ($order->gateway_order_id)`)
+                // silently no-ops and the customer is "refunded" in the DB
+                // only — guaranteed chargebacks within weeks.
+                'gateway_order_id' => $gatewayOrderId,
+                'pickup_code' => $pickupCode,
+                'items_snapshot' => $cart->items->map(function ($item) {
+                    $img = $item->product?->image;
+                    $imageUrl = $img ? (str_starts_with($img, 'http') ? $img : asset('storage/' . $img)) : null;
+                    return [
+                        'product_id' => $item->product_id,
+                        'item_type' => $item->item_type ?? 'product',
+                        'name' => $item->name ?? ($item->product ? $item->product->getName(app()->getLocale()) : 'Unknown'),
+                        'image' => $imageUrl,
+                        'quantity' => $item->quantity,
+                        'price' => $item->price,
+                        'modifiers' => $item->modifiers_snapshot,
+                        'configuration' => $item->configuration,
+                    ];
+                })->toArray(),
+                'modifiers_snapshot' => $cart->items->pluck('modifiers_snapshot')->toArray(),
+                'promo_code_id' => $promoCodeId,
+                'promo_discount' => $discount,
             ]);
 
-            $cart->promoCode->increment('used_count');
-        } elseif ($cart->promoCode) {
-            // For guest orders, still increment usage count but don't track customer usage
-            $cart->promoCode->increment('used_count');
-        }
+            if ($promoCode) {
+                if ($cart->customer_id) {
+                    PromoCodeUsage::create([
+                        'promo_code_id' => $promoCode->id,
+                        'customer_id' => $cart->customer_id,
+                        'order_id' => $order->id,
+                        'discount_amount' => $discount,
+                        'used_at' => now(),
+                    ]);
+                }
+                // Guarded UPDATE: only increment when we're still under
+                // the usage_limit, so the race between two checkouts
+                // grabbing the last redemption slot is decided by the
+                // DB rather than by app code (#24).
+                PromoCode::query()
+                    ->whereKey($promoCode->id)
+                    ->where(function ($q) {
+                        $q->whereNull('usage_limit')
+                          ->orWhereColumn('used_count', '<', 'usage_limit');
+                    })
+                    ->increment('used_count');
+            }
 
-        // Dispatch event for real-time notification
-        event(new OrderCreated($order));
+            // Dispatch event for real-time notification — afterCommit so
+            // listeners (Foodics push, etc.) only see committed state.
+            DB::afterCommit(fn () => event(new OrderCreated($order)));
 
-        return $order;
+            return $order;
+        });
     }
 
     /**
