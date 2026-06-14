@@ -813,4 +813,55 @@ class CustomerAuthController extends Controller
             return apiError('SERVER_ERROR', 'server_error', 500);
         }
     }
+
+    /**
+     * Link a verified social provider (Apple or Google) to the
+     * currently-authenticated customer.
+     *
+     * Companion to the bug #2 fix: the social-login auto-link by
+     * client-supplied email is gone, so the only way to attach a
+     * provider to an existing email/password account is via this
+     * endpoint — which requires an authenticated session, proving
+     * ownership of the destination account.
+     *
+     * @authenticated
+     * @bodyParam provider string required google or apple. Example: apple
+     * @bodyParam id_token string required Provider id_token JWT. Example: eyJraWQ...
+     */
+    public function linkSocial(): JsonResponse
+    {
+        try {
+            $request = request();
+            $validated = $request->validate([
+                'provider' => 'required|string|in:google,apple',
+                'id_token' => 'required|string',
+            ]);
+
+            $customer = auth('api')->user();
+            if (!$customer) {
+                return apiError('UNAUTHORIZED', 'unauthorized', 401);
+            }
+
+            $updated = $this->authService->linkSocialToCustomer(
+                $customer,
+                $validated['provider'],
+                $validated['id_token']
+            );
+
+            return apiSuccess([
+                'customer' => new CustomerResource($updated),
+            ], 'social_provider_linked');
+        } catch (ApiException $e) {
+            return apiError($e->getErrorCode(), $e->getMessage(), $e->getCode());
+        } catch (ValidationException $e) {
+            return apiError('VALIDATION_ERROR', $e->getMessage(), 422);
+        } catch (\Exception $e) {
+            Log::error('Link social provider failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return apiError('SERVER_ERROR', 'server_error', 500);
+        }
+    }
 }

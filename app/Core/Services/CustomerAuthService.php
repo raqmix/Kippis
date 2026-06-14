@@ -278,6 +278,75 @@ class CustomerAuthService
     }
 
     /**
+     * Link a verified social provider (Apple, Google) to an
+     * already-authenticated customer.
+     *
+     * Used as the recovery path for bug #2: when an attacker tried to
+     * link their provider `sub` to a victim's account via the email
+     * shortcut, we now refuse the social-login auto-link with 409. The
+     * legitimate user resolves it by logging in with email/password and
+     * calling this endpoint to attach their Apple/Google account on the
+     * authenticated session — proving ownership of *both* identities.
+     *
+     * @param Customer $customer Authenticated customer making the request
+     * @param string   $provider 'google' or 'apple'
+     * @param string   $token    Provider JWT (id_token)
+     * @return Customer Updated customer with the new {provider}_id set
+     * @throws \App\Http\Exceptions\ApiException
+     */
+    public function linkSocialToCustomer(Customer $customer, string $provider, string $token): Customer
+    {
+        if (!in_array($provider, ['google', 'apple'], true)) {
+            throw new \App\Http\Exceptions\ApiException(
+                'INVALID_PROVIDER',
+                'Provider must be either google or apple.',
+                400
+            );
+        }
+
+        if ($provider === 'apple') {
+            $claims = app(AppleTokenVerifier::class)->verify($token);
+        } else {
+            $claims = app(GoogleTokenVerifier::class)->verify($token);
+        }
+
+        $providerId      = $claims['sub'] ?? null;
+        $providerIdField = $provider . '_id';
+
+        if (!$providerId) {
+            throw new \App\Http\Exceptions\ApiException(
+                'INVALID_TOKEN',
+                'Provider token did not include a subject.',
+                400
+            );
+        }
+
+        // If this provider sub is already linked to a DIFFERENT customer,
+        // refuse — that's the conflict we exist to prevent. The user must
+        // resolve via the original account.
+        $existingOwner = $this->customerRepository->findByProviderId($provider, $providerId);
+        if ($existingOwner && $existingOwner->id !== $customer->id) {
+            throw new \App\Http\Exceptions\ApiException(
+                'PROVIDER_ALREADY_LINKED',
+                'This ' . ucfirst($provider) . ' account is already linked to a different Kippis account.',
+                409
+            );
+        }
+
+        // Idempotent: re-running with the same sub on the same customer
+        // is a no-op and returns the customer unchanged.
+        if ($customer->$providerIdField !== $providerId) {
+            $this->customerRepository->update($customer->id, [
+                $providerIdField => $providerId,
+                'is_verified'    => true,
+            ]);
+            $customer->refresh();
+        }
+
+        return $customer;
+    }
+
+    /**
      * Handle social login (Google or Apple).
      *
      * Lookup priority:

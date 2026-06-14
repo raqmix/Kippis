@@ -41,6 +41,11 @@ Route::middleware('api.locale')->group(function () {
             Route::post('/refresh-token', [CustomerAuthController::class, 'refreshToken']);
             Route::post('/fcm-token', [CustomerAuthController::class, 'registerFcmToken']);
             Route::delete('/account', [CustomerAuthController::class, 'deleteAccount']);
+            // Recovery path for the bug #2 fix: when social-login refuses
+            // to auto-link by client email, the user signs in normally
+            // and links the provider from profile settings via this
+            // authenticated endpoint.
+            Route::post('/link-social', [CustomerAuthController::class, 'linkSocial']);
         });
     });
 
