@@ -304,27 +304,47 @@ class CustomerAuthService
             }
 
             // Get user info from provider
+            //
+            // Email-trust rules (bug #2 fix):
+            //   - `$verifiedEmail` is the email Apple/Google put inside the
+            //     SIGNED JWT — we trust this for linking to existing
+            //     accounts, because the provider cryptographically vouched
+            //     for it.
+            //   - `$clientEmail` is the email the client passed in
+            //     `userData` (Apple omits the email claim on repeat
+            //     sign-ins, so the SDK surfaces what the keychain
+            //     remembers from the first sign-in). It is NOT verified
+            //     by the JWT and a malicious client can put any victim's
+            //     address there. We accept it ONLY for fresh sign-ups
+            //     (no existing Kippis row with that email) — never for
+            //     linking a new Apple/Google `sub` to an existing row.
             if ($provider === 'apple') {
                 $claims = app(AppleTokenVerifier::class)->verify($token);
 
-                $email      = $claims['email'] ?? null;
-                $providerId = $claims['sub'];
-                $socialName = null;
-                $socialAvatar = null;
+                $verifiedEmail = $claims['email'] ?? null;
+                $providerId    = $claims['sub'];
+                $socialName    = null;
+                $socialAvatar  = null;
 
-                // Apple omits email from JWT on repeat authorizations.
-                // Use client-provided email as fallback (from the credential).
-                if (!$email && $userData && !empty($userData['email'])) {
-                    $email = $userData['email'];
-                }
+                $clientEmail = ($userData && !empty($userData['email']))
+                    ? trim((string) $userData['email'])
+                    : null;
             } else {
                 $claims = app(GoogleTokenVerifier::class)->verify($token);
 
-                $email      = $claims['email'] ?? null;
-                $providerId = $claims['sub'];
-                $socialName = $claims['name'] ?? null;
-                $socialAvatar = $claims['picture'] ?? null;
+                $verifiedEmail = $claims['email'] ?? null;
+                $providerId    = $claims['sub'];
+                $socialName    = $claims['name'] ?? null;
+                $socialAvatar  = $claims['picture'] ?? null;
+
+                // Google always ships a verified email in the id_token; no
+                // client fallback path needed.
+                $clientEmail = null;
             }
+
+            // For provider-id linking and existing-account update paths we
+            // only ever use the verified email.
+            $email = $verifiedEmail;
 
             // For Apple, prioritize client-provided name on first login
             $appleName = null;
@@ -341,17 +361,22 @@ class CustomerAuthService
             $customer = $this->customerRepository->findByProviderId($provider, $providerId);
 
             // ── Step 2: Look up by email (account linking) ───────────────────
-            if (!$customer && $email) {
-                $customer = $this->customerRepository->findByEmail($email);
+            // VERIFIED EMAIL ONLY. Linking a brand-new provider `sub` to an
+            // existing Kippis row via a client-supplied (unverified) email
+            // is the bug #2 account-takeover primitive: an attacker on a
+            // repeat Apple sign-in can put a victim's email in `userData`
+            // and inherit their account.
+            if (!$customer && $verifiedEmail) {
+                $customer = $this->customerRepository->findByEmail($verifiedEmail);
             }
 
-            // ── Step 2.5: Look up by phone (handles same-number accounts) ────
-            // Client may supply phone in userData (e.g. Apple signup flow where
-            // the app already knows the user's phone from a previous step).
+            // Note: we no longer auto-link by client-supplied phone, for
+            // the same reason (#2). If a user has a phone-only account
+            // and wants to attach Apple/Google, the supported flow is to
+            // log in with phone/OTP and link the provider from profile
+            // settings — that path proves ownership of the phone before
+            // attaching a new `sub` to it.
             $clientPhone = isset($userData['phone']) ? trim((string) $userData['phone']) : null;
-            if (!$customer && $clientPhone !== null && $clientPhone !== '') {
-                $customer = $this->customerRepository->findByPhone($clientPhone);
-            }
 
             if ($customer) {
                 // Restore soft-deleted account (user deleted & came back)
@@ -399,6 +424,27 @@ class CustomerAuthService
                 }
             } else {
                 // ── Step 3: No existing account — create new one ─────────────
+                //
+                // Pick the email to use for the new row:
+                //   1. Verified email from the provider JWT (always safe)
+                //   2. Client-supplied email IF no existing Kippis row
+                //      with that email — accepting it would auto-link.
+                //      If a row exists, force the user through the
+                //      email/password login + "link in settings" flow.
+                if (!$email && $clientEmail) {
+                    $existingByClientEmail = $this->customerRepository->findByEmail($clientEmail);
+                    if ($existingByClientEmail) {
+                        // The attack path: client says "this is the user's
+                        // email" and an account already exists. Refuse.
+                        throw new \App\Http\Exceptions\ApiException(
+                            'ACCOUNT_LINK_REQUIRES_VERIFICATION',
+                            'An account with this email already exists. Please sign in with your password, then link Apple from your profile settings.',
+                            409
+                        );
+                    }
+                    $email = $clientEmail;
+                }
+
                 if (!$email) {
                     // Apple sometimes omits email entirely. Without it we
                     // cannot create an account. Ask the user to go to
@@ -426,12 +472,16 @@ class CustomerAuthService
                 try {
                     $customer = $this->customerRepository->create($customerData);
                 } catch (\Illuminate\Database\QueryException $e) {
-                    // Unique-constraint violation — find the conflicting row and link.
-                    // Search with withTrashed=true because soft-deleted rows still
-                    // occupy the unique index and would block an INSERT.
+                    // Unique-constraint violation — find the conflicting row.
+                    //
+                    // We ONLY auto-link by verified provider email. By the
+                    // time we get here, `$email` is either the verified JWT
+                    // email or a client-supplied email we've already
+                    // confirmed has no existing Kippis row. The phone
+                    // lookup is gone for the same reason as Step 2.5
+                    // (unverified client input → takeover vector).
                     $customer = $this->customerRepository->findByProviderId($provider, $providerId)
-                        ?? ($email ? $this->customerRepository->findByEmail($email, true) : null)
-                        ?? ($clientPhone ? $this->customerRepository->findByPhone($clientPhone) : null);
+                        ?? ($verifiedEmail ? $this->customerRepository->findByEmail($verifiedEmail, true) : null);
 
                     if (!$customer) {
                         \Illuminate\Support\Facades\Log::error('Social login insert conflict unresolvable', [
