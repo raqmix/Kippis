@@ -65,6 +65,11 @@ class MixController extends Controller
     public function options(Request $request): JsonResponse
     {
         $builderId = $request->query('builder_id');
+        // store_id drives per-branch BYM resolution — see resolveMixProduct().
+        // Read once here so the same value is reused throughout this request.
+        $this->requestedStoreId = $request->query('store_id') !== null
+            ? (int) $request->query('store_id')
+            : null;
 
         // Get base products query
         $basesQuery = Product::with('category')
@@ -198,11 +203,16 @@ class MixController extends Controller
     }
 
     /**
-     * Load (and memoize) the configured Build Your Mix product with its Foodics
-     * modifier groups + active options.
+     * Load (and memoize) the Build Your Mix product with its Foodics modifier
+     * groups + active options. Per-branch resolution prefers the
+     * (UUID + store_id) lookup against the product_store pivot — different
+     * branches' BYM rows can have different modifier groups. Falls back to
+     * the legacy single-id config when UUID/store_id are missing so older
+     * envs and unauthenticated /mix/options calls keep working.
      */
     private ?Product $mixProduct = null;
     private bool $mixProductResolved = false;
+    private ?int $requestedStoreId = null;
 
     private function resolveMixProduct(): ?Product
     {
@@ -211,8 +221,32 @@ class MixController extends Controller
         }
 
         $this->mixProductResolved = true;
-        $mixProductId = config('mix.foodics_product_id');
 
+        $mixUuid = config('mix.foodics_product_uuid');
+        if ($mixUuid && $this->requestedStoreId) {
+            $this->mixProduct = Product::with(['foodicsModifiers.activeOptions'])
+                ->where('foodics_id', $mixUuid)
+                ->whereHas('stores', fn ($q) => $q->where('stores.id', $this->requestedStoreId))
+                ->first();
+            if ($this->mixProduct) {
+                return $this->mixProduct;
+            }
+        }
+
+        // Fallback: UUID-only (no store filter) so legacy single-BYM setups
+        // keep rendering. Useful while branches are still being onboarded.
+        if ($mixUuid) {
+            $this->mixProduct = Product::with(['foodicsModifiers.activeOptions'])
+                ->where('foodics_id', $mixUuid)
+                ->first();
+            if ($this->mixProduct) {
+                return $this->mixProduct;
+            }
+        }
+
+        // Final fallback: legacy by-id lookup so existing prod keeps working
+        // until MIX_FOODICS_PRODUCT_UUID is set in .env.
+        $mixProductId = config('mix.foodics_product_id');
         $this->mixProduct = $mixProductId
             ? Product::with(['foodicsModifiers.activeOptions'])->find($mixProductId)
             : null;
