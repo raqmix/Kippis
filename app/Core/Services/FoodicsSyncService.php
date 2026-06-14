@@ -324,9 +324,12 @@ class FoodicsSyncService
             ];
         }
 
+        // Foodics v5 filters products by group via `filter[groups.id]`
+        // (verified empirically against the live API — other variants
+        // like `group_id` / `menu_group_id` 400 with no result).
         return $this->syncProducts(
             $mode,
-            ['menu_group_id' => $store->foodics_menu_group_id],
+            ['groups.id' => $store->foodics_menu_group_id],
             $store,
         );
     }
