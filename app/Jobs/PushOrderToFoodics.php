@@ -163,6 +163,13 @@ class PushOrderToFoodics implements ShouldQueue
     {
         $items = is_array($order->items_snapshot) ? $order->items_snapshot : [];
 
+        // Backfill required modifier groups for cart lines that were added
+        // before the Flutter required-options gate landed. Without this,
+        // Foodics rejects with "Required modifier options are missing" on
+        // any product where the customer didn't customize through the
+        // detail screen.
+        $this->fillRequiredModifierDefaults($items);
+
         $foodicsProductIds = $this->resolveProductFoodicsIds($items);
         $foodicsOptions = $this->resolveFoodicsOptions($items);
 
@@ -304,6 +311,8 @@ class PushOrderToFoodics implements ShouldQueue
      * Bulk-resolve Kippis modifier-option ids → Foodics option id + price.
      * Selected options for both customized products and built mixes live in
      * each line's configuration.foodics_option_ids as Kippis option ids.
+     * Also collects the [foodics_default_option_ids] bucket populated by
+     * [fillRequiredModifierDefaults] so retroactive defaults resolve too.
      * Returns [kippis_option_id => ['foodics_id' => string, 'price' => float]].
      */
     private function resolveFoodicsOptions(array $items): array
@@ -311,9 +320,12 @@ class PushOrderToFoodics implements ShouldQueue
         $ids = [];
         foreach ($items as $line) {
             $cfg = $line['configuration'] ?? null;
-            if (is_array($cfg) && ! empty($cfg['foodics_option_ids']) && is_array($cfg['foodics_option_ids'])) {
-                foreach ($cfg['foodics_option_ids'] as $id) {
-                    $ids[] = (int) $id;
+            if (! is_array($cfg)) continue;
+            foreach (['foodics_option_ids', 'foodics_default_option_ids'] as $bucket) {
+                if (! empty($cfg[$bucket]) && is_array($cfg[$bucket])) {
+                    foreach ($cfg[$bucket] as $id) {
+                        $ids[] = (int) $id;
+                    }
                 }
             }
         }
@@ -330,6 +342,107 @@ class PushOrderToFoodics implements ShouldQueue
                 $o->id => ['foodics_id' => $o->foodics_id, 'price' => (float) $o->price],
             ])
             ->all();
+    }
+
+    /**
+     * Ensure every required Foodics modifier group on each cart line has at
+     * least its minimum number of options selected. Skipped groups get
+     * populated from `pivot.default_option_ids` (the Foodics-declared
+     * defaults), then from the first active options in sort order as a
+     * final fallback. Injected ids live in a separate
+     * `configuration.foodics_default_option_ids` bucket so the line's
+     * `price` snapshot stays the source of truth — those defaults emit at
+     * `unit_price = 0` (the customer wasn't charged for them) and the
+     * Foodics-side total reconciles without re-pricing the order.
+     *
+     * Mutates [$items] in place.
+     */
+    private function fillRequiredModifierDefaults(array &$items): void
+    {
+        $productIds = collect($items)->pluck('product_id')->filter()->unique()->all();
+        if (empty($productIds)) {
+            return;
+        }
+
+        $products = Product::query()
+            ->whereIn('id', $productIds)
+            ->with(['foodicsModifiers.activeOptions'])
+            ->get()
+            ->keyBy('id');
+
+        foreach ($items as $idx => $line) {
+            $kippisProductId = $line['product_id'] ?? null;
+            if (! $kippisProductId) continue;
+            $product = $products->get($kippisProductId);
+            if (! $product) continue;
+
+            $cfg = is_array($line['configuration'] ?? null) ? $line['configuration'] : [];
+            $alreadySelected = array_map(
+                'intval',
+                (array) ($cfg['foodics_option_ids'] ?? []),
+            );
+            $defaults = array_map(
+                'intval',
+                (array) ($cfg['foodics_default_option_ids'] ?? []),
+            );
+
+            foreach ($product->foodicsModifiers as $group) {
+                $min = (int) ($group->pivot->minimum_options ?? 0);
+                if ($min <= 0) continue;
+
+                $groupOptionIds = $group->activeOptions->pluck('id')->all();
+                $alreadyInGroup = array_intersect(
+                    array_merge($alreadySelected, $defaults),
+                    $groupOptionIds,
+                );
+                if (count($alreadyInGroup) >= $min) continue;
+
+                $needed = $min - count($alreadyInGroup);
+                $added = 0;
+
+                // 1) Prefer Foodics-declared defaults (UUIDs on the pivot).
+                $pivotDefaults = $group->pivot->default_option_ids;
+                if (is_string($pivotDefaults)) {
+                    $pivotDefaults = json_decode($pivotDefaults, true) ?? [];
+                }
+                if (is_array($pivotDefaults) && ! empty($pivotDefaults)) {
+                    $kippisIdsForDefaults = $group->activeOptions
+                        ->whereIn('foodics_id', $pivotDefaults)
+                        ->pluck('id')
+                        ->all();
+                    foreach ($kippisIdsForDefaults as $kid) {
+                        if (in_array($kid, $defaults, true) || in_array($kid, $alreadySelected, true)) continue;
+                        $defaults[] = (int) $kid;
+                        $added++;
+                        if ($added >= $needed) break;
+                    }
+                }
+
+                // 2) Fallback: first active options in sort order.
+                if ($added < $needed) {
+                    foreach ($group->activeOptions as $opt) {
+                        if (in_array($opt->id, $defaults, true) || in_array($opt->id, $alreadySelected, true)) continue;
+                        $defaults[] = (int) $opt->id;
+                        $added++;
+                        if ($added >= $needed) break;
+                    }
+                }
+
+                if ($added > 0) {
+                    Log::info('FOODICS_PUSH_FILLED_REQUIRED_DEFAULTS', [
+                        'kippis_product_id' => $kippisProductId,
+                        'foodics_modifier_id' => $group->id,
+                        'minimum' => $min,
+                        'added' => $added,
+                    ]);
+                }
+            }
+
+            if (! empty($defaults)) {
+                $cfg['foodics_default_option_ids'] = array_values(array_unique($defaults));
+                $items[$idx]['configuration'] = $cfg;
+            }
+        }
     }
 
     /**
@@ -360,6 +473,24 @@ class PushOrderToFoodics implements ShouldQueue
                         'kippis_option_id' => $kippisOptionId,
                     ]);
                 }
+            }
+        }
+
+        // Retroactive defaults injected by [fillRequiredModifierDefaults]
+        // for cart lines that predate the Flutter required-options gate.
+        // Emitted at unit_price = 0 because the customer wasn't charged
+        // for them — the line's `price` snapshot already represents the
+        // amount paid, so adding any non-zero unit_price here would break
+        // the Foodics-side total reconciliation.
+        if (is_array($cfg) && ! empty($cfg['foodics_default_option_ids']) && is_array($cfg['foodics_default_option_ids'])) {
+            foreach ($cfg['foodics_default_option_ids'] as $kippisOptionId) {
+                $option = $foodicsOptions[(int) $kippisOptionId] ?? null;
+                if ($option === null) continue;
+                $modifiers[] = [
+                    'modifier_option_id' => $option['foodics_id'],
+                    'quantity' => 1,
+                    'unit_price' => 0.0,
+                ];
             }
         }
 
