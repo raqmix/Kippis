@@ -36,6 +36,10 @@ class ProductRepository
             $query->regular(); // Only show regular products by default
         }
 
+        // Exclude the BYM product from the regular menu — it has its own entry
+        // point in the app (the "Build Your Mix" card on home).
+        $this->excludeMixProduct($query);
+
         // Filter by source
         if (isset($filters['source'])) {
             if ($filters['source'] === 'local') {
@@ -112,6 +116,8 @@ class ProductRepository
             $query->regular();
         }
 
+        $this->excludeMixProduct($query);
+
         if (isset($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);
         }
@@ -141,6 +147,20 @@ class ProductRepository
     public function findByFoodicsId(string $foodicsId): ?Product
     {
         return Product::where('foodics_id', $foodicsId)->first();
+    }
+
+    private function excludeMixProduct($query): void
+    {
+        $uuid = config('mix.foodics_product_uuid');
+        $id = config('mix.foodics_product_id');
+        $query->where(function ($q) use ($uuid, $id) {
+            if ($uuid) {
+                $q->where('foodics_id', '!=', $uuid)->orWhereNull('foodics_id');
+            }
+            if ($id) {
+                $q->where('id', '!=', $id);
+            }
+        });
     }
 }
 
