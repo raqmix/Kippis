@@ -32,6 +32,7 @@ class Store extends Model
         'close_time',
         'is_active',
         'receive_online_orders',
+        'is_employee_only',
         'foodics_branch_id',
         'foodics_menu_group_id',
         'synced_from_foodics_at',
@@ -48,6 +49,7 @@ class Store extends Model
             'close_time' => 'string',
             'is_active' => 'boolean',
             'receive_online_orders' => 'boolean',
+            'is_employee_only' => 'boolean',
             'synced_from_foodics_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
@@ -129,6 +131,19 @@ class Store extends Model
     {
         return $query->where('is_active', true)
             ->where('receive_online_orders', true);
+    }
+
+    /**
+     * Scope: Visible to a given customer. Hides employee-only stores
+     * (e.g. Factory) from non-staff customers and guests.
+     */
+    public function scopeVisibleTo($query, ?Customer $customer)
+    {
+        if ($customer && $customer->is_staff) {
+            return $query;
+        }
+
+        return $query->where('is_employee_only', false);
     }
 
     /**

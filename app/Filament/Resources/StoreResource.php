@@ -132,6 +132,10 @@ class StoreResource extends Resource
                             ->label(__('system.receive_online_orders'))
                             ->default(true)
                             ->required(),
+                        Forms\Components\Toggle::make('is_employee_only')
+                            ->label('Employee-only')
+                            ->helperText('When on, this branch is hidden from customer apps and shown only to staff customers (is_staff = on).')
+                            ->default(false),
                     ])->columns(2),
                 Components\Section::make(__('system.foodics_integration'))
                     ->schema([
@@ -199,6 +203,10 @@ class StoreResource extends Resource
                     ->sortable(),
                 Tables\Columns\IconColumn::make('receive_online_orders')
                     ->label(__('system.receive_online_orders'))
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('is_employee_only')
+                    ->label('Employee-only')
                     ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('foodics_branch_id')

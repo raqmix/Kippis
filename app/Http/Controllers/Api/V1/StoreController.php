@@ -18,6 +18,21 @@ use Illuminate\Http\Request;
 class StoreController extends Controller
 {
     /**
+     * The stores routes are public. When a Bearer token is present we resolve
+     * the customer so employee-only stores (e.g. Factory) appear for staff;
+     * malformed/expired tokens fall through to the guest path.
+     */
+    private function resolveOptionalCustomer(): ?\App\Core\Models\Customer
+    {
+        try {
+            return auth('api')->user();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+
+    /**
      * Get list of stores.
      * 
      * Retrieve a list of active stores that receive online orders. You can sort stores by name (default) or by nearest distance (requires coordinates).
@@ -139,7 +154,7 @@ class StoreController extends Controller
             ], 422);
         }
 
-        $query = Store::activeForOrders();
+        $query = Store::activeForOrders()->visibleTo($this->resolveOptionalCustomer());
 
         // Calculate distance if lat/lng provided
         if ($latitude !== null && $longitude !== null) {
@@ -236,7 +251,7 @@ class StoreController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $store = Store::activeForOrders()->find($id);
+        $store = Store::activeForOrders()->visibleTo($this->resolveOptionalCustomer())->find($id);
 
         if (!$store) {
             return response()->json([

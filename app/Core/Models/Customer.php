@@ -44,6 +44,7 @@ class Customer extends Authenticatable implements JWTSubject
         'apple_refresh_token',
         'social_avatar',
         'fcm_token',
+        'is_staff',
     ];
 
     /**
@@ -66,6 +67,7 @@ class Customer extends Authenticatable implements JWTSubject
         return [
             'birthdate' => 'date',
             'is_verified' => 'boolean',
+            'is_staff' => 'boolean',
             'password' => 'hashed',
         ];
     }

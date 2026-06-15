@@ -122,6 +122,10 @@ class CustomerResource extends Resource
                         Forms\Components\Toggle::make('is_verified')
                             ->label(__('system.is_verified'))
                             ->default(false),
+                        Forms\Components\Toggle::make('is_staff')
+                            ->label('Staff')
+                            ->helperText('Staff customers can see employee-only branches (e.g. Factory) in the app.')
+                            ->default(false),
                     ])->columns(2),
             ]);
     }
@@ -158,6 +162,10 @@ class CustomerResource extends Resource
                     ->label(__('system.is_verified'))
                     ->boolean()
                     ->sortable(),
+                Tables\Columns\IconColumn::make('is_staff')
+                    ->label('Staff')
+                    ->boolean()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('foodics_customer_id')
                     ->label(__('system.foodics_customer_id'))
                     ->searchable()
@@ -179,10 +187,20 @@ class CustomerResource extends Resource
                     ->placeholder(__('system.all'))
                     ->trueLabel(__('system.verified'))
                     ->falseLabel(__('system.unverified')),
+                Tables\Filters\TernaryFilter::make('is_staff')
+                    ->label('Staff')
+                    ->placeholder('All'),
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Actions\ViewAction::make(),
+                Actions\Action::make('toggle_staff')
+                    ->label(fn ($record) => $record->is_staff ? 'Unmark staff' : 'Mark as staff')
+                    ->icon(fn ($record) => $record->is_staff ? 'heroicon-o-user-minus' : 'heroicon-o-user-plus')
+                    ->color(fn ($record) => $record->is_staff ? 'gray' : 'success')
+                    ->requiresConfirmation()
+                    ->visible(fn () => Gate::forUser(auth()->guard('admin')->user())->allows('manage_customers'))
+                    ->action(fn ($record) => $record->update(['is_staff' => ! $record->is_staff])),
                 // Read-only: Edit and Delete removed
                 Actions\RestoreAction::make(),
                 Actions\ForceDeleteAction::make(),
