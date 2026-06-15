@@ -95,6 +95,9 @@ class OrderController extends Controller
         }
 
         $paymentMethod = PaymentMethod::findOrFail($request->input('payment_method_id'));
+        if (! $paymentMethod->is_active) {
+            return apiError('PAYMENT_METHOD_UNAVAILABLE', 'This payment method is not currently available. Please pick another.', 422);
+        }
         if ($paymentMethod->code === 'card') {
             $request->validate(['mastercard_session_id' => 'required|string|max:100']);
         }
