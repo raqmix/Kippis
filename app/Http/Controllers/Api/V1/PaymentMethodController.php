@@ -62,10 +62,12 @@ class PaymentMethodController extends Controller
      */
     public function index(): JsonResponse
     {
+        // Return all known methods, active or not — the app renders inactive
+        // ones as "Coming Soon" tiles so customers see what's on the roadmap.
+        // The /checkout endpoint still rejects inactive picks with 422.
         $codes = ['cash', 'card', 'apple_pay'];
         $methods = PaymentMethod::with('channel')
             ->whereIn('code', $codes)
-            ->where('is_active', true)
             ->get()
             ->sortBy(fn ($m) => array_search($m->code, $codes))
             ->values();
