@@ -36,6 +36,38 @@ class FcmService
         }
     }
 
+    /**
+     * Send a push with a typed `data` payload alongside the visible
+     * title/body. Used for routed pushes — Flutter inspects `data.type`
+     * to decide which screen to deep-link into when the user taps.
+     *
+     * FCM v1 requires all `data` values to be strings; we coerce here so
+     * callers can pass scalars / arrays without ceremony.
+     */
+    public function sendDataToToken(string $token, string $title, string $body, array $data): void
+    {
+        $projectId = config('services.fcm.project_id');
+        $url = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
+
+        $coerced = [];
+        foreach ($data as $k => $v) {
+            $coerced[$k] = is_scalar($v) ? (string) $v : json_encode($v);
+        }
+
+        $payload = [
+            'message' => [
+                'token' => $token,
+                'notification' => [
+                    'title' => $title,
+                    'body'  => $body,
+                ],
+                'data' => $coerced,
+            ],
+        ];
+
+        Http::withToken($this->getAccessToken())->post($url, $payload);
+    }
+
     private function getAccessToken(): string
     {
         if ($this->accessToken !== null) {

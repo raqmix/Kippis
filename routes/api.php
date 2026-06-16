@@ -300,6 +300,10 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/squad/{session}/leave',                   [\App\Http\Controllers\Api\V1\SquadController::class, 'leave']);
         Route::post('/squad/{session}/lock',                    [\App\Http\Controllers\Api\V1\SquadController::class, 'lock']);
         Route::post('/squad/{session}/checkout',                [\App\Http\Controllers\Api\V1\SquadController::class, 'checkout']);
+        Route::post('/squad/{session}/pay',                     [\App\Http\Controllers\Api\V1\SquadController::class, 'startPayment']);
+        Route::post('/squad/{session}/pay/verify',              [\App\Http\Controllers\Api\V1\SquadController::class, 'verifyPayment']);
+        Route::post('/squad/{session}/push-now',                [\App\Http\Controllers\Api\V1\SquadController::class, 'pushNow']);
+        Route::post('/squad/{session}/skip-member',             [\App\Http\Controllers\Api\V1\SquadController::class, 'skipMember']);
         Route::post('/squad/{session}/items',                   [\App\Http\Controllers\Api\V1\SquadItemController::class, 'store']);
         Route::put('/squad/{session}/items/{item}',             [\App\Http\Controllers\Api\V1\SquadItemController::class, 'update']);
         Route::delete('/squad/{session}/items/{item}',          [\App\Http\Controllers\Api\V1\SquadItemController::class, 'destroy']);

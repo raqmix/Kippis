@@ -68,8 +68,15 @@ class FoodicsSyncService
 
                 foreach ($categories as $categoryItem) {
                     try {
-                        // Skip deleted/disabled items
+                        // If Foodics flipped this category to inactive (or
+                        // hard-deleted it), pull the local copy off the live
+                        // catalog so the app stops surfacing it. Soft-delete
+                        // — admin can restore if it was a Foodics mis-toggle.
                         if (isset($categoryItem['deleted_at']) || !($categoryItem['is_active'] ?? true)) {
+                            $existingInactive = Category::where('foodics_id', (string) $categoryItem['id'])->first();
+                            if ($existingInactive) {
+                                $existingInactive->delete();
+                            }
                             continue;
                         }
 
@@ -157,6 +164,11 @@ class FoodicsSyncService
     {
         $synced = 0;
         $updated = 0;
+        $removedInactive = 0;
+        // Track every active product foodics_id seen in this sync run so the
+        // orchestrator can sweep orphans — products we still have locally
+        // that Foodics no longer surfaces in any group.
+        $seenFoodicsIds = [];
         $errors = [];
 
         // Default to sandbox for testing
@@ -194,12 +206,20 @@ class FoodicsSyncService
 
                 foreach ($products as $productItem) {
                     try {
-                        // Skip deleted/disabled items
+                        // Pull anything Foodics has marked inactive (or
+                        // deleted) off the live catalog. Soft-delete only,
+                        // so an admin can restore if Foodics mis-toggles.
                         if (isset($productItem['deleted_at']) || !($productItem['is_active'] ?? true)) {
+                            $existingInactive = Product::where('foodics_id', (string) $productItem['id'])->first();
+                            if ($existingInactive) {
+                                $existingInactive->delete();
+                                $removedInactive++;
+                            }
                             continue;
                         }
 
                         $foodicsId = (string) $productItem['id'];
+                        $seenFoodicsIds[] = $foodicsId;
                         $existing = Product::where('foodics_id', $foodicsId)->first();
 
                         // Find or create category — API returns a nested 'category' object when included
@@ -309,6 +329,8 @@ class FoodicsSyncService
         return [
             'synced' => $synced,
             'updated' => $updated,
+            'removed_inactive' => $removedInactive,
+            'seen_foodics_ids' => array_values(array_unique($seenFoodicsIds)),
             'errors' => $errors,
         ];
     }
@@ -347,7 +369,7 @@ class FoodicsSyncService
      */
     public function syncAllStoreMenus(?string $mode = null): array
     {
-        $totals = ['synced' => 0, 'updated' => 0, 'errors' => []];
+        $totals = ['synced' => 0, 'updated' => 0, 'removed_inactive' => 0, 'removed_orphans' => 0, 'errors' => []];
         $stores = Store::whereNotNull('foodics_menu_group_id')->get();
 
         if ($stores->isEmpty()) {
@@ -355,13 +377,44 @@ class FoodicsSyncService
             return $totals;
         }
 
+        $allSeenFoodicsIds = [];
+        $anyStoreErrored = false;
+
         foreach ($stores as $store) {
             $result = $this->syncProductsForStore($store, $mode);
             $totals['synced'] += $result['synced'];
             $totals['updated'] += $result['updated'];
+            $totals['removed_inactive'] += $result['removed_inactive'] ?? 0;
+            if (!empty($result['errors'])) {
+                $anyStoreErrored = true;
+            }
+            foreach (($result['seen_foodics_ids'] ?? []) as $fid) {
+                $allSeenFoodicsIds[$fid] = true;
+            }
             foreach ($result['errors'] as $err) {
                 $totals['errors'][] = "[{$store->name}] {$err}";
             }
+        }
+
+        // Sweep orphans: products we hold locally that no store's menu
+        // group still surfaces. Skipped if any store sync errored (we
+        // might have missed products that WOULD have been seen but for
+        // the network blip) or if no group returned anything (treat as
+        // an aborted sync, never sweep on empty input).
+        if (!$anyStoreErrored && !empty($allSeenFoodicsIds)) {
+            $orphans = Product::query()
+                ->where('external_source', 'foodics')
+                ->whereNotNull('foodics_id')
+                ->whereNotIn('foodics_id', array_keys($allSeenFoodicsIds))
+                ->whereNull('deleted_at')
+                ->get();
+
+            foreach ($orphans as $orphan) {
+                $orphan->delete();
+            }
+            $totals['removed_orphans'] = $orphans->count();
+        } else {
+            $totals['removed_orphans'] = 0;
         }
 
         // Once the per-store products are in, retire any category that

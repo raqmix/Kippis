@@ -470,4 +470,13 @@ return [
     'please_select_store' => 'Please select a store',
     'cart_is_empty' => 'The cart is empty',
     'order_created_successfully' => 'Order created successfully',
+    'uncategorized' => 'Uncategorized',
+    'reorder_products' => 'Reorder products',
+    'reorder' => 'Reorder',
+    'back_to_categories' => 'Back to categories',
+    'move_to_top' => 'Move to top',
+    'move_to_bottom' => 'Move to bottom',
+    'moved_to_top' => 'Moved to top',
+    'moved_to_bottom' => 'Moved to bottom',
+    'reorder_hint' => 'Drag any row by its handle to reorder, or use the Move actions on the right. Position resets to 1…N within this category after a move.',
 ];

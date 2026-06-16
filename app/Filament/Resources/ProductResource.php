@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -402,6 +403,20 @@ class ProductResource extends Resource
                     Actions\ForceDeleteBulkAction::make(),
                 ]),
             ])
+            // Group by category so admins can scan one section at a time
+            // and drag-reorder products inside it. `category_id` is the
+            // key (stable across locale switches); the visible title is
+            // pulled from the localized JSON name.
+            ->groups([
+                Group::make('category_id')
+                    ->label(__('system.category'))
+                    ->getTitleFromRecordUsing(
+                        fn ($record) => $record->category?->getName(app()->getLocale())
+                            ?? __('system.uncategorized'),
+                    )
+                    ->collapsible(),
+            ])
+            ->defaultGroup('category_id')
             ->reorderable('sort_order')
             ->defaultSort('sort_order', 'asc');
     }

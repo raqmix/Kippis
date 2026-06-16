@@ -238,6 +238,11 @@ class CategoryResource extends Resource
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
+                Actions\Action::make('reorder_products')
+                    ->label(__('system.reorder_products'))
+                    ->icon('heroicon-o-bars-arrow-down')
+                    ->color('info')
+                    ->url(fn ($record) => CategoryResource::getUrl('reorder-products', ['record' => $record])),
                 Actions\ViewAction::make(),
                 Actions\EditAction::make(),
                 Actions\DeleteAction::make()
@@ -270,6 +275,7 @@ class CategoryResource extends Resource
             'create' => Pages\CreateCategory::route('/create'),
             'view' => Pages\ViewCategory::route('/{record}'),
             'edit' => Pages\EditCategory::route('/{record}/edit'),
+            'reorder-products' => Pages\ReorderProducts::route('/{record}/reorder-products'),
         ];
     }
 }
