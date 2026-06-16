@@ -132,6 +132,19 @@ class OrderController extends Controller
             return apiError('CART_EMPTY', 'cart_empty', 400);
         }
 
+        // Block checkout when the selected branch is closed. The app's
+        // cart screen already disables the button, but this is the source
+        // of truth in case the branch hours changed between the time the
+        // user opened the cart and the time they tapped Pay.
+        $store = $cart->store;
+        if ($store && ! $store->isOpenNow()) {
+            return apiError(
+                'BRANCH_CLOSED',
+                'This branch is closed right now. Try again when it opens.',
+                422
+            );
+        }
+
         if ($paymentMethod->code === 'card') {
             $gatewayOrderId = 'ord_' . $customer->id . '_' . time();
             $amount         = number_format((float) $cart->total, 2, '.', '');
