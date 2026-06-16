@@ -83,7 +83,14 @@ class Category extends Model
      */
     public function products(): HasMany
     {
-        return $this->hasMany(Product::class);
+        // Honour admin's Reorder Products curation everywhere this
+        // relation is eager-loaded ($category->load('products'),
+        // $category->products in resources, etc.). Without this every
+        // `->load('products')` path bypasses the sort and ships
+        // creation-order to the app.
+        return $this->hasMany(Product::class)
+            ->orderByRaw('sort_order IS NULL')
+            ->orderBy('sort_order', 'asc');
     }
 
     /**

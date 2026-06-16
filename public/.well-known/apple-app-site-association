@@ -2,7 +2,10 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["24ZU3YJF3K.com.raqmix.kippis"],
+        "appIDs": [
+          "48JPQ36F3F.com.raqmix.kippis",
+          "24ZU3YJF3K.com.raqmix.kippis"
+        ],
         "components": [
           {
             "/": "/squad/join",

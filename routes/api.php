@@ -94,6 +94,11 @@ Route::middleware('api.locale')->group(function () {
         Route::post('/sync', [\App\Http\Controllers\Api\V1\CartController::class, 'sync']);
         Route::post('/apply-promo', [\App\Http\Controllers\Api\V1\CartController::class, 'applyPromo']);
         Route::post('/remove-promo', [\App\Http\Controllers\Api\V1\CartController::class, 'removePromo']);
+        // Loyalty-as-discount: wallet item picker + raw points slider.
+        Route::post('/apply-wallet-item',     [\App\Http\Controllers\Api\V1\CartController::class, 'applyWalletItem']);
+        Route::post('/remove-wallet-item',    [\App\Http\Controllers\Api\V1\CartController::class, 'removeWalletItem']);
+        Route::post('/apply-points-discount', [\App\Http\Controllers\Api\V1\CartController::class, 'applyPointsDiscount']);
+        Route::post('/remove-points-discount',[\App\Http\Controllers\Api\V1\CartController::class, 'removePointsDiscount']);
         Route::post('/abandon', [\App\Http\Controllers\Api\V1\CartController::class, 'abandon']);
     });
 
@@ -164,7 +169,12 @@ Route::middleware('api.locale')->group(function () {
     // ==================== LOYALTY APIs ====================
     Route::middleware('auth:api')->prefix('v1/loyalty')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\LoyaltyController::class, 'index']);
-        Route::post('/redeem', [\App\Http\Controllers\Api\V1\LoyaltyController::class, 'redeem']);
+        // Redeem rewards system. items lists available rewards for the
+        // current branch; claim spends points → wallet entry; wallet
+        // returns the customer's claimed-but-unused freebies.
+        Route::get('/redeem-items',           [\App\Http\Controllers\Api\V1\RedeemController::class, 'items']);
+        Route::post('/redeem-items/claim',    [\App\Http\Controllers\Api\V1\RedeemController::class, 'claim']);
+        Route::get('/wallet-items',           [\App\Http\Controllers\Api\V1\RedeemController::class, 'wallet']);
     });
 
     // ==================== QR CODES APIs ====================

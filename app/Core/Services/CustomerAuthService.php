@@ -79,8 +79,13 @@ class CustomerAuthService
         $otpRecord->markAsVerified();
         app(CustomerOtpRepository::class)->deleteByEmail($email, 'verification');
 
-        // Award welcome bonus points
-        $welcomeBonus = (int) config('core.loyalty.welcome_bonus_points', 100);
+        // Award welcome bonus points. Admin-editable via Filament →
+        // Loyalty Settings (`loyalty.welcome_bonus_points`). The env
+        // fallback is the historical default for fresh installs.
+        $welcomeBonus = (int) \App\Core\Models\Setting::get(
+            'loyalty.welcome_bonus_points',
+            (int) config('core.loyalty.welcome_bonus_points', 100),
+        );
         if ($welcomeBonus > 0) {
             $wallet = $this->loyaltyWalletRepository->getOrCreateForCustomer($customer->id);
             $this->loyaltyWalletRepository->addPoints(

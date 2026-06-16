@@ -35,7 +35,12 @@ class OrderObserver
             return;
         }
 
-        $pointsPerEgp = (int) config('core.loyalty.points_per_order_egp', 1);
+        // Admin-editable via Filament → Loyalty Settings
+        // (`loyalty.points_per_order_egp`); env is the fresh-install fallback.
+        $pointsPerEgp = (int) \App\Core\Models\Setting::get(
+            'loyalty.points_per_order_egp',
+            (int) config('core.loyalty.points_per_order_egp', 1),
+        );
         $points = (int) round((float) $order->total * $pointsPerEgp);
 
         if ($points <= 0) {

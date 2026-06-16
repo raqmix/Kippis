@@ -7,6 +7,7 @@ use App\Core\Models\Product;
 use App\Filament\Resources\CategoryResource;
 use Filament\Actions;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -27,17 +28,19 @@ use Illuminate\Support\Facades\Gate;
  */
 class ReorderProducts extends Page implements HasTable
 {
+    use InteractsWithRecord;
     use InteractsWithTable;
 
     protected static string $resource = CategoryResource::class;
 
     protected string $view = 'filament.resources.category-resource.pages.reorder-products';
 
-    public Category $record;
-
     public function mount(int|string $record): void
     {
-        $this->record = Category::findOrFail($record);
+        // InteractsWithRecord trait provides resolveRecord(); without
+        // this, Filament can't bind {record} for a custom Page-derived
+        // resource page and returns 404 on hit.
+        $this->record = $this->resolveRecord($record);
     }
 
     public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable

@@ -84,13 +84,43 @@ class OrderRepository
                 }
             }
 
+            // Loyalty-as-discount snapshots from the cart. The cart's
+            // recalculate() already capped these against the
+            // subtotal-after-promo, so they can never make the order
+            // total negative. We re-clamp here defensively in case of
+            // mid-flight changes (e.g. an admin disabled redemption).
+            $walletItem = null;
+            $walletDiscount = 0.0;
+            $pointsUsed = 0;
+            $pointsDiscount = 0.0;
+            if ($cart->wallet_item_id) {
+                $walletItem = \App\Core\Models\CustomerRedeemWallet::query()
+                    ->whereKey($cart->wallet_item_id)
+                    ->lockForUpdate()
+                    ->first();
+                if ($walletItem && $walletItem->isUsable() && $walletItem->customer_id === $cart->customer_id) {
+                    $walletDiscount = (float) $cart->wallet_discount;
+                } else {
+                    $walletItem = null;
+                }
+            }
+            if ((int) $cart->points_used > 0
+                && (bool) \App\Core\Models\Setting::get('loyalty.redemption_enabled', true)
+            ) {
+                $pointsUsed = (int) $cart->points_used;
+                $pointsDiscount = (float) $cart->points_discount;
+            }
+
+            $allDiscounts = round($discount + $walletDiscount + $pointsDiscount, 2);
+            $finalTotal = round(max(0, ((float) $cart->subtotal) - $allDiscounts), 2);
+
             $order = Order::create([
                 'store_id' => $storeId ?? $cart->store_id,
                 'customer_id' => $cart->customer_id,
                 'status' => 'received',
-                'total' => round(((float) $cart->subtotal) - $discount, 2),
+                'total' => $finalTotal,
                 'subtotal' => $cart->subtotal,
-                'discount' => $discount,
+                'discount' => $allDiscounts,
                 'payment_method' => $paymentMethod->code, // Keep for backward compatibility
                 'payment_method_id' => $paymentMethodId,
                 // Persist the MPGS gateway order id so RefundService::void()
@@ -117,7 +147,39 @@ class OrderRepository
                 'modifiers_snapshot' => $cart->items->pluck('modifiers_snapshot')->toArray(),
                 'promo_code_id' => $promoCodeId,
                 'promo_discount' => $discount,
+                'wallet_item_id' => $walletItem?->id,
+                'wallet_discount' => $walletDiscount,
+                'points_used' => $pointsUsed,
+                'points_discount' => $pointsDiscount,
             ]);
+
+            // Mark the wallet item as applied so it doesn't show up in
+            // the customer's wallet anymore + so any future refund can
+            // re-credit accurately by walking the order → wallet item.
+            if ($walletItem) {
+                $walletItem->update([
+                    'status'        => \App\Core\Models\CustomerRedeemWallet::STATUS_APPLIED,
+                    'used_order_id' => $order->id,
+                    'used_at'       => now(),
+                ]);
+            }
+
+            // Deduct raw points off the loyalty wallet — only at order
+            // creation, not at apply-points-discount, so an abandoned
+            // cart never burns points. deductPoints throws on insufficient
+            // balance which atomically aborts the transaction.
+            if ($pointsUsed > 0 && $cart->customer_id) {
+                $loyaltyRepo = app(\App\Core\Repositories\LoyaltyWalletRepository::class);
+                $loyaltyWallet = $loyaltyRepo->getOrCreateForCustomer($cart->customer_id);
+                $loyaltyRepo->deductPoints(
+                    $loyaltyWallet,
+                    $pointsUsed,
+                    'redeemed',
+                    'Points used as discount on order #' . $order->id,
+                    'order_points_discount',
+                    $order->id,
+                );
+            }
 
             if ($promoCode) {
                 if ($cart->customer_id) {

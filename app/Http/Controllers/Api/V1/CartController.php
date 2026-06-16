@@ -35,7 +35,9 @@ class CartController extends Controller
      */
     private function getCartRelationships(bool $includeProduct = false): array
     {
-        $relationships = ['items', 'promoCode'];
+        // walletItem.redeemItem chain so CartResource can render a
+        // title + linked product id without an extra query.
+        $relationships = ['items', 'promoCode', 'walletItem.redeemItem'];
 
         if ($includeProduct) {
             $relationships[] = 'items.product.addonModifiers';
@@ -616,6 +618,106 @@ class CartController extends Controller
      *   "message": "invalid_promo_code"
      * }
      */
+    /**
+     * Apply a claimed reward from the customer's wallet to the active
+     * cart. Only one wallet item can be applied at a time; calling this
+     * with a different wallet_item_id replaces the previous one.
+     */
+    public function applyWalletItem(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'wallet_item_id' => 'required|integer|exists:customer_redeem_wallet,id',
+        ]);
+
+        $customer = auth('api')->user();
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
+        if (! $cart) {
+            return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
+        }
+
+        $wallet = \App\Core\Models\CustomerRedeemWallet::find($data['wallet_item_id']);
+        if (! $wallet || $wallet->customer_id !== $customer->id) {
+            return apiError('WALLET_ITEM_NOT_FOUND', 'wallet_item_not_found', 404);
+        }
+        if (! $wallet->isUsable()) {
+            return apiError('WALLET_ITEM_UNUSABLE', 'wallet_item_already_used_or_expired', 422);
+        }
+
+        $this->cartRepository->applyWalletItem($cart, $wallet);
+        $this->cartRepository->recalculate($cart);
+
+        $cart->load($this->getCartRelationships($request->boolean('include_product', false)));
+        return apiSuccess(new CartResource($cart), 'wallet_item_applied');
+    }
+
+    public function removeWalletItem(Request $request): JsonResponse
+    {
+        $customer = auth('api')->user();
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
+        if (! $cart) {
+            return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
+        }
+        $this->cartRepository->removeWalletItem($cart);
+        $this->cartRepository->recalculate($cart);
+
+        $cart->load($this->getCartRelationships($request->boolean('include_product', false)));
+        return apiSuccess(new CartResource($cart), 'wallet_item_removed');
+    }
+
+    /**
+     * Earmark loyalty points as a raw EGP discount on the active cart.
+     * The recalc converts via `loyalty.points_to_egp_rate`. We DO NOT
+     * deduct the points off the wallet here — that happens at order
+     * creation (createFromCart) so an abandoned cart doesn't burn points.
+     */
+    public function applyPointsDiscount(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'points' => 'required|integer|min:1',
+        ]);
+
+        $customer = auth('api')->user();
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
+        if (! $cart) {
+            return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
+        }
+
+        if (! (bool) \App\Core\Models\Setting::get('loyalty.redemption_enabled', true)) {
+            return apiError('REDEMPTION_DISABLED', 'redemption_disabled', 422);
+        }
+
+        $wallet = app(\App\Core\Repositories\LoyaltyWalletRepository::class)
+            ->getOrCreateForCustomer($customer->id);
+        if ($wallet->balance < $data['points']) {
+            return apiError('INSUFFICIENT_POINTS', 'insufficient_points', 422);
+        }
+
+        $maxPerOrder = (int) \App\Core\Models\Setting::get('loyalty.max_points_per_order', 0);
+        if ($maxPerOrder > 0 && $data['points'] > $maxPerOrder) {
+            return apiError('POINTS_CAP_EXCEEDED', 'points_cap_exceeded', 422);
+        }
+
+        $this->cartRepository->applyPointsDiscount($cart, (int) $data['points']);
+        $this->cartRepository->recalculate($cart);
+
+        $cart->load($this->getCartRelationships($request->boolean('include_product', false)));
+        return apiSuccess(new CartResource($cart), 'points_discount_applied');
+    }
+
+    public function removePointsDiscount(Request $request): JsonResponse
+    {
+        $customer = auth('api')->user();
+        $cart = $this->cartRepository->findActiveCartForWrite($customer->id);
+        if (! $cart) {
+            return apiError('CART_NOT_FOUND', 'cart_not_found', 404);
+        }
+        $this->cartRepository->removePointsDiscount($cart);
+        $this->cartRepository->recalculate($cart);
+
+        $cart->load($this->getCartRelationships($request->boolean('include_product', false)));
+        return apiSuccess(new CartResource($cart), 'points_discount_removed');
+    }
+
     public function applyPromo(Request $request): JsonResponse
     {
         $request->validate([

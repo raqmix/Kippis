@@ -106,9 +106,15 @@ class FoodicsSyncService
                             if ($existing->trashed()) {
                                 $existing->restore();
                             }
+                            // sort_order is intentionally absent from
+                            // $categoryData so admin reordering survives
+                            // every sync.
                             $existing->update($categoryData);
                             $updated++;
                         } else {
+                            // New categories land at the bottom of the
+                            // list; admin can drag them up if wanted.
+                            $categoryData['sort_order'] = ((int) Category::max('sort_order')) + 1;
                             Category::create($categoryData);
                             $synced++;
                         }
@@ -274,6 +280,11 @@ class FoodicsSyncService
                             // Never re-flag an existing product as draft — an
                             // admin may have already activated it. Drafts are
                             // an insert-time default only.
+                            //
+                            // sort_order is intentionally absent from
+                            // $productData so an admin's reorder survives
+                            // every sync (the Reorder Products page would
+                            // be pointless if Foodics could clobber it).
                             $existing->update($productData);
                             $updated++;
                             $savedProduct = $existing;
@@ -282,6 +293,10 @@ class FoodicsSyncService
                             // an operator explicitly opts each one in before
                             // it surfaces on the kiosk / customer app.
                             $productData['is_draft'] = true;
+                            // New products go to the bottom of their category
+                            // so they never displace admin-curated ordering
+                            // at the top. Admin moves them up when ready.
+                            $productData['sort_order'] = ((int) Product::where('category_id', $categoryId)->max('sort_order')) + 1;
                             $savedProduct = Product::create($productData);
                             $synced++;
                         }

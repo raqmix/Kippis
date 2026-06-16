@@ -201,7 +201,13 @@ class RefundService
 
         try {
             $wallet = $this->loyaltyRepo->getOrCreateForCustomer($order->customer_id);
-            $pointsPerEgp = (int) config('core.loyalty.points_per_order_egp', 1);
+            // Match the OrderObserver's source of truth (admin-editable
+            // setting first, env fallback). Refunds deduct the same
+            // points formula that awarded them.
+            $pointsPerEgp = (int) \App\Core\Models\Setting::get(
+                'loyalty.points_per_order_egp',
+                (int) config('core.loyalty.points_per_order_egp', 1),
+            );
             $points = (int) round($order->total * $pointsPerEgp);
 
             if ($points > 0) {

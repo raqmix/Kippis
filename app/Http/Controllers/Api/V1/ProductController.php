@@ -60,8 +60,10 @@ class ProductController extends Controller
             'is_active' => $request->query('is_active', '1'),
             'price_min' => $request->query('price_min'),
             'price_max' => $request->query('price_max'),
-            'sort_by' => $request->query('sort_by', 'created_at'),
-            'sort_order' => $request->query('sort_order', 'desc'),
+            // Default to admin's curated sort_order so the Reorder
+            // Products page actually drives the mobile menu.
+            'sort_by' => $request->query('sort_by', 'sort_order'),
+            'sort_order' => $request->query('sort_order', 'asc'),
         ];
 
         $perPage = min($request->query('per_page', 15), 100);

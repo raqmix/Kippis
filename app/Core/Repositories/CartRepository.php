@@ -303,6 +303,38 @@ class CartRepository
     }
 
     /**
+     * Pin a wallet item to the cart. The Cart::recalculate() that
+     * follows turns the wallet item's linked product price into a
+     * `wallet_discount`. Only ever one wallet item per cart — picking
+     * a new one replaces the old.
+     */
+    public function applyWalletItem(\App\Core\Models\Cart $cart, \App\Core\Models\CustomerRedeemWallet $wallet): bool
+    {
+        return $cart->update(['wallet_item_id' => $wallet->id]);
+    }
+
+    public function removeWalletItem(\App\Core\Models\Cart $cart): bool
+    {
+        return $cart->update(['wallet_item_id' => null, 'wallet_discount' => 0]);
+    }
+
+    /**
+     * Stash how many points the customer wants to spend as a raw-EGP
+     * discount. The recalc converts at `loyalty.points_to_egp_rate`. We
+     * store the request as-is so a checkout race can't pocket more than
+     * the customer asked for.
+     */
+    public function applyPointsDiscount(\App\Core\Models\Cart $cart, int $points): bool
+    {
+        return $cart->update(['points_used' => max(0, $points)]);
+    }
+
+    public function removePointsDiscount(\App\Core\Models\Cart $cart): bool
+    {
+        return $cart->update(['points_used' => 0, 'points_discount' => 0]);
+    }
+
+    /**
      * Abandon cart.
      */
     public function abandon(Cart $cart): bool

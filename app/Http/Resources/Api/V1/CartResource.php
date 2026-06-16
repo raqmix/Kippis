@@ -23,6 +23,19 @@ class CartResource extends JsonResource
                     'discount' => (float) $this->discount,
                 ];
             }),
+            'wallet_item' => $this->when(
+                $this->wallet_item_id && $this->relationLoaded('walletItem') && $this->walletItem,
+                function () {
+                    return [
+                        'id' => $this->walletItem->id,
+                        'title' => $this->walletItem->getTitle(app()->getLocale()),
+                        'product_id' => $this->walletItem->redeemItem?->product_id,
+                        'discount' => (float) $this->wallet_discount,
+                    ];
+                },
+            ),
+            'points_used'    => (int) $this->points_used,
+            'points_discount' => (float) $this->points_discount,
             'subtotal' => (float) $this->subtotal,
             'discount' => (float) $this->discount,
             'total' => (float) $this->total,

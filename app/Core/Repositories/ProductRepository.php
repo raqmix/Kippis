@@ -80,23 +80,29 @@ class ProductRepository
             });
         }
 
-        // Sorting
-        $sortBy = $filters['sort_by'] ?? 'created_at';
-        $sortOrder = $filters['sort_order'] ?? 'desc';
+        // Sorting — admin-curated `sort_order` is the default so the
+        // Reorder Products page actually drives what shows up on the
+        // app. Caller can still override (e.g. price-low filter).
+        $sortBy = $filters['sort_by'] ?? 'sort_order';
+        $sortOrder = $filters['sort_order'] ?? 'asc';
 
         // Validate sort_by to prevent SQL injection
-        $allowedSorts = ['created_at', 'base_price', 'name', 'updated_at'];
+        $allowedSorts = ['sort_order', 'created_at', 'base_price', 'name', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
-            $sortBy = 'created_at';
+            $sortBy = 'sort_order';
         }
 
         // Validate sort_order must be 'asc' or 'desc'
         if (!in_array(strtolower($sortOrder), ['asc', 'desc'])) {
-            $sortOrder = 'desc';
+            $sortOrder = 'asc';
         }
 
         if ($sortBy === 'name') {
             $query->orderByRaw("JSON_EXTRACT(name_json, '$.en') {$sortOrder}");
+        } elseif ($sortBy === 'sort_order') {
+            // Push NULL sort_order rows (legacy data) to the end so the
+            // top of the list is always the admin's curated lineup.
+            $query->orderByRaw('sort_order IS NULL')->orderBy('sort_order', $sortOrder);
         } else {
             $query->orderBy($sortBy, $sortOrder);
         }
@@ -129,6 +135,11 @@ class ProductRepository
                 $query->foodics();
             }
         }
+
+        // Honour admin curated ordering by default. NULL sort_order rows
+        // fall to the bottom — matches the Reorder Products page's mental
+        // model where top = curated, bottom = unsorted.
+        $query->orderByRaw('sort_order IS NULL')->orderBy('sort_order', 'asc');
 
         return $query->get();
     }
