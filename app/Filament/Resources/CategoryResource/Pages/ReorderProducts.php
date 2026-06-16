@@ -13,6 +13,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Focused product-reorder page scoped to one category. From here an
@@ -69,7 +70,6 @@ class ReorderProducts extends Page implements HasTable
             ->columns([
                 Tables\Columns\TextColumn::make('sort_order')
                     ->label('#')
-                    ->size('sm')
                     ->weight('bold')
                     ->color('gray'),
                 Tables\Columns\ImageColumn::make('image')
@@ -94,11 +94,10 @@ class ReorderProducts extends Page implements HasTable
             ])
             ->paginated(false)
             ->actions([
-                Tables\Actions\Action::make('move_to_top')
+                Actions\Action::make('move_to_top')
                     ->label(__('system.move_to_top'))
                     ->icon('heroicon-o-bars-arrow-up')
                     ->color('gray')
-                    ->size('sm')
                     ->action(function (Product $record): void {
                         $minOrder = (int) Product::where('category_id', $this->record->id)->min('sort_order');
                         $record->update(['sort_order' => $minOrder - 1]);
@@ -107,11 +106,10 @@ class ReorderProducts extends Page implements HasTable
                             ->title(__('system.moved_to_top'))
                             ->success()->send();
                     }),
-                Tables\Actions\Action::make('move_to_bottom')
+                Actions\Action::make('move_to_bottom')
                     ->label(__('system.move_to_bottom'))
                     ->icon('heroicon-o-bars-arrow-down')
                     ->color('gray')
-                    ->size('sm')
                     ->action(function (Product $record): void {
                         $maxOrder = (int) Product::where('category_id', $this->record->id)->max('sort_order');
                         $record->update(['sort_order' => $maxOrder + 1]);
@@ -150,5 +148,15 @@ class ReorderProducts extends Page implements HasTable
         // Only reachable via the row action on Categories — not in the
         // sidebar.
         return false;
+    }
+
+    /**
+     * Filament returns 404 (not 403) for unauthorized resource pages to
+     * hide their existence. Anyone with the manage_categories gate —
+     * same gate that authorises the Foodics sync button — can reorder.
+     */
+    public static function canAccess(array $parameters = []): bool
+    {
+        return Gate::forUser(auth()->guard('admin')->user())->allows('manage_categories');
     }
 }
