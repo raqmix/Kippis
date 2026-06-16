@@ -17,6 +17,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -45,6 +46,27 @@ class PushOrderToFoodics implements ShouldQueue
     }
 
     public function handle(FoodicsClient $client): void
+    {
+        // Atomic guard. Without this, two concurrent dispatches for the
+        // same order both read foodics_order_id=null, both POST, both
+        // succeed → Foodics ends up with two orders. We saw it happen
+        // every order (refs 35942+35943, 35916+35917, etc.) — root cause
+        // is a duplicate listener registration. The lock makes the race
+        // unwinnable. block(0) returns null if another worker holds it.
+        $lock = Cache::lock('foodics_push:' . $this->orderId, 120);
+        if (! $lock->get()) {
+            Log::info('FOODICS_PUSH_SKIPPED_LOCKED', ['order_id' => $this->orderId]);
+            return;
+        }
+
+        try {
+            $this->pushUnderLock($client);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function pushUnderLock(FoodicsClient $client): void
     {
         $order = Order::with(['store', 'customer'])->find($this->orderId);
 

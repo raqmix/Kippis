@@ -14,12 +14,6 @@ use App\Core\Listeners\HandleAdminLogout;
 use App\Core\Listeners\HandleAdminLogin;
 use App\Core\Listeners\SendFilamentNotification;
 use App\Core\Listeners\SendDatabaseNotification;
-use App\Events\LoyaltyWalletUpdated;
-use App\Events\OrderCreated;
-use App\Listeners\BroadcastNewOrder;
-use App\Listeners\PushOrderToFoodicsListener;
-use App\Listeners\PushWalletUpdateListener;
-use App\Listeners\SendNewOrderNotification;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -43,14 +37,10 @@ class EventServiceProvider extends ServiceProvider
         TicketStatusChanged::class => [
             SendNotification::class,
         ],
-        OrderCreated::class => [
-            SendNewOrderNotification::class,
-            BroadcastNewOrder::class,
-            PushOrderToFoodicsListener::class,
-        ],
-        LoyaltyWalletUpdated::class => [
-            PushWalletUpdateListener::class,
-        ],
+        // OrderCreated and LoyaltyWalletUpdated listeners (PushOrderToFoodics,
+        // SendNewOrder, BroadcastNewOrder, PushWalletUpdate) are picked up
+        // by Laravel's auto-discovery — registering them here too caused
+        // every order to be pushed to Foodics twice.
         Logout::class => [
             HandleAdminLogout::class . '@handle',
         ],
