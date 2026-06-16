@@ -74,7 +74,10 @@ class FoodicsSyncService
                         }
 
                         $foodicsId = (string) $categoryItem['id'];
-                        $existing = Category::where('foodics_id', $foodicsId)->first();
+                        // withTrashed so a category we soft-deleted as
+                        // "empty" earlier gets restored if Foodics brings
+                        // products back, rather than orphaning the row.
+                        $existing = Category::withTrashed()->where('foodics_id', $foodicsId)->first();
 
                         $categoryData = [
                             'name_json' => [
@@ -93,6 +96,9 @@ class FoodicsSyncService
                         ];
 
                         if ($existing) {
+                            if ($existing->trashed()) {
+                                $existing->restore();
+                            }
                             $existing->update($categoryData);
                             $updated++;
                         } else {
@@ -358,7 +364,33 @@ class FoodicsSyncService
             }
         }
 
+        // Once the per-store products are in, retire any category that
+        // ends up with no active products — Foodics often carries empty
+        // categories (e.g. seasonal) that aren't in any branch's menu
+        // group, and they'd otherwise litter the customer category list.
+        $totals['emptied_categories'] = $this->softDeleteEmptyCategories();
+
         return $totals;
+    }
+
+    /**
+     * Soft-delete categories with no active products attached. Idempotent —
+     * a later sync that brings products back will restore the category by
+     * upserting it via Category::updateOrCreate in syncCategories().
+     */
+    public function softDeleteEmptyCategories(): int
+    {
+        $emptyIds = Category::query()
+            ->whereDoesntHave('products', function ($q) {
+                $q->where('is_active', true);
+            })
+            ->pluck('id');
+
+        foreach ($emptyIds as $id) {
+            Category::where('id', $id)->delete();
+        }
+
+        return $emptyIds->count();
     }
 
     /**
