@@ -139,5 +139,55 @@ class CartPromoTest extends TestCase
         $this->assertEquals(0.00, (float)$cart->discount);
         $this->assertEquals(50.00, (float)$cart->total);
     }
+
+    /**
+     * Regression: recalculate() must discount against the promo currently on
+     * the row, not a promoCode relation a caller loaded earlier. Callers such
+     * as CartController::sync() load promoCode, then change promo_code_id; a
+     * plain load() skips an already-loaded relation, so the cart used to be
+     * priced against the stale promo (or against none at all, leaving the
+     * promo visibly applied with a zero discount).
+     */
+    public function test_recalculate_uses_current_promo_not_stale_relation(): void
+    {
+        $product = Product::factory()->create(['base_price' => 200.00]);
+        $store = \App\Core\Models\Store::factory()->create();
+        $customer = \App\Core\Models\Customer::factory()->create();
+
+        $promoCode = PromoCode::factory()->create([
+            'code' => 'PCT15',
+            'discount_type' => 'percentage',
+            'discount_value' => 15,
+            'minimum_order_amount' => 0.00,
+            'active' => true,
+            'valid_from' => now()->subDay(),
+            'valid_to' => now()->addDay(),
+        ]);
+
+        $this->actingAs($customer, 'api')
+            ->postJson('/api/v1/cart/init', ['store_id' => $store->id]);
+
+        $this->actingAs($customer, 'api')
+            ->postJson('/api/v1/cart/items', [
+                'item_type' => 'product',
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ]);
+
+        $cart = Cart::where('customer_id', $customer->id)->latest()->first();
+
+        // Mirror the sync() path: promoCode is loaded (as null) *before*
+        // promo_code_id is set, so the relation is stale by the time
+        // recalculate() runs.
+        $cart->load('promoCode');
+        $this->assertNull($cart->promoCode);
+
+        $cart->update(['promo_code_id' => $promoCode->id]);
+        $cart->recalculate();
+
+        $this->assertEquals(200.00, (float)$cart->subtotal);
+        $this->assertEquals(30.00, (float)$cart->discount); // 15% of 200.00
+        $this->assertEquals(170.00, (float)$cart->total);
+    }
 }
 

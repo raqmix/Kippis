@@ -227,9 +227,12 @@ class CustomerAuthService
      */
     public function logout(int $customerId): void
     {
-        // Invalidate JWT token by logging out
+        // Invalidate JWT token by logging out.
+        // forceForever: tokens are issued with ttl=null so they carry no 'exp'
+        // claim, and a normal blacklist entry keys its eviction off 'exp'.
+        // Without this the logged-out token stays usable.
         try {
-            \Tymon\JWTAuth\Facades\JWTAuth::invalidate(\Tymon\JWTAuth\Facades\JWTAuth::getToken());
+            \Tymon\JWTAuth\Facades\JWTAuth::invalidate(\Tymon\JWTAuth\Facades\JWTAuth::getToken(), true);
         } catch (\Exception $e) {
             // Token already invalid or missing, that's fine
         }
@@ -245,8 +248,17 @@ class CustomerAuthService
     public function refreshToken(int $customerId): string
     {
         try {
-            // Refresh the JWT token (this invalidates the old token)
-            return \Tymon\JWTAuth\Facades\JWTAuth::refresh();
+            // Do NOT blacklist the outgoing token. Tokens are issued with
+            // ttl=null (never expiring, see config/jwt.php) so they carry no
+            // 'exp' claim — and a blacklist entry for a token without 'exp'
+            // is never evicted, so every refreshed token would be rejected
+            // forever and the blacklist would grow without bound.
+            //
+            // Blacklisting on refresh also logs mobile clients out: the app
+            // fires several requests in parallel, one of them refreshes, and
+            // the rest still carry the token that was just blacklisted, so
+            // they 401. Old tokens stay valid until an explicit logout().
+            return \Tymon\JWTAuth\Facades\JWTAuth::refresh(false, false);
         } catch (TokenBlacklistedException $e) {
             throw new \App\Http\Exceptions\ApiException('TOKEN_BLACKLISTED', 'Token has been blacklisted.', 401);
         } catch (TokenExpiredException $e) {
@@ -271,9 +283,10 @@ class CustomerAuthService
             throw new \App\Http\Exceptions\ApiException('CUSTOMER_NOT_FOUND', __('api.customer_not_found'), 404);
         }
 
-        // Invalidate JWT token (logout)
+        // Invalidate JWT token (logout). forceForever for the same reason
+        // as logout() above: no 'exp' claim to drive blacklist eviction.
         try {
-            \Tymon\JWTAuth\Facades\JWTAuth::invalidate(\Tymon\JWTAuth\Facades\JWTAuth::getToken());
+            \Tymon\JWTAuth\Facades\JWTAuth::invalidate(\Tymon\JWTAuth\Facades\JWTAuth::getToken(), true);
         } catch (\Exception $e) {
             // Token already invalid or missing, that's fine
         }
