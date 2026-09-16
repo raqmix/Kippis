@@ -91,6 +91,14 @@ class EventRequestResource extends Resource
                         ]),
                         Forms\Components\Textarea::make('address')->label('Address')->disabled()->rows(2),
                     ])->collapsible(),
+                Components\Section::make('Notes')
+                    ->schema([
+                        Forms\Components\Textarea::make('notes')
+                            ->label('Customer Notes')
+                            ->disabled()
+                            ->rows(4)
+                            ->placeholder('No notes provided.'),
+                    ])->collapsible(),
                 Components\Section::make('Status')
                     ->schema([
                         Forms\Components\Select::make('status')

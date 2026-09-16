@@ -41,6 +41,7 @@ class PermissionSeeder extends Seeder
         'manage_frames',
         'manage_qr_codes',
         'manage_promo_qr_codes',
+        'manage_pushes',
 
         // Support & events
         'manage_support',

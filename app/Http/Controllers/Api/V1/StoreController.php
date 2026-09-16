@@ -154,7 +154,11 @@ class StoreController extends Controller
             ], 422);
         }
 
-        $query = Store::activeForOrders()->visibleTo($this->resolveOptionalCustomer());
+        $query = Store::activeForOrders()->visibleTo(
+            $this->resolveOptionalCustomer(),
+            $latitude !== null ? (float) $latitude : null,
+            $longitude !== null ? (float) $longitude : null,
+        );
 
         // Calculate distance if lat/lng provided
         if ($latitude !== null && $longitude !== null) {
@@ -249,9 +253,18 @@ class StoreController extends Controller
      * @responseField close_time string Store closing time (HH:mm format).
      * @responseField is_open_now boolean Whether the store is currently open.
      */
-    public function show(int $id): JsonResponse
+    public function show(int $id, Request $request): JsonResponse
     {
-        $store = Store::activeForOrders()->visibleTo($this->resolveOptionalCustomer())->find($id);
+        $request->validate([
+            'latitude' => 'nullable|numeric|min:-90|max:90',
+            'longitude' => 'nullable|numeric|min:-180|max:180',
+        ]);
+
+        $store = Store::activeForOrders()->visibleTo(
+            $this->resolveOptionalCustomer(),
+            $request->has('latitude') ? (float) $request->input('latitude') : null,
+            $request->has('longitude') ? (float) $request->input('longitude') : null,
+        )->find($id);
 
         if (!$store) {
             return response()->json([

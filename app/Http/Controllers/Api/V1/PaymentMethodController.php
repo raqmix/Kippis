@@ -6,6 +6,7 @@ use App\Core\Models\PaymentMethod;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\PaymentMethodResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * @group Payment Methods APIs
@@ -62,15 +63,18 @@ class PaymentMethodController extends Controller
      */
     public function index(): JsonResponse
     {
-        // Return all known methods, active or not — the app renders inactive
-        // ones as "Coming Soon" tiles so customers see what's on the roadmap.
-        // The /checkout endpoint still rejects inactive picks with 422.
+        // Cached for 5min because the list is called on every checkout-screen
+        // open and Laravel's cold-boot cost was ~1.4s per hit. The cache is
+        // flushed from the PaymentMethod observer whenever an admin toggles a
+        // row, so operators see their changes within a page refresh.
         $codes = ['cash', 'card', 'apple_pay'];
-        $methods = PaymentMethod::with('channel')
-            ->whereIn('code', $codes)
-            ->get()
-            ->sortBy(fn ($m) => array_search($m->code, $codes))
-            ->values();
+        $methods = Cache::remember('payment_methods_v1_list', 300, function () use ($codes) {
+            return PaymentMethod::with('channel')
+                ->whereIn('code', $codes)
+                ->get()
+                ->sortBy(fn ($m) => array_search($m->code, $codes))
+                ->values();
+        });
 
         return apiSuccess(PaymentMethodResource::collection($methods));
     }

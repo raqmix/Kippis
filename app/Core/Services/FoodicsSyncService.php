@@ -31,6 +31,19 @@ class FoodicsSyncService
         // Default to sandbox for testing
         $mode = $mode ?? config('foodics.mode', 'sandbox');
 
+        // Build the allow-list of category foodics_ids that appear in at
+        // least one of OUR Kippis-app menu groups. Categories outside this
+        // set never get pulled, mirroring the per-branch group-scoped
+        // catalog model — Foodics carries empty/seasonal/back-office
+        // categories that we don't want surfacing in the customer app.
+        // Falls back to "no filter" (legacy behavior) when no Kippis stores
+        // have a menu group configured yet, so first-time installs still
+        // bootstrap fine.
+        $allowedCategoryIds = $this->collectCategoryIdsFromKippisGroups($mode);
+        Log::info('Foodics categories sync allow-list', [
+            'allowed_count' => $allowedCategoryIds === null ? 'unfiltered' : count($allowedCategoryIds),
+        ]);
+
         try {
             $page = 1;
             $hasMore = true;
@@ -68,19 +81,48 @@ class FoodicsSyncService
 
                 foreach ($categories as $categoryItem) {
                     try {
-                        // If Foodics flipped this category to inactive (or
-                        // hard-deleted it), pull the local copy off the live
-                        // catalog so the app stops surfacing it. Soft-delete
-                        // — admin can restore if it was a Foodics mis-toggle.
-                        if (isset($categoryItem['deleted_at']) || !($categoryItem['is_active'] ?? true)) {
-                            $existingInactive = Category::where('foodics_id', (string) $categoryItem['id'])->first();
-                            if ($existingInactive) {
-                                $existingInactive->delete();
+                        $foodicsId = (string) $categoryItem['id'];
+
+                        // Skip categories that aren't referenced by any
+                        // product in any of our Kippis-app menu groups.
+                        // Defensively soft-delete the local row too, in
+                        // case this category was previously pulled before
+                        // it dropped out of our groups.
+                        if ($allowedCategoryIds !== null && !isset($allowedCategoryIds[$foodicsId])) {
+                            $stale = Category::where('foodics_id', $foodicsId)->first();
+                            if ($stale) {
+                                $stale->delete();
                             }
                             continue;
                         }
 
-                        $foodicsId = (string) $categoryItem['id'];
+                        // Hard-deleted upstream — soft-delete locally so history
+                        // and any pending order references still resolve.
+                        if (isset($categoryItem['deleted_at'])) {
+                            $existingDeleted = Category::withTrashed()->where('foodics_id', $foodicsId)->first();
+                            if ($existingDeleted && ! $existingDeleted->trashed()) {
+                                $existingDeleted->delete();
+                            }
+                            continue;
+                        }
+                        // Inactive upstream (soft toggle in Foodics) — mirror
+                        // that as is_active=false locally, do NOT soft-delete.
+                        // The customer app filters by Category::scopeActive so
+                        // the row stays visible in Filament (operator can see
+                        // it exists and is hidden) while dropping off the app.
+                        if (! ($categoryItem['is_active'] ?? true)) {
+                            $existingInactive = Category::withTrashed()->where('foodics_id', $foodicsId)->first();
+                            if ($existingInactive) {
+                                if ($existingInactive->trashed()) {
+                                    $existingInactive->restore();
+                                }
+                                $existingInactive->update([
+                                    'is_active' => false,
+                                    'last_synced_at' => now(),
+                                ]);
+                            }
+                            continue;
+                        }
                         // withTrashed so a category we soft-deleted as
                         // "empty" earlier gets restored if Foodics brings
                         // products back, rather than orphaning the row.
@@ -162,11 +204,97 @@ class FoodicsSyncService
     }
 
     /**
+     * Build the set of Foodics category IDs that appear in any of the
+     * Kippis-app menu groups configured on our Store rows.
+     *
+     * Returns a map keyed by Foodics category id (for O(1) lookup) so the
+     * caller can `isset()` to test membership. Returns null when no Kippis
+     * store has a menu group configured — the caller should treat that as
+     * "don't filter" (legacy bootstrap behavior).
+     *
+     * Note on cost: ~one paginated GET per Kippis store (each currently
+     * ~399 products = ~4 pages of 100). With 4 active stores that's ~16
+     * HTTP calls during a full sync — negligible vs the per-product upsert
+     * work that follows.
+     *
+     * @return array<string,true>|null
+     */
+    private function collectCategoryIdsFromKippisGroups(?string $mode = null): ?array
+    {
+        $groupIds = Store::whereNotNull('foodics_menu_group_id')
+            ->pluck('foodics_menu_group_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($groupIds)) {
+            return null;
+        }
+
+        $allowed = [];
+
+        foreach ($groupIds as $groupId) {
+            $page = 1;
+            while (true) {
+                try {
+                    $response = $this->foodicsClient->get(
+                        'v5/products',
+                        \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
+                            'page'     => $page,
+                            'per_page' => 100,
+                            // Match how syncProducts requests `category` via
+                            // the include relation — without this, Foodics
+                            // omits category fields entirely and the
+                            // allow-list would always come back empty.
+                            'include'  => ['category'],
+                            'filters'  => ['groups.id' => $groupId],
+                        ]),
+                        $mode
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Foodics group product fetch failed during category allow-list build', [
+                        'group_id' => $groupId,
+                        'page'     => $page,
+                        'error'    => $e->getMessage(),
+                    ]);
+                    break;
+                }
+
+                if (! $response->ok) {
+                    break;
+                }
+
+                foreach ($response->data['data'] ?? [] as $product) {
+                    $catId = $product['category_id']
+                        ?? ($product['category']['id'] ?? null);
+                    if ($catId) {
+                        $allowed[(string) $catId] = true;
+                    }
+                }
+
+                $meta = $response->pagination?->meta ?? null;
+                $currentPage = $meta?->current_page ?? $page;
+                $lastPage    = $meta?->last_page ?? $page;
+                if ($currentPage >= $lastPage) {
+                    break;
+                }
+                $page++;
+            }
+        }
+
+        return $allowed;
+    }
+
+    /**
      * Sync products from Foodics.
      *
      * @param string|null $mode 'sandbox' or 'live', null to use config default
+     * @param bool $skipCategoryPresync Set true when the caller has already
+     *   run syncCategories() for this tick — avoids re-running the ~1-page
+     *   categories fetch plus the ~N-store product-groups allow-list scan
+     *   for every store in a multi-store loop. syncAllStoreMenus uses this.
      */
-    public function syncProducts(?string $mode = null, array $filters = [], ?Store $attachTo = null): array
+    public function syncProducts(?string $mode = null, array $filters = [], ?Store $attachTo = null, bool $skipCategoryPresync = false): array
     {
         $synced = 0;
         $updated = 0;
@@ -181,14 +309,17 @@ class FoodicsSyncService
         $mode = $mode ?? config('foodics.mode', 'sandbox');
 
         // Categories must exist before products can be linked — sync them first
-        $categoryResult = $this->syncCategories($mode);
-        if (!empty($categoryResult['errors'])) {
-            Log::warning('Foodics category pre-sync had errors', ['errors' => $categoryResult['errors']]);
+        // unless the caller opted out (see $skipCategoryPresync).
+        if (! $skipCategoryPresync) {
+            $categoryResult = $this->syncCategories($mode);
+            if (!empty($categoryResult['errors'])) {
+                Log::warning('Foodics category pre-sync had errors', ['errors' => $categoryResult['errors']]);
+            }
+            Log::info('Foodics category pre-sync completed', [
+                'synced' => $categoryResult['synced'],
+                'updated' => $categoryResult['updated'],
+            ]);
         }
-        Log::info('Foodics category pre-sync completed', [
-            'synced' => $categoryResult['synced'],
-            'updated' => $categoryResult['updated'],
-        ]);
 
         try {
             $page = 1;
@@ -212,21 +343,34 @@ class FoodicsSyncService
 
                 foreach ($products as $productItem) {
                     try {
-                        // Pull anything Foodics has marked inactive (or
-                        // deleted) off the live catalog. Soft-delete only,
-                        // so an admin can restore if Foodics mis-toggles.
-                        if (isset($productItem['deleted_at']) || !($productItem['is_active'] ?? true)) {
-                            $existingInactive = Product::where('foodics_id', (string) $productItem['id'])->first();
-                            if ($existingInactive) {
-                                $existingInactive->delete();
+                        $foodicsId = (string) $productItem['id'];
+                        $isDeletedUpstream = isset($productItem['deleted_at']);
+                        $isActiveUpstream = (bool) ($productItem['is_active'] ?? true);
+
+                        // Hard-deleted in Foodics → soft-delete locally so
+                        // history and any linked order rows keep resolving.
+                        // Not counted as "seen" — the orphan sweep at the end
+                        // won't need to re-touch it.
+                        if ($isDeletedUpstream) {
+                            $existing = Product::withTrashed()->where('foodics_id', $foodicsId)->first();
+                            if ($existing && ! $existing->trashed()) {
+                                $existing->delete();
                                 $removedInactive++;
                             }
                             continue;
                         }
 
-                        $foodicsId = (string) $productItem['id'];
+                        // Mark seen even if inactive — the product is still
+                        // in a menu group we care about, so the orphan sweep
+                        // must NOT trash it. We mirror the is_active flag
+                        // below via $productData so the customer app hides
+                        // it via scopeActive().
                         $seenFoodicsIds[] = $foodicsId;
-                        $existing = Product::where('foodics_id', $foodicsId)->first();
+                        // withTrashed so a product we soft-deleted (Foodics
+                        // hard-delete or previous orphan sweep) can be
+                        // restored on the very next sync tick if it comes
+                        // back into a group.
+                        $existing = Product::withTrashed()->where('foodics_id', $foodicsId)->first();
 
                         // Find or create category — API returns a nested 'category' object when included
                         $categoryId = null;
@@ -257,17 +401,40 @@ class FoodicsSyncService
                             'image' => $productItem['image'] ?? null,
                             'base_price' => $productItem['price'] ?? $productItem['base_price'] ?? 0,
                             'is_active' => $productItem['is_active'] ?? true,
+                            // Full-mirror mode: everything Foodics actively surfaces
+                            // in a store's menu group is visible in the app. Admins
+                            // who want to pin a specific product out of the app can
+                            // still do so by adding 'is_draft' to that product's
+                            // locally_overridden_fields — the loop below strips
+                            // overridden keys from $productData before the write,
+                            // so a manually-drafted product survives every sync.
+                            'is_draft' => false,
                             'external_source' => 'foodics',
                             'foodics_id' => $foodicsId,
                             'last_synced_at' => now(),
                         ];
 
                         if ($existing) {
+                            // Foodics resurrected a product we'd previously
+                            // trashed (hard-delete upstream that got undone,
+                            // or the orphan sweep from a prior run when the
+                            // product had temporarily fallen out of every
+                            // group). Restore before we update — otherwise
+                            // update() no-ops on trashed models via the
+                            // default scope.
+                            if ($existing->trashed()) {
+                                $existing->restore();
+                            }
+
                             // Honor admin overrides set on the Filament edit
                             // page so manual catalog tweaks (image, category,
                             // translations, etc.) survive subsequent syncs.
                             // foodics_id + last_synced_at always win — they're
                             // sync correlation metadata, not editable.
+                            // is_draft can be overridden per-product too, so
+                            // an admin can pin a specific Foodics item out
+                            // of the app while everything else stays a full
+                            // mirror.
                             $overrides = $existing->locally_overridden_fields ?? [];
                             if (is_array($overrides) && !empty($overrides)) {
                                 foreach ($overrides as $field) {
@@ -277,10 +444,6 @@ class FoodicsSyncService
                                     unset($productData[$field]);
                                 }
                             }
-                            // Never re-flag an existing product as draft — an
-                            // admin may have already activated it. Drafts are
-                            // an insert-time default only.
-                            //
                             // sort_order is intentionally absent from
                             // $productData so an admin's reorder survives
                             // every sync (the Reorder Products page would
@@ -289,13 +452,11 @@ class FoodicsSyncService
                             $updated++;
                             $savedProduct = $existing;
                         } else {
-                            // Newly-pulled Foodics products land as drafts so
-                            // an operator explicitly opts each one in before
-                            // it surfaces on the kiosk / customer app.
-                            $productData['is_draft'] = true;
                             // New products go to the bottom of their category
                             // so they never displace admin-curated ordering
-                            // at the top. Admin moves them up when ready.
+                            // at the top. Admin moves them up when needed.
+                            // is_draft comes from $productData (=false) — full
+                            // mirror by default, see note above.
                             $productData['sort_order'] = ((int) Product::where('category_id', $categoryId)->max('sort_order')) + 1;
                             $savedProduct = Product::create($productData);
                             $synced++;
@@ -357,7 +518,7 @@ class FoodicsSyncService
      * land as drafts; existing products are updated honoring local
      * overrides — same rules as the global syncProducts() path.
      */
-    public function syncProductsForStore(Store $store, ?string $mode = null): array
+    public function syncProductsForStore(Store $store, ?string $mode = null, bool $skipCategoryPresync = false): array
     {
         if (! $store->foodics_menu_group_id) {
             return [
@@ -374,6 +535,7 @@ class FoodicsSyncService
             $mode,
             ['groups.id' => $store->foodics_menu_group_id],
             $store,
+            $skipCategoryPresync,
         );
     }
 
@@ -392,11 +554,22 @@ class FoodicsSyncService
             return $totals;
         }
 
+        // Run categories ONCE at the top instead of once per store — the
+        // fetch is the same regardless of which store we're syncing next,
+        // and repeating it 4× per tick blows through Foodics's rate limit
+        // when the scheduler cadence is every 5 minutes.
+        $categoryResult = $this->syncCategories($mode);
+        if (! empty($categoryResult['errors'])) {
+            foreach ($categoryResult['errors'] as $err) {
+                $totals['errors'][] = "[categories] {$err}";
+            }
+        }
+
         $allSeenFoodicsIds = [];
-        $anyStoreErrored = false;
+        $anyStoreErrored = ! empty($categoryResult['errors']);
 
         foreach ($stores as $store) {
-            $result = $this->syncProductsForStore($store, $mode);
+            $result = $this->syncProductsForStore($store, $mode, skipCategoryPresync: true);
             $totals['synced'] += $result['synced'];
             $totals['updated'] += $result['updated'];
             $totals['removed_inactive'] += $result['removed_inactive'] ?? 0;

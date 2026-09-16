@@ -10,7 +10,9 @@ use App\Core\Models\Refund;
 use App\Core\Repositories\LoyaltyWalletRepository;
 use App\Core\Services\ActivityLogService;
 use App\Services\MastercardPaymentService;
+use App\Services\SpendRewardService;
 use App\Support\Money;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class RefundService
@@ -19,6 +21,7 @@ class RefundService
         private readonly MastercardPaymentService $mastercard,
         private readonly LoyaltyWalletRepository $loyaltyRepo,
         private readonly ActivityLogService $activityLog,
+        private readonly SpendRewardService $spendRewardService,
     ) {}
 
     /**
@@ -175,6 +178,19 @@ class RefundService
 
             if ($type === 'full') {
                 $this->deductLoyaltyPoints($order);
+                // Reverse the completed-order spend from the customer's
+                // lifetime counter. Vouchers already issued from that
+                // spend are NOT auto-revoked (per-tier revocation
+                // policy is a future extension); we just clamp the
+                // counter so future crossings recompute correctly.
+                try {
+                    $this->spendRewardService->reverseSpend($order);
+                } catch (\Throwable $e) {
+                    Log::error('Failed to reverse spend for milestone rewards', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
 
             PaymentTransaction::create([

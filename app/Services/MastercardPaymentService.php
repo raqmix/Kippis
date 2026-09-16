@@ -209,10 +209,23 @@ class MastercardPaymentService
      * Step 3: PAY — charge the session after authentication.
      *
      * The session must already contain card data (populated by the browser via
-     * PaymentSession.updateSessionFromForm before calling this method).
+     * PaymentSession.updateSessionFromForm, or by the native SDK's
+     * `updateSession` for Apple Pay's devicePayment token).
+     *
+     * @param string|null $authenticationTransactionId Transaction id of a
+     *   preceding AUTHENTICATE_PAYER call — pass it for card flows so
+     *   MPGS treats the payment as 3DS-authenticated (liability shift +
+     *   avoids scheme-side BLOCKs). Pass null for Apple Pay (device auth
+     *   substitutes for 3DS).
      */
-    public function pay(string $gatewayOrderId, string $transactionId, string $amount, string $currency, string $sessionId): array
-    {
+    public function pay(
+        string $gatewayOrderId,
+        string $transactionId,
+        string $amount,
+        string $currency,
+        string $sessionId,
+        ?string $authenticationTransactionId = null
+    ): array {
         [, $apiUsername, $apiPassword] = $this->authHeaders();
 
         if (!$apiUsername || !$apiPassword) {
@@ -221,11 +234,20 @@ class MastercardPaymentService
 
         $url = $this->txUrl($gatewayOrderId, $transactionId);
 
+        // sourceOfFunds.type is required by MPGS for card + wallet
+        // sessions — omitting it triggers "Missing parameter. Source of
+        // funds type must be provided" (seen on Apple Pay sessions
+        // where the type isn't inferred from raw card fields).
         $payload = [
-            'apiOperation' => 'PAY',
-            'order'        => ['amount' => $amount, 'currency' => $currency],
-            'session'      => ['id' => $sessionId],
+            'apiOperation'  => 'PAY',
+            'order'         => ['amount' => $amount, 'currency' => $currency],
+            'session'       => ['id' => $sessionId],
+            'sourceOfFunds' => ['type' => 'CARD'],
         ];
+
+        if ($authenticationTransactionId !== null) {
+            $payload['authentication'] = ['transactionId' => $authenticationTransactionId];
+        }
 
         try {
             $response     = $this->makeClient()->put($url, [
@@ -236,16 +258,35 @@ class MastercardPaymentService
             $statusCode   = $response->getStatusCode();
             $responseBody = json_decode($response->getBody()->getContents(), true);
 
-            if ($statusCode >= 200 && $statusCode < 300) {
+            // MPGS returns HTTP 200 with `result: FAILURE` in the body
+            // for scheme-side blocks (declined, BLOCKED, expired). The
+            // old check trusted HTTP status alone → declined orders
+            // appeared successful and got persisted + pushed to Foodics
+            // while no money actually moved. Both HTTP and body must
+            // agree for a PAY to count.
+            $result       = $responseBody['result'] ?? null;
+            $gatewayCode  = $responseBody['response']['gatewayCode'] ?? null;
+            $isHttpOk     = $statusCode >= 200 && $statusCode < 300;
+            $isResultOk   = $result === 'SUCCESS';
+            $isCodeOk     = in_array($gatewayCode, ['APPROVED', 'APPROVED_AUTO'], true) || $gatewayCode === null;
+
+            if ($isHttpOk && $isResultOk && $isCodeOk) {
                 return ['success' => true, 'response' => $responseBody];
             }
 
-            Log::warning('Mastercard Pay failed', ['status' => $statusCode, 'body' => $responseBody]);
+            Log::warning('Mastercard Pay failed', [
+                'status'       => $statusCode,
+                'result'       => $result,
+                'gateway_code' => $gatewayCode,
+                'body'         => $responseBody,
+            ]);
             return [
                 'success' => false,
                 'error'   => 'PAY_FAILED',
-                'message' => $responseBody['error']['explanation'] ?? $responseBody['error']['message'] ?? 'payment_gateway_error',
-                'status'  => $statusCode,
+                'message' => $responseBody['error']['explanation']
+                            ?? $responseBody['error']['message']
+                            ?? ($gatewayCode ? "Payment {$gatewayCode}" : 'payment_gateway_error'),
+                'status'  => $isHttpOk ? 402 : $statusCode,
             ];
         } catch (RequestException $e) {
             $statusCode   = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 502;
@@ -278,9 +319,14 @@ class MastercardPaymentService
         }
 
         $url     = $this->txUrl($gatewayOrderId, $transactionId);
+        // MPGS REFUND wants the amount nested under `transaction`, not
+        // `order`. Sending it under `order` returns HTTP 400 with
+        // "Required field 'transaction.amount' was not provided" and the
+        // customer stays charged. See MPGS Session API reference: REFUND
+        // operates on the transaction level, not the order level.
         $payload = [
             'apiOperation' => 'REFUND',
-            'order'        => ['amount' => $amount, 'currency' => $currency],
+            'transaction'  => ['amount' => $amount, 'currency' => $currency],
         ];
 
         try {
@@ -292,7 +338,13 @@ class MastercardPaymentService
             $statusCode   = $response->getStatusCode();
             $responseBody = json_decode($response->getBody()->getContents(), true);
 
-            if ($statusCode >= 200 && $statusCode < 300) {
+            // MPGS returns HTTP 200 for BLOCKED/DECLINED refunds; only the
+            // body's `result` field distinguishes a real success from a
+            // gateway-level rejection. Trust both.
+            $result       = $responseBody['result'] ?? null;
+            $isHttpOk     = $statusCode >= 200 && $statusCode < 300;
+            $isResultOk   = $result === 'SUCCESS';
+            if ($isHttpOk && $isResultOk) {
                 return [
                     'success'           => true,
                     'gateway_reference' => $responseBody['transaction']['id'] ?? $transactionId,

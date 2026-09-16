@@ -120,7 +120,7 @@ class ApplePayController extends Controller
         $base       = rtrim(config('mastercard.gateway'), '/');
         $version    = config('mastercard.api_version');
         $orderId    = 'APPLEPAY-' . strtoupper(uniqid());
-        $currency   = config('mastercard.currency', 'SAR');
+        $currency   = config('mastercard.currency', 'EGP');
 
         $cart = $this->cartRepository->findActiveCart($request->user()->id, true);
         if (!$cart || $cart->items->isEmpty()) {
@@ -134,6 +134,14 @@ class ApplePayController extends Controller
 
         $walletUrl = "{$base}/api/rest/version/{$version}/merchant/{$merchantId}/order/{$orderId}/transaction/pay";
 
+        $applePayToken = $this->normalizePkToken($request->input('payment_token'));
+        if ($applePayToken === null) {
+            Log::warning('Apple Pay token normalization failed', [
+                'received_keys' => array_keys($request->input('payment_token', [])),
+            ]);
+            return apiError('PAYMENT_TOKEN_INVALID', 'apple_pay_token_invalid', 422);
+        }
+
         try {
             /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withBasicAuth($apiUsername, $apiPassword)->asJson()->put($walletUrl, [
@@ -145,7 +153,7 @@ class ApplePayController extends Controller
                 'sourceOfFunds' => [
                     'type'   => 'APPLE_PAY',
                     'provided' => [
-                        'applePayToken' => $request->input('payment_token'),
+                        'applePayToken' => $applePayToken,
                     ],
                 ],
                 'transaction' => ['reference' => $orderId],
@@ -174,5 +182,41 @@ class ApplePayController extends Controller
             'pickup_code' => $order->pickup_code,
             'total'       => (float) $order->total,
         ]);
+    }
+
+    /**
+     * Coerce whatever shape the Flutter side sends into the canonical
+     * PKPaymentToken structure MPGS decrypts against:
+     *   { paymentData, paymentMethod, transactionIdentifier }
+     *
+     * Handles three known shapes:
+     *   1. Correct shape already          → pass through
+     *   2. Legacy 1.0.3+6 wrap `{"raw": "<json-string>"}` → decode + return
+     *   3. `paymentData` alone (Map)      → wrap as paymentData
+     *
+     * Returns null when `paymentData` cannot be derived — the caller
+     * should fail the request rather than let MPGS 400 with a cryptic
+     * "invalid parameter" error.
+     */
+    private function normalizePkToken(?array $token): ?array
+    {
+        if (!is_array($token) || empty($token)) {
+            return null;
+        }
+
+        // Shape 1: already correct.
+        if (is_array($token['paymentData'] ?? null) && !empty($token['paymentData'])) {
+            return $token;
+        }
+
+        // Shape 2: legacy `{"raw": "<json-string>"}` from 1.0.3+6.
+        if (isset($token['raw']) && is_string($token['raw']) && $token['raw'] !== '') {
+            $decoded = json_decode($token['raw'], true);
+            if (is_array($decoded) && is_array($decoded['paymentData'] ?? null)) {
+                return $decoded;
+            }
+        }
+
+        return null;
     }
 }

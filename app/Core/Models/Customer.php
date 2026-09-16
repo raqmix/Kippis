@@ -44,6 +44,8 @@ class Customer extends Authenticatable implements JWTSubject
         'apple_refresh_token',
         'social_avatar',
         'fcm_token',
+        'push_marketing_opt_in',
+        'lifetime_spent_piasters',
         'is_staff',
     ];
 
@@ -68,6 +70,8 @@ class Customer extends Authenticatable implements JWTSubject
             'birthdate' => 'date',
             'is_verified' => 'boolean',
             'is_staff' => 'boolean',
+            'push_marketing_opt_in' => 'boolean',
+            'lifetime_spent_piasters' => 'integer',
             'password' => 'hashed',
         ];
     }
@@ -86,6 +90,15 @@ class Customer extends Authenticatable implements JWTSubject
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Spend-milestone vouchers issued to this customer. See
+     * SpendRewardService and the customer_spend_rewards table.
+     */
+    public function spendRewards(): HasMany
+    {
+        return $this->hasMany(CustomerSpendReward::class);
     }
 
     /**

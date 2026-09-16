@@ -24,6 +24,7 @@ class CategoryController extends Controller
      * @queryParam source string optional Filter by source (all, foodics, manual). Default: "all". Example: "foodics"
      * @queryParam is_active string optional Filter by active status (0, 1). Default: "1". Example: "1"
      * @queryParam q string optional Search query. Example: "drinks"
+     * @queryParam store_id integer optional Filter categories to those that have at least one active product available at the given branch. Mirrors the per-branch product_store pivot populated by the Foodics menu-group sync. Example: 10
      * @queryParam sort_by string optional Sort field. Default: "sort_order". Example: "name"
      * @queryParam sort_order string optional Sort order (asc, desc). Default: "asc". Example: "asc"
      * @queryParam per_page integer optional Items per page (max 100). Default: 15. Example: 20
@@ -51,6 +52,7 @@ class CategoryController extends Controller
             'source' => $request->query('source', 'all'),
             'is_active' => $request->query('is_active', '1'),
             'q' => $request->query('q'),
+            'store_id' => $request->query('store_id'),
             'sort_by' => $request->query('sort_by', 'sort_order'),
             'sort_order' => $request->query('sort_order', 'asc'),
         ];

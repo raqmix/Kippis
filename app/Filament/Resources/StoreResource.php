@@ -136,6 +136,18 @@ class StoreResource extends Resource
                             ->label('Employee-only')
                             ->helperText('When on, this branch is hidden from customer apps and shown only to staff customers (is_staff = on).')
                             ->default(false),
+                        Forms\Components\Toggle::make('is_proximity_only')
+                            ->label('Proximity-only')
+                            ->helperText('When on, this branch only appears for customers physically within the radius below. Requires latitude/longitude to be set.')
+                            ->default(false)
+                            ->live(),
+                        Forms\Components\TextInput::make('proximity_radius_meters')
+                            ->label('Proximity radius (meters)')
+                            ->helperText('How close (in meters) a customer must be for this branch to appear. Default 1000m = 1km.')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(1000)
+                            ->visible(fn (Forms\Get $get) => (bool) $get('is_proximity_only')),
                     ])->columns(2),
                 Components\Section::make(__('system.foodics_integration'))
                     ->schema([
@@ -209,6 +221,10 @@ class StoreResource extends Resource
                     ->label('Employee-only')
                     ->boolean()
                     ->sortable(),
+                Tables\Columns\IconColumn::make('is_proximity_only')
+                    ->label('Proximity-only')
+                    ->boolean()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('foodics_branch_id')
                     ->label(__('system.foodics_branch_id'))
                     ->searchable()
@@ -261,6 +277,11 @@ class StoreResource extends Resource
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
+                Actions\Action::make('branch_menu')
+                    ->label(__('system.branch_menu'))
+                    ->icon('heroicon-o-list-bullet')
+                    ->color('primary')
+                    ->url(fn (Store $record) => StoreResource::getUrl('branch-menu', ['record' => $record])),
                 Actions\ViewAction::make(),
                 Actions\EditAction::make(),
                 Actions\Action::make('generate_kiosk_api_key')
@@ -307,6 +328,7 @@ class StoreResource extends Resource
             'create' => Pages\CreateStore::route('/create'),
             'view' => Pages\ViewStore::route('/{record}'),
             'edit' => Pages\EditStore::route('/{record}/edit'),
+            'branch-menu' => Pages\BranchMenu::route('/{record}/menu'),
         ];
     }
 }

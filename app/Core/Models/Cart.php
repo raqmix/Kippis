@@ -29,6 +29,7 @@ class Cart extends Model
         'wallet_discount',
         'points_used',
         'points_discount',
+        'applied_promotions_snapshot',
         'subtotal',
         'discount',
         'total',
@@ -44,6 +45,7 @@ class Cart extends Model
             'points_discount' => 'decimal:2',
             'points_used'     => 'integer',
             'total'           => 'decimal:2',
+            'applied_promotions_snapshot' => 'array',
             'abandoned_at'    => 'datetime',
         ];
     }
@@ -107,17 +109,23 @@ class Cart extends Model
         });
 
         // Discount stack:
-        //   1) promo (existing)
+        //   1) promotions (the engine — auto-applied + explicit code)
         //   2) wallet item — subsidises the linked product's base price up
         //      to the subtotal-after-promo, so a wallet item never goes
         //      negative or pays the customer money back
         //   3) raw points — converted from points to EGP via
         //      Setting::get('loyalty.points_to_egp_rate', 10), capped at
         //      the remaining cart total
-        $promoDiscount = 0;
-        if ($this->promoCode && $this->promoCode->isValid() && $subtotal >= $this->promoCode->minimum_order_amount) {
-            $promoDiscount = $this->promoCode->calculateDiscount($subtotal);
-        }
+        //
+        // The engine reads cart.promo_code_id internally for the explicit
+        // code, so we don't pass it twice.
+        $evaluator = app(\App\Services\Promotions\PromotionEvaluator::class);
+        $evaluation = $evaluator->evaluate(
+            $this,
+            $this->customer,
+            $this->store,
+        );
+        $promoDiscount = (float) min($evaluation->totalDiscount, $subtotal);
 
         $remaining = max(0, $subtotal - $promoDiscount);
 
@@ -153,6 +161,7 @@ class Cart extends Model
             'discount'        => $totalDiscount,
             'wallet_discount' => $walletDiscount,
             'points_discount' => $pointsDiscount,
+            'applied_promotions_snapshot' => $evaluation->snapshot(),
             // points_used is admin-supplied — preserve the original
             // request so the customer's "I spent 50 pts" intent doesn't
             // get rewritten by silent recalc rounding.

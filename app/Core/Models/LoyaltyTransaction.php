@@ -19,10 +19,16 @@ class LoyaltyTransaction extends Model
         return LoyaltyTransactionFactory::new();
     }
 
+    public const TYPE_EARNED = 'earned';
+    public const TYPE_REDEEMED = 'redeemed';
+    public const TYPE_ADJUSTED = 'adjusted';
+    public const TYPE_EXPIRED = 'expired';
+
     protected $fillable = [
         'wallet_id',
         'type',
         'points',
+        'expires_at',
         'description',
         'reference_type',
         'reference_id',
@@ -33,6 +39,7 @@ class LoyaltyTransaction extends Model
     {
         return [
             'points' => 'integer',
+            'expires_at' => 'datetime',
         ];
     }
 

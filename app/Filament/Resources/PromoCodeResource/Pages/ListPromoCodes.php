@@ -8,6 +8,7 @@ use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components as SchemaComponents;
 use Illuminate\Support\Str;
 
 class ListPromoCodes extends ListRecords
@@ -26,7 +27,7 @@ class ListPromoCodes extends ListRecords
                 ->modalDescription('Generates N unique codes sharing the same discount + validity. Each code is "<prefix>-<random>" — the random suffix uses unambiguous letters and digits.')
                 ->modalSubmitActionLabel('Create')
                 ->form([
-                    Forms\Components\Grid::make(2)
+                    SchemaComponents\Grid::make(2)
                         ->schema([
                             Forms\Components\TextInput::make('count')
                                 ->label('How many coupons')

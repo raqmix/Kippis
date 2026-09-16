@@ -42,9 +42,12 @@ class KioskCatalogController extends Controller
     public function categories(Request $request): JsonResponse
     {
         $store = $request->attributes->get('kiosk_store');
-        
+
         $filters = [
             'source' => 'all',
+            // Scope categories to those with at least one active product
+            // available at this branch via the product_store pivot.
+            'store_id' => $store?->id,
         ];
 
         $categories = $this->categoryRepository->getAllActive($filters);

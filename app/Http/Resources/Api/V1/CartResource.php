@@ -36,6 +36,9 @@ class CartResource extends JsonResource
             ),
             'points_used'    => (int) $this->points_used,
             'points_discount' => (float) $this->points_discount,
+            'applied_promotions' => is_array($this->applied_promotions_snapshot)
+                ? $this->applied_promotions_snapshot
+                : [],
             'subtotal' => (float) $this->subtotal,
             'discount' => (float) $this->discount,
             'total' => (float) $this->total,

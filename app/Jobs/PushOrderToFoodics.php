@@ -240,9 +240,20 @@ class PushOrderToFoodics implements ShouldQueue
                 ? 'Pickup #' . $order->pickup_code
                 : 'Kippis #' . $order->id,
             'products' => $products,
-            'discount_amount' => (float) ($order->discount ?? 0),
             'total' => (float) $order->total,
         ];
+
+        // Foodics v5 rejects orders that carry `discount_amount` without a
+        // matching `discount_type` (1=Value, 2=Percentage). Kippis stores
+        // discounts as EGP amounts (promo evaluator returns the resolved
+        // value), so we always send type 1 when there's a discount and omit
+        // both fields entirely when there isn't — Foodics treats the absence
+        // as "no discount".
+        $discount = (float) ($order->discount ?? 0);
+        if ($discount > 0) {
+            $payload['discount_amount'] = $discount;
+            $payload['discount_type']   = 1;
+        }
 
         if ($order->customer) {
             if ($order->customer->foodics_customer_id) {

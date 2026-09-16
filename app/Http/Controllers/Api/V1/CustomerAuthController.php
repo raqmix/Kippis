@@ -674,6 +674,31 @@ class CustomerAuthController extends Controller
     }
 
     /**
+     * Update marketing push-notification consent.
+     *
+     * The Kippis app onboarding prompts once for marketing pushes;
+     * customer's choice lands here. Respected by scheduled_pushes
+     * with audience `opted_in_only`, `has_ordered`, or `inactive_30d`.
+     * The `all` audience bypasses this flag for critical announcements.
+     *
+     * @authenticated
+     * @bodyParam marketing_opt_in boolean required True to receive Kippis marketing pushes.
+     */
+    public function updatePushPreferences(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $data = $request->validate(['marketing_opt_in' => 'required|boolean']);
+        /** @var \App\Core\Models\Customer|null $customer */
+        $customer = auth('api')->user();
+        if (!$customer) {
+            return apiError('UNAUTHORIZED', 'unauthorized', 401);
+        }
+        $customer->update(['push_marketing_opt_in' => $data['marketing_opt_in']]);
+        return apiSuccess([
+            'push_marketing_opt_in' => (bool) $customer->push_marketing_opt_in,
+        ], 'push_preferences_updated');
+    }
+
+    /**
      * Login with Google.
      *
      * Authenticate a customer using Google OAuth. The client app handles the

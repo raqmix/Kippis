@@ -32,8 +32,13 @@ class UpdateCustomerRequest extends FormRequest
                 'max:255',
                 Rule::unique('customers', 'email')->ignore($customer?->id),
             ],
-            'phone' => 'sometimes|string|max:20',
-            'country_code' => 'sometimes|string|max:5',
+            'phone' => [
+                'sometimes',
+                'string',
+                'max:20',
+                Rule::unique('customers', 'phone')->ignore($customer?->id),
+            ],
+            'country_code' => ['sometimes', 'string', 'max:5', 'regex:/^\+[0-9]{1,4}$/'],
             'birthdate' => 'sometimes|date|before:today',
             'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
             'password' => 'sometimes|string|min:8|confirmed|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[#?!@$%^&*-])[A-Za-z\d#?!@$%^&*-]{8,}$/',
@@ -49,6 +54,8 @@ class UpdateCustomerRequest extends FormRequest
     {
         return [
             'email.unique' => 'The email has already been taken.',
+            'phone.unique' => 'This phone number is already in use by another account.',
+            'country_code.regex' => 'The country code must start with + followed by 1-4 digits (e.g. +20).',
             'birthdate.before' => 'The birthdate must be a date before today.',
             'password.min' => 'The password must be at least 8 characters.',
             'password.confirmed' => 'The password confirmation does not match.',

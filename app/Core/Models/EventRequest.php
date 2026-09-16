@@ -22,6 +22,7 @@ class EventRequest extends Model
         'city',
         'region',
         'address',
+        'notes',
         'status',
     ];
 

@@ -98,7 +98,7 @@ class OrderController extends Controller
         if (! $paymentMethod->is_active) {
             return apiError('PAYMENT_METHOD_UNAVAILABLE', 'This payment method is not currently available. Please pick another.', 422);
         }
-        if ($paymentMethod->code === 'card') {
+        if (in_array($paymentMethod->code, ['card', 'apple_pay'], true)) {
             $request->validate(['mastercard_session_id' => 'required|string|max:100']);
         }
 
@@ -200,6 +200,11 @@ class OrderController extends Controller
                         'data' => [
                             'requires_3ds'  => true,
                             'redirect_html' => $authResult['redirect_html'],
+                            // Frontend/URL prefix the mobile WebView
+                            // watches for to detect the terminal
+                            // redirect from handle3dsReturn — must
+                            // match `mastercard.frontend_url`.
+                            'callback_url_prefix' => rtrim(config('mastercard.frontend_url', ''), '/'),
                         ],
                     ];
                     if ($cacheKey) {
@@ -209,14 +214,41 @@ class OrderController extends Controller
                 }
             }
 
-            // No 3DS (or frictionless) — charge immediately
+            // No 3DS (or frictionless) — charge immediately. Pass the
+            // preceding AUTHENTICATE_PAYER transaction id so MPGS
+            // treats the PAY as 3DS-authenticated (frictionless still
+            // counts) and doesn't scheme-block for missing 3DS.
+            $result = $this->mastercardPayment->pay(
+                $gatewayOrderId, 'pay_1', $amount, $currency, $sessionId, 'auth_1'
+            );
+            if (!($result['success'] ?? false)) {
+                return apiError(
+                    $result['error'] ?? 'PAY_FAILED',
+                    $result['message'] ?? 'payment_gateway_error',
+                    $result['status'] ?? 502
+                );
+            }
+        }
+
+        if ($paymentMethod->code === 'apple_pay') {
+            // Apple Pay uses the same MPGS session flow as card, but the
+            // token was already PUT onto the session by the native SDK
+            // (sourceOfFunds.provided.card.devicePayment.paymentToken +
+            // order.walletProvider = APPLE_PAY). Device authentication
+            // satisfies 3DS liability shift, so we skip INITIATE_AUTH /
+            // AUTHENTICATE_PAYER and go straight to PAY.
+            $gatewayOrderId = 'apay_' . $customer->id . '_' . time();
+            $amount         = number_format((float) $cart->total, 2, '.', '');
+            $currency       = config('mastercard.currency', 'EGP');
+            $sessionId      = $request->input('mastercard_session_id');
+
             $result = $this->mastercardPayment->pay(
                 $gatewayOrderId, 'pay_1', $amount, $currency, $sessionId
             );
             if (!($result['success'] ?? false)) {
                 return apiError(
                     $result['error'] ?? 'PAY_FAILED',
-                    $result['message'] ?? 'payment_gateway_error',
+                    $result['message'] ?? 'apple_pay_payment_failed',
                     $result['status'] ?? 502
                 );
             }
@@ -276,7 +308,8 @@ class OrderController extends Controller
             'pay_1',
             $pending['amount'],
             $pending['currency'],
-            $pending['session_id']
+            $pending['session_id'],
+            'auth_1'
         );
 
         if (!($result['success'] ?? false)) {

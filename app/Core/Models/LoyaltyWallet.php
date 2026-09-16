@@ -74,9 +74,21 @@ class LoyaltyWallet extends Model
             $locked = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
             $locked->increment('points', $points);
 
+            // Earned points carry a hard expiry (default 1 year from now);
+            // the daily ExpireLoyaltyPointsCommand walks expired earns
+            // FIFO and posts compensating 'expired' transactions.
+            // Manual adjustments + admin-credited points don't expire.
+            $expiresAt = null;
+            if ($type === LoyaltyTransaction::TYPE_EARNED) {
+                $monthsValid = (int) Setting::get('loyalty.points_validity_months', 12);
+                $monthsValid = $monthsValid > 0 ? $monthsValid : 12;
+                $expiresAt = now()->addMonths($monthsValid);
+            }
+
             $transaction = $locked->transactions()->create([
                 'type' => $type,
                 'points' => $points,
+                'expires_at' => $expiresAt,
                 'description' => $description,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,

@@ -35,9 +35,17 @@ class CategoryRepository
             }
         }
 
-        // Only get categories that have active products
-        $query->whereHas('products', function ($q) {
-            $q->where('is_active', true);
+        // Only get categories that have active products. When a store
+        // is supplied, restrict the inner check to products that are
+        // either explicitly linked to that store via the product_store
+        // pivot OR have no pivot rows at all (globally-available legacy
+        // catalog) — same rule as Product::scopeAvailableAtStore.
+        $storeId = !empty($filters['store_id']) ? (int) $filters['store_id'] : null;
+        $query->whereHas('products', function ($q) use ($storeId) {
+            $q->where('is_active', true)->where('is_draft', false);
+            if ($storeId !== null) {
+                $q->availableAtStore($storeId);
+            }
         });
 
         // Search
@@ -86,9 +94,14 @@ class CategoryRepository
             }
         }
 
-        // Only get categories that have active products
-        $query->whereHas('products', function ($q) {
-            $q->where('is_active', true);
+        // Only get categories that have active products — store-scoped
+        // when caller provides one (see getPaginated() for the same rule).
+        $storeId = !empty($filters['store_id']) ? (int) $filters['store_id'] : null;
+        $query->whereHas('products', function ($q) use ($storeId) {
+            $q->where('is_active', true)->where('is_draft', false);
+            if ($storeId !== null) {
+                $q->availableAtStore($storeId);
+            }
         });
 
         $query->orderByRaw('sort_order IS NULL')->orderBy('sort_order', 'asc');

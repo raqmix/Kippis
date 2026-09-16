@@ -69,29 +69,183 @@ class PromoCodeResource extends Resource
     {
         return $schema
             ->schema([
-                Components\Section::make(__('system.promo_code_information'))
+                Components\Section::make('Display')
+                    ->description('Customer-facing name and description shown on the cart screen and receipt. Bilingual.')
                     ->schema([
+                        Components\Tabs::make('name_json_tabs')
+                            ->label('Name')
+                            ->tabs([
+                                Components\Tabs\Tab::make('en')->schema([
+                                    Forms\Components\TextInput::make('name_json.en')
+                                        ->label('Name (EN)')
+                                        ->maxLength(255),
+                                ]),
+                                Components\Tabs\Tab::make('ar')->schema([
+                                    Forms\Components\TextInput::make('name_json.ar')
+                                        ->label('Name (AR)')
+                                        ->maxLength(255),
+                                ]),
+                            ])->columnSpanFull(),
+                        Components\Tabs::make('description_json_tabs')
+                            ->label('Description')
+                            ->tabs([
+                                Components\Tabs\Tab::make('en')->schema([
+                                    Forms\Components\Textarea::make('description_json.en')
+                                        ->label('Description (EN)')
+                                        ->rows(2)
+                                        ->maxLength(500),
+                                ]),
+                                Components\Tabs\Tab::make('ar')->schema([
+                                    Forms\Components\Textarea::make('description_json.ar')
+                                        ->label('Description (AR)')
+                                        ->rows(2)
+                                        ->maxLength(500),
+                                ]),
+                            ])->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
+                Components\Section::make('Trigger')
+                    ->description('How the customer activates this promo. Auto-apply runs on every cart recalculate; a code field is also allowed for code-based campaigns.')
+                    ->schema([
+                        Forms\Components\Toggle::make('auto_apply')
+                            ->label('Auto-apply (no code needed)')
+                            ->default(false)
+                            ->live(),
                         Forms\Components\TextInput::make('code')
-                            ->label(__('system.code'))
-                            ->required()
+                            ->label('Promo Code')
+                            ->required(fn ($get) => !$get('auto_apply'))
                             ->unique(ignoreRecord: true)
                             ->maxLength(255)
-                            ->dehydrateStateUsing(fn ($state) => strtoupper($state))
-                            ->afterStateUpdated(fn (Forms\Set $set, $state) => $set('code', strtoupper($state))),
+                            ->dehydrateStateUsing(fn ($state) => $state ? strtoupper($state) : null)
+                            ->helperText('Leave blank for purely auto-applied promos.'),
+                        Forms\Components\TextInput::make('priority')
+                            ->label('Priority')
+                            ->numeric()
+                            ->default(0)
+                            ->helperText('Higher priority wins when multiple non-stackable promos match.'),
+                        Forms\Components\Toggle::make('stackable')
+                            ->label('Stackable')
+                            ->default(false)
+                            ->helperText('Stackable promos combine with every other stackable + one non-stackable.'),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
+
+                Components\Section::make('Discount')
+                    ->description('What the customer actually gets.')
+                    ->schema([
                         Forms\Components\Select::make('discount_type')
-                            ->label(__('system.discount_type'))
+                            ->label('Type')
                             ->options([
-                                'percentage' => __('system.percentage'),
-                                'fixed' => __('system.fixed'),
+                                PromoCode::TYPE_PERCENTAGE => 'Percentage off',
+                                PromoCode::TYPE_FIXED => 'Fixed amount off',
+                                PromoCode::TYPE_BUY_X_GET_Y => 'Buy X, get Y free',
+                                PromoCode::TYPE_FREE_ITEM => 'Free item',
+                                PromoCode::TYPE_FREE_DELIVERY => 'Free delivery',
                             ])
                             ->required()
-                            ->reactive(),
+                            ->live(),
+
+                        // Percentage / fixed types both use discount_value.
                         Forms\Components\TextInput::make('discount_value')
-                            ->label(__('system.discount_value'))
+                            ->label(fn ($get) => $get('discount_type') === PromoCode::TYPE_PERCENTAGE
+                                ? 'Percent'
+                                : 'Amount')
                             ->numeric()
-                            ->required()
-                            ->suffix(fn ($get) => $get('discount_type') === 'percentage' ? '%' : 'EGP')
+                            ->step(0.01)
+                            ->suffix(fn ($get) => $get('discount_type') === PromoCode::TYPE_PERCENTAGE ? '%' : 'EGP')
+                            ->required(fn ($get) => in_array($get('discount_type'), [PromoCode::TYPE_PERCENTAGE, PromoCode::TYPE_FIXED], true))
+                            ->visible(fn ($get) => in_array($get('discount_type'), [PromoCode::TYPE_PERCENTAGE, PromoCode::TYPE_FIXED], true)),
+
+                        // buy_x_get_y config
+                        Forms\Components\TextInput::make('config.buy')
+                            ->label('Buy quantity (X)')
+                            ->numeric()
+                            ->minValue(1)
+                            ->required(fn ($get) => $get('discount_type') === PromoCode::TYPE_BUY_X_GET_Y)
+                            ->visible(fn ($get) => $get('discount_type') === PromoCode::TYPE_BUY_X_GET_Y),
+                        Forms\Components\TextInput::make('config.get')
+                            ->label('Get free (Y)')
+                            ->numeric()
+                            ->minValue(1)
+                            ->required(fn ($get) => $get('discount_type') === PromoCode::TYPE_BUY_X_GET_Y)
+                            ->visible(fn ($get) => $get('discount_type') === PromoCode::TYPE_BUY_X_GET_Y)
+                            ->helperText('Cheapest Y items of every (X + Y) in the matching category/product set are free.'),
+
+                        // free_item config — options sourced via a plain
+                        // closure (NOT ->relationship()) because the
+                        // resource already syncs the M2M `products`
+                        // pivot in the Scope section below. Reusing the
+                        // relation here would double-write on save.
+                        Forms\Components\Select::make('config.product_id')
+                            ->label('Free product')
+                            ->options(fn () => \App\Core\Models\Product::query()
+                                ->orderBy('id')
+                                ->get(['id', 'name_json'])
+                                ->mapWithKeys(fn ($p) => [$p->id => $p->getName(app()->getLocale())])
+                                ->all())
+                            ->searchable()
+                            ->required(fn ($get) => $get('discount_type') === PromoCode::TYPE_FREE_ITEM)
+                            ->visible(fn ($get) => $get('discount_type') === PromoCode::TYPE_FREE_ITEM),
+                        Forms\Components\TextInput::make('config.quantity')
+                            ->label('Quantity')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(1)
+                            ->visible(fn ($get) => $get('discount_type') === PromoCode::TYPE_FREE_ITEM),
+
+                        Forms\Components\TextInput::make('minimum_order_amount')
+                            ->label('Minimum order amount')
+                            ->numeric()
+                            ->prefix('EGP')
+                            ->default(0)
                             ->step(0.01),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
+
+                Components\Section::make('Conditions')
+                    ->description('Who and when. All conditions must pass.')
+                    ->schema([
+                        Forms\Components\Toggle::make('conditions.first_order_only')
+                            ->label('First order only')
+                            ->helperText('Only customers who have never placed a completed order.'),
+                        Forms\Components\CheckboxList::make('conditions.segments')
+                            ->label('Customer segments')
+                            ->options([
+                                PromoCode::SEGMENT_EVERYONE => 'Everyone',
+                                PromoCode::SEGMENT_NEW_CUSTOMER => 'New customer (0 orders)',
+                                PromoCode::SEGMENT_LOYAL => 'Loyal (5+ orders)',
+                                PromoCode::SEGMENT_STAFF => 'Staff',
+                            ])
+                            ->columns(2)
+                            ->helperText('If none selected → everyone.'),
+                        Forms\Components\CheckboxList::make('conditions.days_of_week')
+                            ->label('Days of week')
+                            ->options([
+                                1 => 'Monday',
+                                2 => 'Tuesday',
+                                3 => 'Wednesday',
+                                4 => 'Thursday',
+                                5 => 'Friday',
+                                6 => 'Saturday',
+                                7 => 'Sunday',
+                            ])
+                            ->columns(4)
+                            ->helperText('If none selected → every day.'),
+                        Forms\Components\TimePicker::make('conditions.time_window.from')
+                            ->label('Valid from (time of day)')
+                            ->seconds(false),
+                        Forms\Components\TimePicker::make('conditions.time_window.to')
+                            ->label('Valid until (time of day)')
+                            ->seconds(false),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
+
+                Components\Section::make('Validity & limits')
+                    ->schema([
                         Forms\Components\DateTimePicker::make('valid_from')
                             ->label(__('system.valid_from'))
                             ->required(),
@@ -107,32 +261,36 @@ class PromoCodeResource extends Resource
                             ->label(__('system.usage_per_user_limit'))
                             ->numeric()
                             ->minValue(1),
-                        Forms\Components\TextInput::make('minimum_order_amount')
-                            ->label(__('system.minimum_order_amount'))
-                            ->numeric()
-                            ->prefix('EGP')
-                            ->default(0)
-                            ->step(0.01),
                         Forms\Components\Toggle::make('active')
                             ->label(__('system.active'))
                             ->default(true)
                             ->required(),
-                    ]),
+                        Forms\Components\Toggle::make('visible_to_customer')
+                            ->label('Show in Offers screen')
+                            ->helperText('When on, this promo appears in the customer-facing Offers list (Flutter Offers tab + web /offers page). Auto-applied internal promos should stay off.')
+                            ->default(false),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
+
                 Components\Section::make(__('system.scoping'))
-                    ->description(__('system.scoping_description'))
+                    ->description('Which branches / categories / products this promo can apply to. Leave empty for global.')
                     ->schema([
                         Forms\Components\CheckboxList::make('stores')
                             ->label(__('system.stores'))
                             ->relationship('stores', 'name')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name),
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
+                            ->columns(2),
                         Forms\Components\CheckboxList::make('categories')
                             ->label(__('system.categories'))
                             ->relationship('categories', 'name_json')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale())),
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale()))
+                            ->columns(2),
                         Forms\Components\CheckboxList::make('products')
                             ->label(__('system.products'))
                             ->relationship('products', 'name_json')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale())),
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->getName(app()->getLocale()))
+                            ->columns(2),
                     ])
                     ->columns(1)
                     ->collapsible(),
@@ -143,71 +301,78 @@ class PromoCodeResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('name_json')
+                    ->label('Name')
+                    ->getStateUsing(fn ($record) => $record->getName(app()->getLocale()))
+                    ->searchable(query: function ($query, $search) {
+                        return $query->where('name_json', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%");
+                    })
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('code')
                     ->label(__('system.code'))
-                    ->searchable()
-                    ->sortable()
-                    ->copyable(),
+                    ->copyable()
+                    ->placeholder('— auto —')
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('auto_apply')
+                    ->label('Auto')
+                    ->boolean(),
                 Tables\Columns\TextColumn::make('discount_type')
                     ->label(__('system.discount_type'))
                     ->badge()
-                    ->formatStateUsing(fn ($state, $record) => $record->discount_value . ($state === 'percentage' ? '%' : ' EGP'))
                     ->color(fn (string $state): string => match ($state) {
-                        'percentage' => 'info',
-                        'fixed' => 'success',
+                        PromoCode::TYPE_PERCENTAGE => 'info',
+                        PromoCode::TYPE_FIXED => 'success',
+                        PromoCode::TYPE_BUY_X_GET_Y => 'warning',
+                        PromoCode::TYPE_FREE_ITEM => 'primary',
+                        PromoCode::TYPE_FREE_DELIVERY => 'gray',
                         default => 'gray',
                     })
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('priority')
+                    ->label('Priority')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('valid_from')
                     ->label(__('system.valid_from'))
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('valid_to')
                     ->label(__('system.valid_to'))
                     ->dateTime()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('used_count')
-                    ->label(__('system.used_count'))
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('usage_limit')
-                    ->label(__('system.usage_limit'))
-                    ->formatStateUsing(fn ($state, $record) => $state ? "{$record->used_count}/{$state}" : $record->used_count)
+                    ->label('Usage')
+                    ->formatStateUsing(fn ($state, $record) => $state ? "{$record->used_count}/{$state}" : (string) $record->used_count)
                     ->sortable()
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('active')
                     ->label(__('system.active'))
                     ->boolean()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label(__('system.created_at'))
-                    ->dateTime()
+                Tables\Columns\IconColumn::make('visible_to_customer')
+                    ->label('In Offers')
+                    ->boolean()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('active')
-                    ->label(__('system.active'))
-                    ->placeholder(__('system.all'))
-                    ->trueLabel(__('system.active'))
-                    ->falseLabel(__('system.inactive')),
+                    ->label(__('system.active')),
+                Tables\Filters\TernaryFilter::make('visible_to_customer')
+                    ->label('Visible in Offers'),
+                Tables\Filters\TernaryFilter::make('auto_apply')
+                    ->label('Auto-apply'),
                 Tables\Filters\SelectFilter::make('discount_type')
                     ->label(__('system.discount_type'))
                     ->options([
-                        'percentage' => __('system.percentage'),
-                        'fixed' => __('system.fixed'),
+                        PromoCode::TYPE_PERCENTAGE => 'Percentage',
+                        PromoCode::TYPE_FIXED => 'Fixed',
+                        PromoCode::TYPE_BUY_X_GET_Y => 'Buy X get Y',
+                        PromoCode::TYPE_FREE_ITEM => 'Free item',
+                        PromoCode::TYPE_FREE_DELIVERY => 'Free delivery',
                     ]),
-                Tables\Filters\Filter::make('valid_date')
-                    ->form([
-                        Forms\Components\DatePicker::make('valid_from')
-                            ->label(__('system.valid_from')),
-                        Forms\Components\DatePicker::make('valid_to')
-                            ->label(__('system.valid_to')),
-                    ])
-                    ->query(function ($query, array $data) {
-                        return $query
-                            ->when($data['valid_from'], fn ($q, $date) => $q->where('valid_from', '>=', $date))
-                            ->when($data['valid_to'], fn ($q, $date) => $q->where('valid_to', '<=', $date));
-                    }),
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
@@ -224,7 +389,7 @@ class PromoCodeResource extends Resource
                     Actions\ForceDeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('priority', 'desc');
     }
 
     public static function getRelations(): array
@@ -244,4 +409,3 @@ class PromoCodeResource extends Resource
         ];
     }
 }
-

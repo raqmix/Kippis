@@ -33,6 +33,8 @@ class Store extends Model
         'is_active',
         'receive_online_orders',
         'is_employee_only',
+        'is_proximity_only',
+        'proximity_radius_meters',
         'foodics_branch_id',
         'foodics_menu_group_id',
         'synced_from_foodics_at',
@@ -50,6 +52,8 @@ class Store extends Model
             'is_active' => 'boolean',
             'receive_online_orders' => 'boolean',
             'is_employee_only' => 'boolean',
+            'is_proximity_only' => 'boolean',
+            'proximity_radius_meters' => 'integer',
             'synced_from_foodics_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
@@ -134,16 +138,43 @@ class Store extends Model
     }
 
     /**
-     * Scope: Visible to a given customer. Hides employee-only stores
-     * (e.g. Factory) from non-staff customers and guests.
+     * Scope: Visible to a given customer.
+     *
+     * Three visibility rules layered:
+     *  - Staff customers always see everything.
+     *  - Non-staff customers/guests never see `is_employee_only` stores.
+     *  - `is_proximity_only` stores are visible to everyone, but only when
+     *    the request supplied lat/lng AND the user is within
+     *    `proximity_radius_meters` of the store. No coordinates → store
+     *    is excluded. (Haversine in meters, evaluated in SQL.)
      */
-    public function scopeVisibleTo($query, ?Customer $customer)
+    public function scopeVisibleTo($query, ?Customer $customer, ?float $latitude = null, ?float $longitude = null)
     {
         if ($customer && $customer->is_staff) {
             return $query;
         }
 
-        return $query->where('is_employee_only', false);
+        $query->where('is_employee_only', false);
+
+        if ($latitude === null || $longitude === null) {
+            return $query->where('is_proximity_only', false);
+        }
+
+        return $query->where(function ($q) use ($latitude, $longitude) {
+            $q->where('is_proximity_only', false)
+              ->orWhere(function ($q2) use ($latitude, $longitude) {
+                  $q2->where('is_proximity_only', true)
+                     ->whereNotNull('latitude')
+                     ->whereNotNull('longitude')
+                     ->whereRaw('(
+                         6371000 * acos(
+                             cos(radians(?)) * cos(radians(latitude)) *
+                             cos(radians(longitude) - radians(?)) +
+                             sin(radians(?)) * sin(radians(latitude))
+                         )
+                     ) <= proximity_radius_meters', [$latitude, $longitude, $latitude]);
+              });
+        });
     }
 
     /**

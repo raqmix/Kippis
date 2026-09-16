@@ -43,6 +43,7 @@ class RolePermissionSeeder extends Seeder
             'manage_qr_codes',
             'manage_promo_qr_codes',
             'manage_promotions',
+            'manage_pushes',
             'manage_events',
         ]);
 

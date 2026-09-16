@@ -67,6 +67,7 @@ class PageResource extends Resource
                                 'faq' => __('system.faq'),
                                 'terms' => __('system.terms'),
                                 'privacy' => __('system.privacy'),
+                                'refund' => __('system.refund'),
                             ])
                             ->required(),
                         Forms\Components\Toggle::make('is_active')
@@ -114,6 +115,7 @@ class PageResource extends Resource
                         'faq' => __('system.faq'),
                         'terms' => __('system.terms'),
                         'privacy' => __('system.privacy'),
+                        'refund' => __('system.refund'),
                     ]),
             ])
             ->actions([

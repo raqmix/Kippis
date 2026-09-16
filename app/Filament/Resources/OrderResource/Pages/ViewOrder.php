@@ -21,7 +21,27 @@ class ViewOrder extends ViewRecord
         parent::mount($record);
 
         // Load all necessary relationships
-        $this->record->load(['store', 'customer', 'promoCode', 'paymentMethod']);
+        $this->record->load(['store', 'customer', 'promoCode', 'paymentMethod', 'refunds.admin']);
+    }
+
+    /**
+     * Void is only valid while the order has not been fulfilled and no
+     * prior refund/void has been issued. Mirrors RefundService::void().
+     */
+    private function canVoid(): bool
+    {
+        return in_array($this->record->status, ['received', 'pending_payment'], true)
+            && $this->record->refund_status === 'none';
+    }
+
+    /**
+     * Refund is only valid for completed orders that haven't been fully
+     * refunded yet. Mirrors RefundService::refundFull/Partial guards.
+     */
+    private function canRefund(): bool
+    {
+        return $this->record->status === 'completed'
+            && $this->record->refund_status !== 'full';
     }
 
     protected function getHeaderActions(): array
@@ -55,6 +75,127 @@ class ViewOrder extends ViewRecord
                         ->title(__('system.status_updated'))
                         ->success()
                         ->send();
+                }),
+
+            Actions\Action::make('void_order')
+                ->label(__('system.void_order'))
+                ->icon('heroicon-o-no-symbol')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading(__('system.void_order'))
+                ->modalDescription(__('system.void_order_description'))
+                ->visible(fn () => $this->canVoid()
+                    && \Illuminate\Support\Facades\Gate::forUser(auth()->guard('admin')->user())->allows('manage_orders'))
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('reason')
+                        ->label(__('system.reason'))
+                        ->required()
+                        ->maxLength(500)
+                        ->rows(3),
+                ])
+                ->action(function (array $data) {
+                    try {
+                        $refund = app(\App\Services\RefundService::class)
+                            ->void($this->record, auth('admin')->user(), $data['reason']);
+                    } catch (\DomainException $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.refund_not_allowed'))
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    if ($refund->status === 'failed') {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.gateway_void_failed'))
+                            ->body(__('system.gateway_void_failed_body'))
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    } else {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.order_voided'))
+                            ->success()
+                            ->send();
+                    }
+
+                    $this->record->refresh();
+                    $this->record->load(['refunds.admin']);
+                }),
+
+            Actions\Action::make('refund_order')
+                ->label(__('system.refund_order'))
+                ->icon('heroicon-o-banknotes')
+                ->color('danger')
+                ->visible(fn () => $this->canRefund()
+                    && \Illuminate\Support\Facades\Gate::forUser(auth()->guard('admin')->user())->allows('manage_orders'))
+                ->form(function () {
+                    $totalPiasters = \App\Support\Money::toPiasters((float) $this->record->total);
+                    $refunded      = (int) ($this->record->refunded_amount ?? 0);
+                    $availableEgp  = number_format(($totalPiasters - $refunded) / 100, 2, '.', '');
+
+                    return [
+                        \Filament\Forms\Components\Select::make('type')
+                            ->label(__('system.refund_type'))
+                            ->options([
+                                'full' => __('system.full_refund'),
+                                'partial' => __('system.partial_refund'),
+                            ])
+                            ->default('full')
+                            ->live()
+                            ->required(),
+                        \Filament\Forms\Components\TextInput::make('amount_egp')
+                            ->label(__('system.amount_egp', ['available' => $availableEgp]))
+                            ->numeric()
+                            ->minValue(0.01)
+                            ->maxValue((float) $availableEgp)
+                            ->step(0.01)
+                            ->visible(fn ($get) => $get('type') === 'partial')
+                            ->required(fn ($get) => $get('type') === 'partial'),
+                        \Filament\Forms\Components\Textarea::make('reason')
+                            ->label(__('system.reason'))
+                            ->required()
+                            ->maxLength(500)
+                            ->rows(3),
+                    ];
+                })
+                ->action(function (array $data) {
+                    $svc   = app(\App\Services\RefundService::class);
+                    $admin = auth('admin')->user();
+
+                    try {
+                        if ($data['type'] === 'full') {
+                            $refund = $svc->refundFull($this->record, $admin, $data['reason']);
+                        } else {
+                            $piasters = (int) round(((float) $data['amount_egp']) * 100);
+                            $refund = $svc->refundPartial($this->record, $admin, $piasters, $data['reason']);
+                        }
+                    } catch (\DomainException $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.refund_not_allowed'))
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    if ($refund->status === 'failed') {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.gateway_refund_failed'))
+                            ->body(__('system.gateway_refund_failed_body'))
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    } else {
+                        \Filament\Notifications\Notification::make()
+                            ->title(__('system.refund_issued'))
+                            ->success()
+                            ->send();
+                    }
+
+                    $this->record->refresh();
+                    $this->record->load(['refunds.admin']);
                 }),
         ];
     }
@@ -250,6 +391,70 @@ class ViewOrder extends ViewRecord
                             })
                             ->columnSpanFull(),
                     ]),
+
+                Components\Section::make(__('system.refund_history'))
+                    ->schema([
+                        Forms\Components\Placeholder::make('refunds_summary')
+                            ->label('')
+                            ->content(function () {
+                                $totalPiasters    = \App\Support\Money::toPiasters((float) $this->record->total);
+                                $refundedPiasters = (int) ($this->record->refunded_amount ?? 0);
+                                $statusLabel      = $this->record->refund_status ?? 'none';
+
+                                $statusColor = match ($statusLabel) {
+                                    'full', 'voided' => '#dc2626',
+                                    'partial'        => '#d97706',
+                                    default          => '#6b7280',
+                                };
+
+                                $html = '<div style="font-family: system-ui, -apple-system, sans-serif;">';
+                                $html .= '<div style="display: flex; gap: 24px; margin-bottom: 16px; padding: 12px 16px; background: #f9fafb; border-radius: 8px;">';
+                                $html .= '<div><p style="margin: 0; font-size: 12px; color: #6b7280;">' . __('system.refund_status') . '</p>';
+                                $html .= '<p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 600; color: ' . $statusColor . '; text-transform: uppercase;">' . htmlspecialchars($statusLabel) . '</p></div>';
+                                $html .= '<div><p style="margin: 0; font-size: 12px; color: #6b7280;">' . __('system.refunded_amount') . '</p>';
+                                $html .= '<p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 600; color: #111827;">' . number_format($refundedPiasters / 100, 2) . ' / ' . number_format($totalPiasters / 100, 2) . ' EGP</p></div>';
+                                $html .= '</div>';
+
+                                $refunds = $this->record->refunds;
+                                if ($refunds->isEmpty()) {
+                                    $html .= '<p style="color: #6b7280; font-style: italic;">' . __('system.no_refunds') . '</p>';
+                                    $html .= '</div>';
+                                    return new \Illuminate\Support\HtmlString($html);
+                                }
+
+                                $html .= '<table style="width: 100%; border-collapse: collapse;">';
+                                $html .= '<thead><tr style="background: #f3f4f6; text-align: left;">';
+                                $html .= '<th style="padding: 8px 12px; font-size: 12px; color: #374151;">' . __('system.type') . '</th>';
+                                $html .= '<th style="padding: 8px 12px; font-size: 12px; color: #374151;">' . __('system.amount') . '</th>';
+                                $html .= '<th style="padding: 8px 12px; font-size: 12px; color: #374151;">' . __('system.status') . '</th>';
+                                $html .= '<th style="padding: 8px 12px; font-size: 12px; color: #374151;">' . __('system.reason') . '</th>';
+                                $html .= '<th style="padding: 8px 12px; font-size: 12px; color: #374151;">' . __('system.admin') . '</th>';
+                                $html .= '<th style="padding: 8px 12px; font-size: 12px; color: #374151;">' . __('system.date') . '</th>';
+                                $html .= '</tr></thead><tbody>';
+
+                                foreach ($refunds as $refund) {
+                                    $statusStyle = match ($refund->status) {
+                                        'completed' => 'background: #d1fae5; color: #065f46;',
+                                        'failed'    => 'background: #fee2e2; color: #991b1b;',
+                                        default     => 'background: #fef3c7; color: #92400e;',
+                                    };
+                                    $html .= '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                                    $html .= '<td style="padding: 10px 12px; font-size: 13px; text-transform: capitalize;">' . htmlspecialchars($refund->type) . '</td>';
+                                    $html .= '<td style="padding: 10px 12px; font-size: 13px; font-weight: 600;">' . number_format($refund->amount / 100, 2) . ' EGP</td>';
+                                    $html .= '<td style="padding: 10px 12px;"><span style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; ' . $statusStyle . '">' . htmlspecialchars($refund->status) . '</span></td>';
+                                    $html .= '<td style="padding: 10px 12px; font-size: 13px; max-width: 240px;">' . htmlspecialchars($refund->reason) . '</td>';
+                                    $html .= '<td style="padding: 10px 12px; font-size: 13px;">' . htmlspecialchars($refund->admin?->name ?? '—') . '</td>';
+                                    $html .= '<td style="padding: 10px 12px; font-size: 13px; color: #6b7280;">' . $refund->created_at->format('M j, Y H:i') . '</td>';
+                                    $html .= '</tr>';
+                                }
+
+                                $html .= '</tbody></table></div>';
+
+                                return new \Illuminate\Support\HtmlString($html);
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->visible(fn () => $this->record->refunds->isNotEmpty() || $this->record->refund_status !== 'none'),
 
                 Components\Section::make(__('system.order_totals'))
                     ->schema([

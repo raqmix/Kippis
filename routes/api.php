@@ -40,6 +40,7 @@ Route::middleware('api.locale')->group(function () {
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
             Route::post('/refresh-token', [CustomerAuthController::class, 'refreshToken']);
             Route::post('/fcm-token', [CustomerAuthController::class, 'registerFcmToken']);
+            Route::patch('/me/push-preferences', [CustomerAuthController::class, 'updatePushPreferences']);
             Route::delete('/account', [CustomerAuthController::class, 'deleteAccount']);
             // Recovery path for the bug #2 fix: when social-login refuses
             // to auto-link by client email, the user signs in normally
@@ -197,6 +198,29 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/group/{group}', [\App\Http\Controllers\Api\V1\SettingController::class, 'getByGroup']);
         Route::get('/key/{key}', [\App\Http\Controllers\Api\V1\SettingController::class, 'getByKey']);
         Route::post('/keys', [\App\Http\Controllers\Api\V1\SettingController::class, 'getByKeys']);
+    });
+
+    // ==================== APP LINKS ====================
+    // Public — the website + any other surface renders "download the app"
+    // CTAs off this. All fields editable from Filament without a deploy.
+    Route::get('v1/app-links', [\App\Http\Controllers\Api\V1\AppLinksController::class, 'index']);
+
+    // ==================== OFFERS ====================
+    // Public — customer-facing list of active promos that ops has
+    // toggled `visible_to_customer=true` on. Distinct from
+    // /v1/promotions (image banners) — this returns actionable discount
+    // details (percentage/fixed/free-item/etc.) with terms.
+    Route::get('v1/offers', [\App\Http\Controllers\Api\V1\OfferController::class, 'index']);
+
+    // ==================== SPEND REWARDS ====================
+    // Customer-facing spend-milestone rewards. Auth-only — a customer's
+    // progress toward each active tier + their held vouchers, plus the
+    // pick endpoint that locks in which products they want for a
+    // voucher's choice groups. v1 stops at "picked" — staff fulfill at
+    // pickup; auto-inject-to-cart is a v2 iteration.
+    Route::middleware('auth:api')->prefix('v1/spend-rewards')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\SpendRewardController::class, 'index']);
+        Route::post('/{id}/pick', [\App\Http\Controllers\Api\V1\SpendRewardController::class, 'pick']);
     });
 
     // ==================== PROMOTIONS APIs ====================
