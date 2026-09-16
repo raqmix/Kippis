@@ -147,7 +147,7 @@ class StoreResource extends Resource
                             ->numeric()
                             ->minValue(1)
                             ->default(1000)
-                            ->visible(fn (Forms\Get $get) => (bool) $get('is_proximity_only')),
+                            ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => (bool) $get('is_proximity_only')),
                     ])->columns(2),
                 Components\Section::make(__('system.foodics_integration'))
                     ->schema([
