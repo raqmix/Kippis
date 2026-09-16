@@ -94,7 +94,17 @@ class Cart extends Model
     {
         // Ensure product is loaded so we can fall back to base_price for items
         // whose snapshot price is 0 (e.g. added before prices were set).
+        //
+        // promoCode is force-reloaded: callers such as CartController::sync()
+        // load it before mutating promo_code_id, and a plain load() would skip
+        // an already-loaded relation and leave us discounting against a stale
+        // (or just-detached) promo.
         $this->load(['items.product', 'walletItem.redeemItem.product']);
+        $this->loadMissing('promoCode');
+        if ($this->relationLoaded('promoCode')
+            && $this->promoCode?->getKey() !== $this->promo_code_id) {
+            $this->unsetRelation('promoCode')->load('promoCode');
+        }
 
         $subtotal = $this->items->sum(function ($item) {
             $price = (float) $item->price;
