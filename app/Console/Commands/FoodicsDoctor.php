@@ -385,8 +385,8 @@ class FoodicsDoctor extends Command
             $ms = (int) round((microtime(true) - $started) * 1000);
 
             $response->ok
-                ? $this->pass('live Foodics call succeeded', "{$ms}ms, HTTP {$response->statusCode}")
-                : $this->bad('live Foodics call', "HTTP {$response->statusCode}");
+                ? $this->pass('live Foodics call succeeded', "{$ms}ms, HTTP {$response->status_code}")
+                : $this->bad('live Foodics call', "HTTP {$response->status_code}");
         } catch (\App\Integrations\Foodics\Exceptions\FoodicsRateLimitException $e) {
             // Not a deployment failure — this is the new code declining to
             // pile on, which is the behaviour we want.
