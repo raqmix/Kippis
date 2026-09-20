@@ -23,8 +23,17 @@ class FoodicsClient
     private const MAX_RETRIES = 3;
     private const RETRY_DELAY = 2;
 
+    /**
+     * Longest Retry-After we will sit and wait for. Beyond this we give up
+     * and throw, so a rate-limit episode cannot pin a queue worker (or an
+     * HTTP request, in the kiosk's synchronous push path) for minutes.
+     * The caller's own retry policy is the right place to wait that long.
+     */
+    private const MAX_RETRY_AFTER_WAIT = 20;
+
     public function __construct(
-        private FoodicsAuthService $authService
+        private FoodicsAuthService $authService,
+        private FoodicsRateLimiter $rateLimiter,
     ) {
     }
 
@@ -79,6 +88,11 @@ class FoodicsClient
                     'Accept' => 'application/json',
                 ]);
 
+            // Spend from the shared per-minute budget before going out. This
+            // is what actually keeps us under Foodics' limit; the 429 branch
+            // below is the fallback for when our count and theirs disagree.
+            $this->rateLimiter->acquire($method . ' ' . $endpoint);
+
             $response = match (strtoupper($method)) {
                 'GET' => $http->get($url, $query),
                 'POST' => $http->post($url, $body ?? []),
@@ -120,13 +134,40 @@ class FoodicsClient
             }
 
             if ($statusCode === 429) {
-                $maxRetries = config('foodics.retry.max_attempts', self::MAX_RETRIES);
-                $retryDelay = config('foodics.retry.delay_seconds', self::RETRY_DELAY);
+                // Our local budget is evidently out of step with Foodics'.
+                // Stop spending for the rest of this minute regardless of
+                // what the counter says.
+                $this->rateLimiter->exhaustCurrentWindow();
 
-                if ($retryCount < $maxRetries) {
-                    sleep($retryDelay * ($retryCount + 1));
+                $maxRetries = config('foodics.retry.max_attempts', self::MAX_RETRIES);
+
+                // Foodics tells us exactly how long to wait. Honour it: the
+                // limit resets on a 60s window, so the old fixed 2/4/6s
+                // backoff retried inside the very window that was already
+                // exhausted and was guaranteed to 429 again — turning each
+                // rejection into four.
+                $retryAfter = (int) ($response->header('retry-after') ?: 0);
+
+                Log::warning('FOODICS_RATE_LIMITED', [
+                    'method' => $method,
+                    'url' => $url,
+                    'retry_after' => $retryAfter,
+                    'attempt' => $retryCount + 1,
+                    'rate_limit_remaining' => $response->header('x-ratelimit-remaining'),
+                ]);
+
+                $waitFor = $retryAfter > 0
+                    ? $retryAfter
+                    : config('foodics.retry.delay_seconds', self::RETRY_DELAY) * ($retryCount + 1);
+
+                if ($retryCount < $maxRetries && $waitFor <= self::MAX_RETRY_AFTER_WAIT) {
+                    sleep($waitFor);
                     return $this->request($method, $endpoint, $body, $queryParams, $mode, $retryCount + 1);
                 }
+
+                // Too long to wait here, or out of attempts. Throw and let
+                // the caller decide — a queued job will retry on its own
+                // backoff, which is cheaper than blocking a worker.
                 throw new FoodicsRateLimitException();
             }
 

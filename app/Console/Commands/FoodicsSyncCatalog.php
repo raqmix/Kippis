@@ -40,12 +40,13 @@ class FoodicsSyncCatalog extends Command
     protected $description = 'Sync Foodics categories, per-branch products, and modifiers into the local catalog.';
 
     /**
-     * Max time we let a single run hold the lock. Longer than a normal
-     * run (typically 30-90s across 4 stores) so a legitimate slow run
-     * isn't stolen from, short enough that a crashed run frees the slot
-     * before it blocks two full scheduler ticks.
+     * Max time we let a single run hold the lock. A run now spaces its
+     * requests behind the shared Foodics rate limiter, so it can spend
+     * minutes waiting on the per-minute budget rather than the 30-90s it
+     * took when it fired everything at once. Still short enough that a
+     * crashed run frees the slot before it blocks two scheduler ticks.
      */
-    private const LOCK_TTL_SECONDS = 600;
+    private const LOCK_TTL_SECONDS = 1200;
 
     public function handle(FoodicsSyncService $sync): int
     {

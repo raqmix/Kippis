@@ -40,9 +40,12 @@ Schedule::command('loyalty:expire-points')
     ->withoutOverlapping()
     ->runInBackground();
 
-// Foodics order status — poll fallback every 5 minutes. Webhook is the
-// primary path; this catches any missed / dropped events.
-Schedule::command('foodics:sync-order-status')->everyFiveMinutes()->withoutOverlapping();
+// Foodics order status — poll fallback. The webhook is the primary path,
+// so this only needs to catch events it dropped. It used to poll 100
+// orders one-by-one every 5 minutes (up to 1,200 requests/hour against a
+// 90/minute limit); a smaller batch on a longer cadence covers the same
+// gap for a fraction of the budget.
+Schedule::command('foodics:sync-order-status')->everyTenMinutes()->withoutOverlapping();
 
 // Scheduled push reminders — every 5 minutes, scan the scheduled_pushes
 // table and fire any row whose day-of-week + time-of-day window contains
@@ -51,13 +54,15 @@ Schedule::command('foodics:sync-order-status')->everyFiveMinutes()->withoutOverl
 // the same cron firing twice) can't double-send.
 Schedule::command('pushes:fire-due')->everyFiveMinutes()->withoutOverlapping();
 
-// Foodics catalog — every 5 minutes, keep the app catalog in lock-step
+// Foodics catalog — every 15 minutes, keep the app catalog in lock-step
 // with each store's Foodics menu group (categories, products, modifiers,
-// prices, availability). The command holds its own Cache lock (10-min
-// TTL) so a slow run can't be trampled by the next tick; the scheduler's
+// prices, availability). The command holds its own Cache lock (see
+// LOCK_TTL_SECONDS) so a slow run can't be trampled by the next tick; a
+// run now spaces its calls behind the shared rate limiter, so it takes
+// longer in wall-clock time than it used to. The scheduler's
 // withoutOverlapping() is a belt-and-braces guard for the same window.
 // runInBackground() so this can't block the per-minute queue worker tick.
 Schedule::command('foodics:sync-catalog')
-    ->everyFiveMinutes()
-    ->withoutOverlapping(10)
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(20)
     ->runInBackground();

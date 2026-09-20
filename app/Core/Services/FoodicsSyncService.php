@@ -12,6 +12,14 @@ use Illuminate\Support\Facades\Log;
 
 class FoodicsSyncService
 {
+    /**
+     * Upper bound on pages any single paginated sweep will fetch. At 100
+     * per page this is far above any real catalog, so it never truncates
+     * legitimate data — it exists so a malformed pagination response
+     * cannot turn a loop into an unbounded request source.
+     */
+    private const MAX_PAGES_PER_SWEEP = 50;
+
     public function __construct(
         private FoodicsClient $foodicsClient
     ) {
@@ -48,7 +56,7 @@ class FoodicsSyncService
             $page = 1;
             $hasMore = true;
 
-            while ($hasMore) {
+            while ($hasMore && $page <= self::MAX_PAGES_PER_SWEEP) {
                 $response = $this->foodicsClient->get('v5/categories', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
                     'per_page' => 50,
@@ -235,7 +243,11 @@ class FoodicsSyncService
 
         foreach ($groupIds as $groupId) {
             $page = 1;
-            while (true) {
+            // Hard page cap. The loop's real exit is `current_page >=
+            // last_page`, but that trusts the API's meta to advance; if it
+            // ever pins current_page this would spin, issuing a request
+            // per iteration until the budget is gone.
+            while ($page <= self::MAX_PAGES_PER_SWEEP) {
                 try {
                     $response = $this->foodicsClient->get(
                         'v5/products',
@@ -325,10 +337,14 @@ class FoodicsSyncService
             $page = 1;
             $hasMore = true;
 
-            while ($hasMore) {
+            while ($hasMore && $page <= self::MAX_PAGES_PER_SWEEP) {
+                // per_page 100 (the API max) rather than 50: halves the
+                // number of round trips for the same data, which matters
+                // against a 90-requests-per-minute budget shared with the
+                // order poll and live order pushes.
                 $response = $this->foodicsClient->get('v5/products', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
-                    'per_page' => 50,
+                    'per_page' => 100,
                     'include' => ['category', 'modifiers', 'modifiers.options'],
                     'filters' => $filters,
                 ]), $mode);
@@ -656,7 +672,7 @@ class FoodicsSyncService
             $page = 1;
             $hasMore = true;
 
-            while ($hasMore) {
+            while ($hasMore && $page <= self::MAX_PAGES_PER_SWEEP) {
                 $response = $this->foodicsClient->get('v5/modifiers', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page'    => $page,
                     'per_page' => 50,

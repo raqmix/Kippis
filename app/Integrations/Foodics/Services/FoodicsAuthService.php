@@ -75,6 +75,11 @@ class FoodicsAuthService
             // Test with a simple API call (e.g., get categories)
             $startTime = microtime(true);
 
+            // This probe bypasses FoodicsClient, so charge it to the shared
+            // per-minute budget by hand — otherwise an operator hammering
+            // "Test connection" spends requests the limiter cannot see.
+            app(FoodicsRateLimiter::class)->acquire('auth:test');
+
             $response = Http::timeout(config('foodics.timeout', 30))
                 ->withHeaders([
                     'Authorization' => "Bearer {$token}",

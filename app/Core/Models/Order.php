@@ -44,6 +44,7 @@ class Order extends Model
         'foodics_order_id',
         'foodics_reference',
         'foodics_pushed_at',
+        'foodics_polled_at',
         'frame_image_path',
     ];
 
@@ -60,6 +61,7 @@ class Order extends Model
             'deleted_at' => 'datetime',
             'refunded_amount' => 'integer',
             'foodics_pushed_at' => 'datetime',
+            'foodics_polled_at' => 'datetime',
         ];
     }
 
