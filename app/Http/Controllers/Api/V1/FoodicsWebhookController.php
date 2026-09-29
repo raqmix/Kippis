@@ -38,14 +38,19 @@ class FoodicsWebhookController extends Controller
         $foodicsOrderId = $data['id'] ?? $data['order_id'] ?? null;
         $rawStatus = $data['status'] ?? $data['order_status'] ?? null;
 
-        if (! $foodicsOrderId || $rawStatus === null) {
+        // A settled check is terminal even with no status on the event:
+        // closing payment stamps `closed_at` and leaves `status` alone, so
+        // a payment event can legitimately arrive without one.
+        $isSettled = FoodicsStatusMapper::isSettled($data);
+
+        if (! $foodicsOrderId || ($rawStatus === null && ! $isSettled)) {
             Log::warning('FOODICS_WEBHOOK_INCOMPLETE_PAYLOAD', [
                 'payload_keys' => array_keys($payload),
             ]);
             return response()->json(['error' => 'missing id or status'], 422);
         }
 
-        $newStatus = FoodicsStatusMapper::fromFoodics($rawStatus);
+        $newStatus = FoodicsStatusMapper::fromFoodicsOrder($data);
         if ($newStatus === null) {
             Log::info('FOODICS_WEBHOOK_UNMAPPED_STATUS', [
                 'foodics_order_id' => $foodicsOrderId,

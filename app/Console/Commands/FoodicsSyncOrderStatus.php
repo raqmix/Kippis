@@ -90,8 +90,10 @@ class FoodicsSyncOrderStatus extends Command
                 ? $response->data['data']
                 : $response->data;
 
-            $rawStatus = $data['status'] ?? null;
-            $newStatus = FoodicsStatusMapper::fromFoodics($rawStatus);
+            // Pass the whole order, not just `status`: closing payment on
+            // the POS stamps `closed_at` and leaves `status` untouched, so
+            // reading the status field alone never sees a settled check.
+            $newStatus = FoodicsStatusMapper::fromFoodicsOrder($data);
 
             if ($newStatus === null || $newStatus === $order->status) {
                 continue;
