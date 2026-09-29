@@ -240,7 +240,15 @@ class PushOrderToFoodics implements ShouldQueue
                 ? 'Pickup #' . $order->pickup_code
                 : 'Kippis #' . $order->id,
             'products' => $products,
-            'total' => (float) $order->total,
+            // Pre-discount, to match the product lines above: each line
+            // carries its full undiscounted unit_price, and `discount_amount`
+            // below tells Foodics what to take off. Sending the post-discount
+            // total here instead made the payload self-contradictory —
+            // Foodics computed lines-minus-discount but was handed a `total`
+            // that already had the discount applied, and settled the
+            // difference as change on the receipt (a 25.00 item with a 3.75
+            // discount printed as 25.00 paid + 3.75 change).
+            'total' => (float) $order->subtotal,
         ];
 
         // Foodics v5 rejects orders that carry `discount_amount` without a
@@ -253,6 +261,21 @@ class PushOrderToFoodics implements ShouldQueue
         if ($discount > 0) {
             $payload['discount_amount'] = $discount;
             $payload['discount_type']   = 1;
+        }
+
+        // Guard the invariant the bug above violated: whatever we send must
+        // reconcile as total - discount = the amount the customer actually
+        // paid. If it does not, the receipt will misreport the payment, so
+        // log loudly rather than let it print wrong.
+        $reconciled = round((float) $payload['total'] - $discount, 2);
+        if (abs($reconciled - round((float) $order->total, 2)) > 0.01) {
+            Log::error('FOODICS_PUSH_TOTAL_MISMATCH', [
+                'order_id' => $order->id,
+                'payload_total' => $payload['total'],
+                'discount' => $discount,
+                'reconciles_to' => $reconciled,
+                'order_total' => (float) $order->total,
+            ]);
         }
 
         if ($order->customer) {
