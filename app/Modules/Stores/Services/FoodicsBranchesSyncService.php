@@ -107,35 +107,82 @@ class FoodicsBranchesSyncService
             throw new \Exception('Branch is deleted in Foodics');
         }
 
-        // Ignore branches that don't receive online orders
-        if (isset($branchData['receive_online_orders']) && !$branchData['receive_online_orders']) {
+        // Ignore branches that don't receive online orders. Foodics v5 names
+        // this flag `receives_online_orders`; the old `receive_online_orders`
+        // key never exists in its payload, so this filter used to be a no-op.
+        $receivesOnline = $branchData['receives_online_orders']
+            ?? $branchData['receive_online_orders']
+            ?? null;
+        if ($receivesOnline !== null && ! $receivesOnline) {
             throw new \Exception('Branch does not receive online orders');
         }
 
         $foodicsBranchId = $branchData['id'] ?? null;
-        
+
         if (!$foodicsBranchId) {
             throw new \Exception('Branch ID is missing');
         }
 
-        $storeData = [
-            'name' => $branchData['name'] ?? '',
-            'name_localized' => $branchData['name_localized'] ?? null,
-            'address' => $branchData['address'] ?? null,
-            'latitude' => isset($branchData['latitude']) ? (float) $branchData['latitude'] : null,
-            'longitude' => isset($branchData['longitude']) ? (float) $branchData['longitude'] : null,
-            'open_time' => $branchData['open_time'] ?? null,
-            'close_time' => $branchData['close_time'] ?? null,
-            'is_active' => $branchData['is_active'] ?? true,
-            'receive_online_orders' => $branchData['receive_online_orders'] ?? true,
-            'foodics_branch_id' => $foodicsBranchId,
-            'synced_from_foodics_at' => now(),
-        ];
+        $store = Store::where('foodics_branch_id', $foodicsBranchId)->first();
 
-        return Store::updateOrCreate(
-            ['foodics_branch_id' => $foodicsBranchId],
-            $storeData
-        );
+        // Only fields Foodics actually has a value for. A null/blank from
+        // Foodics must not wipe what an admin set in Kippis (location,
+        // hours, Arabic name), since most Foodics branches carry none.
+        $fromFoodics = array_filter([
+            'name' => $this->blankToNull($branchData['name'] ?? null),
+            'address' => $this->blankToNull($branchData['address'] ?? null),
+            'latitude' => is_numeric($branchData['latitude'] ?? null) ? (float) $branchData['latitude'] : null,
+            'longitude' => is_numeric($branchData['longitude'] ?? null) ? (float) $branchData['longitude'] : null,
+            'phone' => $this->blankToNull($branchData['phone'] ?? null),
+        ], fn ($v) => $v !== null);
+
+        // Foodics sends opening_from/opening_to; equal values (00:00-00:00 is
+        // its default) mean "not configured", so leave Kippis hours alone.
+        $from = $this->blankToNull($branchData['opening_from'] ?? null);
+        $to = $this->blankToNull($branchData['opening_to'] ?? null);
+        if ($from && $to && $from !== $to) {
+            $fromFoodics['open_time'] = $from;
+            $fromFoodics['close_time'] = $to;
+        }
+
+        $arabic = $this->blankToNull($branchData['name_localized'] ?? null);
+        if ($arabic !== null) {
+            $existing = $store?->name_localized ?? [];
+            $fromFoodics['name_localized'] = array_merge(
+                is_array($existing) ? $existing : [],
+                ['en' => $fromFoodics['name'] ?? $store?->name, 'ar' => $arabic]
+            );
+        }
+
+        $fromFoodics['synced_from_foodics_at'] = now();
+
+        if ($store) {
+            // Visibility (is_active, receive_online_orders, employee/proximity
+            // flags) is owned by the Kippis admin and never touched by a sync:
+            // Foodics has no is_active on branches, and the old `?? true`
+            // default silently switched hidden branches back on.
+            $store->update($fromFoodics);
+
+            return $store;
+        }
+
+        // New branches arrive hidden. Going live needs a menu group and a
+        // deliberate switch-on in the admin, or customers see an empty branch.
+        return Store::create($fromFoodics + [
+            'name' => $branchData['reference'] ?? $foodicsBranchId,
+            'foodics_branch_id' => $foodicsBranchId,
+            'is_active' => false,
+            'receive_online_orders' => false,
+        ]);
+    }
+
+    private function blankToNull(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            $value = trim($value);
+        }
+
+        return ($value === '' || $value === null) ? null : $value;
     }
 
     /**
