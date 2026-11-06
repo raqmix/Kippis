@@ -127,18 +127,22 @@ class Product extends Model
     public function stores(): BelongsToMany
     {
         return $this->belongsToMany(Store::class, 'product_store')
+            ->withPivot('is_available')
             ->withTimestamps();
     }
 
     /**
      * Scope: products visible at a specific store. Returns products that
-     * are either explicitly linked to that store, OR have no store links
-     * at all (the "available everywhere" legacy default).
+     * are either linked to that store and not switched off there
+     * (product_store.is_available), OR have no store links at all (the
+     * "available everywhere" legacy default).
      */
     public function scopeAvailableAtStore($query, int $storeId)
     {
         return $query->where(function ($q) use ($storeId) {
-            $q->whereHas('stores', fn ($s) => $s->where('stores.id', $storeId))
+            // On this branch's menu AND not switched off there in Foodics.
+            $q->whereHas('stores', fn ($s) => $s->where('stores.id', $storeId)
+                    ->where('product_store.is_available', true))
               ->orWhereDoesntHave('stores');
         });
     }
