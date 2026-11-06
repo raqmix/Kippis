@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class MastercardPaymentService
 {
-    private function makeClient(): Client
+    protected function makeClient(): Client
     {
         return new Client(['timeout' => 30]);
     }
@@ -94,11 +94,36 @@ class MastercardPaymentService
             ];
         }
 
-        // PROCEED means 3DS is not required; anything else means we must call AUTHENTICATE_PAYER
-        $recommendation      = $body['response']['gatewayRecommendation'] ?? '';
-        $authenticationRequired = ($recommendation !== 'PROCEED');
+        // Per the MPGS 3DS guide: call AUTHENTICATE_PAYER only when
+        // transaction.authenticationStatus is AUTHENTICATION_AVAILABLE.
+        // gatewayRecommendation=PROCEED means "proceed WITH authentication",
+        // not "3DS not required". The old check read PROCEED as "skip 3DS",
+        // went straight to PAY with authentication.transactionId=auth_1 and
+        // MPGS rejected every card payment with "Value 'auth_1' is invalid.
+        // The transaction is in an invalid state." (prod, Sep-Oct 2026).
+        $recommendation = (string) ($body['response']['gatewayRecommendation'] ?? '');
+        $authStatus     = (string) ($body['transaction']['authenticationStatus'] ?? '');
+        $available      = $authStatus === 'AUTHENTICATION_AVAILABLE';
 
-        return ['success' => true, 'authentication_required' => $authenticationRequired];
+        if (! $available && $recommendation === 'RESUBMIT_WITH_ALTERNATIVE_PAYMENT_DETAILS') {
+            Log::info('Mastercard INITIATE_AUTHENTICATION: card not eligible', [
+                'authentication_status' => $authStatus,
+                'recommendation' => $recommendation,
+            ]);
+            return [
+                'success' => false, 'error' => 'CARD_NOT_SUPPORTED',
+                'message' => 'card_not_supported_use_another',
+                'status'  => 422,
+            ];
+        }
+
+        return [
+            'success' => true,
+            // Kept for callers: true = must run AUTHENTICATE_PAYER next.
+            'authentication_required' => $available,
+            'authentication_status'   => $authStatus,
+            'recommendation'          => $recommendation,
+        ];
     }
 
     /**
@@ -176,24 +201,47 @@ class MastercardPaymentService
             ];
         }
 
-        $authStatus  = $responseBody['transaction']['authenticationStatus'] ?? '';
-        $redirectHtml = $responseBody['authentication']['redirect']['html'] ?? null;
+        $authStatus     = (string) ($responseBody['transaction']['authenticationStatus'] ?? '');
+        $recommendation = (string) ($responseBody['response']['gatewayRecommendation'] ?? '');
+        $redirectHtml   = $responseBody['authentication']['redirect']['html'] ?? null;
 
-        // 3DS challenge required — return the redirect HTML for the browser to submit
-        if ($redirectHtml && in_array($authStatus, [
+        // Challenge: MPGS returns AUTHENTICATION_PENDING plus the redirect
+        // HTML that runs the issuer's challenge (OTP) in the payer's browser.
+        // The two legacy values are kept in case an older API version
+        // reports them; the old code only checked those, so real challenges
+        // (AUTHENTICATION_PENDING) fell through to an immediate PAY.
+        if ($statusCode >= 200 && $statusCode < 300 && $redirectHtml && in_array($authStatus, [
+            'AUTHENTICATION_PENDING',
             'AUTHENTICATION_REDIRECT',
             'PAYER_AUTHENTICATION_IN_PROGRESS',
-        ])) {
+        ], true)) {
             return [
-                'success'          => true,
+                'success'           => true,
                 'requires_redirect' => true,
-                'redirect_html'    => $redirectHtml,
+                'redirect_html'     => $redirectHtml,
             ];
         }
 
-        // Frictionless / 3DS not supported — the session already has auth data, proceed to PAY
-        if ($statusCode >= 200 && $statusCode < 300) {
+        // Frictionless: the issuer authenticated without a challenge (or an
+        // attempt was recorded) — PAY may reference this authentication.
+        if ($statusCode >= 200 && $statusCode < 300
+            && in_array($authStatus, ['AUTHENTICATION_SUCCESSFUL', 'AUTHENTICATION_ATTEMPTED'], true)) {
             return ['success' => true, 'requires_redirect' => false];
+        }
+
+        // Anything else (AUTHENTICATION_FAILED / REJECTED / UNAVAILABLE, or
+        // a recommendation other than PROCEED) must not be charged.
+        if ($statusCode >= 200 && $statusCode < 300) {
+            Log::warning('Mastercard AUTHENTICATE_PAYER not authenticated', [
+                'authentication_status' => $authStatus,
+                'recommendation'        => $recommendation,
+            ]);
+            return [
+                'success' => false,
+                'error'   => 'CARD_AUTH_DECLINED',
+                'message' => 'card_authentication_failed',
+                'status'  => 422,
+            ];
         }
 
         Log::warning('Mastercard AUTHENTICATE_PAYER unexpected response', ['status' => $statusCode, 'body' => $responseBody]);
