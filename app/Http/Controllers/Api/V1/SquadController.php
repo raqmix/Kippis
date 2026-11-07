@@ -157,6 +157,23 @@ class SquadController extends Controller
         $customer = auth('api')->user();
         $store    = Store::findOrFail($data['store_id']);
 
+        // Same per-branch availability guard as the single-customer checkout:
+        // a squad cart built before an item was switched off at this branch
+        // must not start split-pay.
+        $unavailableResponse = $this->guardItemsAvailableAtStore(
+            $session->cartItems()->with('product')->get()
+                ->filter(fn (SquadCartItem $item) => $item->product_id)
+                ->map(fn (SquadCartItem $item) => [
+                    'product_id' => (int) $item->product_id,
+                    'name' => $item->product?->getName(app()->getLocale()),
+                ])
+                ->values(),
+            (int) $store->id
+        );
+        if ($unavailableResponse) {
+            return $unavailableResponse;
+        }
+
         try {
             $session = $this->service->initiateSplitCheckout($customer, $session, $store, $data);
         } catch (\DomainException $e) {

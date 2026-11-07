@@ -93,6 +93,24 @@ class KioskOrderController extends Controller
             return apiError('CART_EMPTY', 'cart_empty', 400);
         }
 
+        // The kiosk caches its catalog, so an item switched off at this
+        // branch after the last refresh can still be in the cart.
+        // Inactive products keep their existing 400 from the repository.
+        $unavailableResponse = $this->guardItemsAvailableAtStore(
+            collect($items)
+                ->filter(fn ($item) => ($item['item_type'] ?? 'product') === 'product' && ! empty($item['product_id']))
+                ->map(fn ($item) => [
+                    'product_id' => (int) $item['product_id'],
+                    'name' => $item['name'] ?? null,
+                ])
+                ->values(),
+            (int) $store->id,
+            requireActive: false
+        );
+        if ($unavailableResponse) {
+            return $unavailableResponse;
+        }
+
         try {
             // Create guest order directly from items. Prices/totals are recomputed
             // server-side inside the repository — client money fields are ignored.

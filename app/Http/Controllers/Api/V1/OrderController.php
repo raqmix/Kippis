@@ -151,41 +151,18 @@ class OrderController extends Controller
         // hides them, but a cart built before the switch-off, or against a
         // different branch, must not reach the counter.
         $checkoutStoreId = (int) ($request->input('store_id') ?? $cart->store_id);
-        if ($checkoutStoreId > 0) {
-            $productIds = $cart->items
+        $unavailableResponse = $this->guardItemsAvailableAtStore(
+            $cart->items
                 ->filter(fn ($item) => ($item->item_type ?? 'product') === 'product' && $item->product_id)
-                ->pluck('product_id')
-                ->unique()
-                ->values();
-
-            if ($productIds->isNotEmpty()) {
-                $availableIds = \App\Core\Models\Product::query()
-                    ->whereIn('id', $productIds)
-                    ->active()
-                    ->availableAtStore($checkoutStoreId)
-                    ->pluck('id');
-                $unavailable = $productIds->diff($availableIds);
-
-                if ($unavailable->isNotEmpty()) {
-                    $names = $cart->items
-                        ->whereIn('product_id', $unavailable->all())
-                        ->map(fn ($item) => $item->name ?? $item->product?->getName(app()->getLocale()))
-                        ->filter()
-                        ->unique()
-                        ->implode(', ');
-
-                    return response()->json([
-                        'success' => false,
-                        'error' => [
-                            'code' => 'ITEMS_UNAVAILABLE',
-                            'message' => app()->getLocale() === 'ar'
-                                ? 'بعض المنتجات غير متاحة في هذا الفرع حالياً: ' . $names
-                                : 'Some items are not available at this branch right now: ' . $names,
-                            'product_ids' => $unavailable->values()->all(),
-                        ],
-                    ], 422);
-                }
-            }
+                ->map(fn ($item) => [
+                    'product_id' => (int) $item->product_id,
+                    'name' => $item->name ?? $item->product?->getName(app()->getLocale()),
+                ])
+                ->values(),
+            $checkoutStoreId
+        );
+        if ($unavailableResponse) {
+            return $unavailableResponse;
         }
 
         if ($paymentMethod->code === 'card') {
