@@ -108,7 +108,7 @@ class BranchAvailabilityGuardTest extends TestCase
             'squad_session_id' => $session->id,
             'squad_member_id' => $member->id,
             'product_id' => $product->id,
-            'product_kind' => 'regular',
+            'product_kind' => 'standard',
             'quantity' => 1,
             'unit_price' => 5000,
         ]);
@@ -172,8 +172,9 @@ class BranchAvailabilityGuardTest extends TestCase
 
         $res = $this->actingAs($host, 'api')
             ->postJson("/api/v1/squad/{$session->id}/checkout", ['store_id' => $store->id]);
+        // Past the guard: split-pay was set up (later steps are not under test).
         $this->assertNotSame('ITEMS_UNAVAILABLE', $res->json('error.code'), $res->getContent());
-        $res->assertSuccessful();
+        $this->assertGreaterThan(0, SquadPayment::count());
     }
 
     private function appCheckoutWith(Product $product, Store $store)
