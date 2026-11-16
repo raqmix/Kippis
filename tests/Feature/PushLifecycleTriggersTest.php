@@ -145,6 +145,41 @@ class PushLifecycleTriggersTest extends TestCase
         $this->assertCount(2, $this->fcm->sent, 'new month: may notify again');
     }
 
+    public function test_points_expiring_sees_lots_carried_over_by_the_rescale(): void
+    {
+        $c = $this->customer();
+        $w = $this->wallet($c, 6);
+        // loyalty:rescale closed out 60 old points and re-issued them as a
+        // 'rescale' lot that keeps the original expiry; the candidate filter
+        // must find the wallet through that lot alone (no earned row here)
+        LoyaltyTransaction::create(['wallet_id' => $w->id, 'type' => 'adjusted', 'points' => 60]);
+        LoyaltyTransaction::create(['wallet_id' => $w->id, 'type' => 'rescale', 'points' => -60, 'reference_type' => LoyaltyTransaction::REF_RESCALE_CLOSE]);
+        LoyaltyTransaction::create([
+            'wallet_id' => $w->id, 'type' => 'rescale', 'points' => 6, 'reference_type' => LoyaltyTransaction::REF_RESCALE_LOT,
+            'expires_at' => Carbon::parse('2026-11-25 10:00', 'Africa/Cairo')->utc(),
+        ]);
+
+        $this->run_('points_expiring');
+        $this->assertSame(['points_expiring'], $this->fcm->types());
+    }
+
+    public function test_points_expiring_ignores_a_rescale_close_out_of_old_lots(): void
+    {
+        // the old-scale earn was due soon, but the rescale carried it over
+        // into a lot that expires next year: no warning now
+        $c = $this->customer();
+        $w = $this->wallet($c, 6);
+        $this->earn($w, 60, '2026-11-25 10:00');
+        LoyaltyTransaction::create(['wallet_id' => $w->id, 'type' => 'rescale', 'points' => -60, 'reference_type' => LoyaltyTransaction::REF_RESCALE_CLOSE]);
+        LoyaltyTransaction::create([
+            'wallet_id' => $w->id, 'type' => 'rescale', 'points' => 6, 'reference_type' => LoyaltyTransaction::REF_RESCALE_LOT,
+            'expires_at' => Carbon::parse('2027-11-25 10:00', 'Africa/Cairo')->utc(),
+        ]);
+
+        $this->run_('points_expiring');
+        $this->assertSame([], $this->fcm->types());
+    }
+
     // ---- enough_points_for_gift ----------------------------------------
 
     public function test_enough_points_once_per_crossing(): void

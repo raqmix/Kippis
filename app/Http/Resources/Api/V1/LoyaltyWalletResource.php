@@ -2,10 +2,9 @@
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Core\Models\LoyaltyTransaction;
+use App\Services\Loyalty\PointsExpiry;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\DB;
 
 class LoyaltyWalletResource extends JsonResource
 {
@@ -29,52 +28,21 @@ class LoyaltyWalletResource extends JsonResource
      * least one earned chunk will expire within the next 30 days AND
      * the customer hasn't already redeemed those points (FIFO).
      *
-     * Mirrors ExpireLoyaltyPointsCommand::computeExpiringForWallet but
-     * with a now+30d horizon instead of now. Returns null when nothing
+     * Same maths as ExpireLoyaltyPointsCommand (PointsExpiry) with a
+     * now+30d horizon instead of now. Returns null when nothing
      * is at risk — the mobile UI hides the banner entirely in that case.
      */
     private function expiringSoonSummary(): ?array
     {
         $horizon = now()->addDays(30);
+        $expiry = app(PointsExpiry::class);
 
-        $pool = (int) LoyaltyTransaction::query()
-            ->where('wallet_id', $this->id)
-            ->where('type', LoyaltyTransaction::TYPE_EARNED)
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', $horizon)
-            ->sum('points');
-
-        if ($pool <= 0) {
-            return null;
-        }
-
-        $consumed = (int) LoyaltyTransaction::query()
-            ->where('wallet_id', $this->id)
-            ->whereIn('type', [
-                LoyaltyTransaction::TYPE_REDEEMED,
-                LoyaltyTransaction::TYPE_EXPIRED,
-            ])
-            ->sum(DB::raw('ABS(points)'));
-
-        $consumed += (int) LoyaltyTransaction::query()
-            ->where('wallet_id', $this->id)
-            ->where('type', LoyaltyTransaction::TYPE_ADJUSTED)
-            ->where('points', '<', 0)
-            ->sum(DB::raw('ABS(points)'));
-
-        $atRisk = max(0, $pool - $consumed);
-        $atRisk = (int) min($atRisk, (int) $this->points);
-
+        $atRisk = $expiry->expiringBy($this->resource, $horizon);
         if ($atRisk <= 0) {
             return null;
         }
 
-        $nextExpiry = LoyaltyTransaction::query()
-            ->where('wallet_id', $this->id)
-            ->where('type', LoyaltyTransaction::TYPE_EARNED)
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', $horizon)
-            ->min('expires_at');
+        $nextExpiry = $expiry->nextExpiryBy($this->resource, $horizon);
 
         return [
             'points' => $atRisk,

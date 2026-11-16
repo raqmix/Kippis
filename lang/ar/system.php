@@ -501,6 +501,8 @@ return [
     'feedback_points_per_rating' => 'نقاط لكل تقييم',
     'feedback_points_per_rating_help' => 'تُمنح مرة واحدة لكل طلب عند أول تقييم.',
     'loyalty_settings_saved' => 'تم حفظ إعدادات الولاء',
+    'loyalty_settings_stale' => 'لم يتم الحفظ: تم تغيير مقياس نقاط الولاء',
+    'loyalty_settings_stale_body' => 'قيم النقاط في هذه الصفحة من قبل تغيير المقياس. أعد تحميل الصفحة ثم أدخل تعديلاتك مرة أخرى.',
     'points_redemption' => 'استبدال النقاط',
     'points_redemption_help' => 'المفتاح الرئيسي ومعدلات الصرف لاستخدام النقاط في المكافآت أو كخصم على السلة.',
     'redemption_enabled' => 'تفعيل الاستبدال',

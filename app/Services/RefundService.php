@@ -217,20 +217,13 @@ class RefundService
 
         try {
             $wallet = $this->loyaltyRepo->getOrCreateForCustomer($order->customer_id);
-            // Match the OrderObserver's source of truth (admin-editable
-            // setting first, env fallback). Refunds deduct the same
-            // points formula that awarded them.
-            $pointsPerEgp = (int) \App\Core\Models\Setting::get(
-                'loyalty.points_per_order_egp',
-                (int) config('core.loyalty.points_per_order_egp', 1),
-            );
-            $points = (int) round($order->total * $pointsPerEgp);
+            $points = $this->pointsToReverse($wallet, $order);
 
             if ($points > 0) {
                 $this->loyaltyRepo->deductPoints(
                     $wallet,
                     $points,
-                    'deducted',
+                    \App\Core\Models\LoyaltyTransaction::TYPE_DEDUCTED,
                     "Points reversed for refunded order #{$order->id}",
                     'order',
                     $order->id,
@@ -241,4 +234,34 @@ class RefundService
         }
     }
 
+    /**
+     * Reverse exactly what the order earned according to the ledger (the
+     * earn may have carried a double-points multiplier, used
+     * `loyalty.egp_per_point` or the legacy rate), not a re-computation
+     * from today's settings. An earn posted before a loyalty:rescale is
+     * converted to the current scale (floor: the customer kept the ceil
+     * of their balance, so reversing less can never take more than the
+     * order is worth today). Anything already reversed is not taken twice.
+     */
+    private function pointsToReverse(\App\Core\Models\LoyaltyWallet $wallet, Order $order): int
+    {
+        $windowStart = app(\App\Services\Loyalty\PointsExpiry::class)->windowStart($wallet);
+        $factor = max(1, (int) \App\Core\Models\Setting::get('loyalty.rescaled_factor', 1));
+
+        $rows = \App\Core\Models\LoyaltyTransaction::query()
+            ->where('wallet_id', $wallet->id)
+            ->where('reference_type', 'order')
+            ->where('reference_id', $order->id)
+            ->whereIn('type', [
+                \App\Core\Models\LoyaltyTransaction::TYPE_EARNED,
+                \App\Core\Models\LoyaltyTransaction::TYPE_DEDUCTED,
+            ])
+            ->get(['id', 'points']);
+
+        $old = $rows->where('id', '<=', $windowStart);
+        $new = $rows->where('id', '>', $windowStart);
+        $oldNet = max(0, (int) $old->sum('points'));
+
+        return max(0, (int) floor($oldNet / $factor) + (int) $new->sum('points'));
+    }
 }

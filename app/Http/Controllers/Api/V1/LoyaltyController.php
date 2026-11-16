@@ -47,7 +47,11 @@ class LoyaltyController extends Controller
         $wallet = $this->loyaltyWalletRepository->getOrCreateForCustomer($customer->id);
 
         $wallet->load(['transactions' => function ($query) {
-            $query->latest()->limit(10);
+            // Rescale rows are bookkeeping for the 1-point-per-10-EGP switch.
+            // App builds up to 1.0.7 show every non-"earned" row with a minus
+            // sign, so they would read as lost points: keep them out of history.
+            $query->where('type', '!=', \App\Core\Models\LoyaltyTransaction::TYPE_RESCALE)
+                ->latest()->limit(10);
         }]);
 
         return apiSuccess(new LoyaltyWalletResource($wallet));

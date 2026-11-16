@@ -38,7 +38,8 @@ class PushesLifecycleTriggersCommand extends Command
     protected $description = 'Send the daily lifecycle pushes (gift/points expiring, enough/close to a gift).';
 
     private const TRIGGERS = ['gift_expiring', 'points_expiring', 'enough_points_for_gift', 'close_to_gift'];
-    private const CLOSE_TO_GIFT_POINTS = 10;
+    /** Default "within N points of a gift" window; Setting loyalty.close_to_gift_points overrides it. */
+    public const CLOSE_TO_GIFT_POINTS = 10;
     private const POINTS_EXPIRING_DAYS = 14;
     private const CHUNK = 500;
 
@@ -112,8 +113,11 @@ class PushesLifecycleTriggersCommand extends Command
         LoyaltyWallet::query()
             ->where('points', '>', 0)
             ->whereHas('customer', fn (Builder $c) => $this->eligible($c))
+            // Candidate filter only (expiringBy below decides): earn lots, and
+            // the lots loyalty:rescale carried over (type rescale, original expiry).
             ->whereHas('transactions', fn (Builder $t) => $t
-                ->where('type', LoyaltyTransaction::TYPE_EARNED)
+                ->whereIn('type', [LoyaltyTransaction::TYPE_EARNED, LoyaltyTransaction::TYPE_RESCALE])
+                ->where('points', '>', 0)
                 ->where('expires_at', '>', $now)
                 ->where('expires_at', '<=', $cutoff))
             ->with('customer')
@@ -173,19 +177,21 @@ class PushesLifecycleTriggersCommand extends Command
             return;
         }
         $week = $this->cairoNow->format('o-\WW');
+        // Point-denominated, so loyalty:rescale scales it with everything else.
+        $window = max(1, (int) Setting::get('loyalty.close_to_gift_points', self::CLOSE_TO_GIFT_POINTS));
 
-        $query = $this->walletsQuery()->where(function (Builder $q) use ($items) {
+        $query = $this->walletsQuery()->where(function (Builder $q) use ($items, $window) {
             foreach ($items as $item) {
-                $q->orWhereBetween('points', [max(0, $item->points_cost - self::CLOSE_TO_GIFT_POINTS), $item->points_cost - 1]);
+                $q->orWhereBetween('points', [max(0, $item->points_cost - $window), $item->points_cost - 1]);
             }
         });
 
-        $query->chunkById(self::CHUNK, function ($wallets) use ($items, $week) {
+        $query->chunkById(self::CHUNK, function ($wallets) use ($items, $week, $window) {
             $pairs = [];
             foreach ($wallets as $wallet) {
                 // next item = the cheapest one the customer cannot afford yet
                 $next = $items->first(fn ($i) => $i->points_cost > $wallet->points);
-                if (! $next || $next->points_cost - $wallet->points > self::CLOSE_TO_GIFT_POINTS) {
+                if (! $next || $next->points_cost - $wallet->points > $window) {
                     continue;
                 }
                 $pairs[$wallet->customer_id] = ["close_to_gift:{$next->id}:{$week}", $wallet, $next];
@@ -219,6 +225,9 @@ class PushesLifecycleTriggersCommand extends Command
                 LoyaltyTransaction::query()->select('id')
                     ->whereColumn('wallet_id', 'loyalty_wallets.id')
                     ->where('points', '<', 0)
+                    // a loyalty:rescale close-out is not a spend: it must not
+                    // restart the "enough points" crossing for every wallet
+                    ->where('type', '!=', LoyaltyTransaction::TYPE_RESCALE)
                     ->orderByDesc('id')->limit(1),
                 'last_deduction_id',
             )

@@ -538,6 +538,8 @@ return [
     'feedback_points_per_rating' => 'Points per rating',
     'feedback_points_per_rating_help' => 'Awarded once per order on first rating.',
     'loyalty_settings_saved' => 'Loyalty settings saved',
+    'loyalty_settings_stale' => 'Not saved: loyalty points were rescaled',
+    'loyalty_settings_stale_body' => 'The point values on this page are from before the rescale. Reload the page and make your changes again.',
     'points_redemption' => 'Points redemption',
     'points_redemption_help' => 'Master switch and exchange-rate knobs for spending points on rewards and as cart discount.',
     'redemption_enabled' => 'Redemption enabled',

@@ -23,6 +23,14 @@ class LoyaltyTransaction extends Model
     public const TYPE_REDEEMED = 'redeemed';
     public const TYPE_ADJUSTED = 'adjusted';
     public const TYPE_EXPIRED = 'expired';
+    public const TYPE_DEDUCTED = 'deducted';
+    /** Bookkeeping rows written by `loyalty:rescale` (see LoyaltyRescaler). */
+    public const TYPE_RESCALE = 'rescale';
+
+    /** reference_type of the rescale close-out row (points = -old balance). */
+    public const REF_RESCALE_CLOSE = 'loyalty_rescale_close';
+    /** reference_type of the rescale re-issue rows (new-scale lots). */
+    public const REF_RESCALE_LOT = 'loyalty_rescale_lot';
 
     protected $fillable = [
         'wallet_id',
