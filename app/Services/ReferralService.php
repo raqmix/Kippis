@@ -63,7 +63,9 @@ class ReferralService
         return [
             'referral_code'          => $code,
             'share_url'              => $shareUrl,
-            'share_text'             => "Join Kippis with my code {$code} and get free points! {$shareUrl}",
+            'share_text'             => $this->rewardType() === 'free_coffee'
+                ? "Join Kippis with my code {$code} and we both get a free coffee on your first order! {$shareUrl}"
+                : "Join Kippis with my code {$code} and get free points! {$shareUrl}",
             'conversions_this_month' => (clone $converted)
                 ->whereBetween('converted_at', [now()->startOfMonth(), now()->endOfMonth()])
                 ->count(),
