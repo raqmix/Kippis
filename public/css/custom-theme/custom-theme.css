@@ -1,0 +1,365 @@
+@import '../../vendor/filament/filament/resources/css/theme.css';
+
+:root {
+    /* Primary Colors */
+    --primary-50: #f5f3ff;
+    --primary-100: #ede9fe;
+    --primary-200: #ddd6fe;
+    --primary-300: #c4b5fd;
+    --primary-400: #a78bfa;
+    --primary-500: #7B6CF6;
+    --primary-600: #6A5AE0;
+    --primary-700: #5b21b6;
+    --primary-800: #4c1d95;
+    --primary-900: #312e81;
+    --primary-950: #1e1b4b;
+
+    /* App Background */
+    --app-background: #F6F7FB;
+    --card-background: #FFFFFF;
+    --soft-section-bg: #F1F2F8;
+
+    /* Text Colors */
+    --text-primary: #1F2937;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+
+    /* Accent Colors */
+    --accent: #4FD1C5;
+    --accent-soft: #E6FFFA;
+
+    /* Status Colors */
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --info: #60A5FA;
+
+    /* Facebook Notification Colors */
+    --fb-unread-bg: #E7F3FF;
+    --fb-hover-bg: #F2F2F2;
+    --fb-blue-dot: #1877F2;
+}
+
+[data-theme="light"] {
+    --background: var(--app-background);
+    --card: var(--card-background);
+    --muted: var(--soft-section-bg);
+}
+
+/* RTL Support */
+[dir="rtl"] {
+    direction: rtl;
+}
+
+[dir="rtl"] .fi-sidebar-nav {
+    direction: rtl;
+}
+
+/* Ensure proper RTL layout */
+.fi-topbar-item[dir="rtl"] {
+    direction: rtl;
+}
+
+.fi-topbar-item[dir="rtl"] button,
+.fi-topbar-item[dir="rtl"] a,
+.fi-topbar-item[dir="rtl"] p {
+    text-align: right;
+}
+
+/* Facebook-Style Notification Styles - Enhanced Beautiful Design */
+.facebook-notifications {
+    position: relative;
+}
+
+.facebook-notification-dropdown {
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.25), 0 8px 16px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(20px) saturate(180%);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.dark .facebook-notification-dropdown {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(17, 24, 39, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5), 0 8px 16px -4px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.facebook-notification-item {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.facebook-notification-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--primary-500), var(--primary-400));
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.facebook-notification-item:not(.bg-white):not(.dark\\:bg-gray-900)::before {
+    opacity: 1;
+}
+
+.facebook-notification-item:last-child {
+    border-bottom: none;
+}
+
+.facebook-notification-item:hover {
+    background: linear-gradient(90deg, rgba(242, 242, 242, 0.8), rgba(242, 242, 242, 0.6)) !important;
+    transform: translateX(2px);
+    box-shadow: inset 0 0 0 1px rgba(123, 108, 246, 0.1);
+}
+
+.dark .facebook-notification-item:hover {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.05)) !important;
+    box-shadow: inset 0 0 0 1px rgba(123, 108, 246, 0.2);
+}
+
+/* Facebook-style scrollbar */
+.facebook-notification-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.facebook-notification-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.dark .facebook-notification-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .facebook-notification-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Enhanced Topbar Styling - Beautiful Design */
+.fi-topbar {
+    height: 4.5rem;
+    backdrop-filter: blur(20px) saturate(180%);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.95) 100%);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+    position: relative;
+}
+
+.fi-topbar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(123, 108, 246, 0.3), transparent);
+}
+
+.dark .fi-topbar {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(17, 24, 39, 0.95) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.dark .fi-topbar::before {
+    background: linear-gradient(90deg, transparent, rgba(123, 108, 246, 0.4), transparent);
+}
+
+/* Topbar Right Cluster Container */
+.fi-topbar-right-cluster {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 100%;
+}
+
+/* Topbar Items - Proper Spacing and Alignment */
+.fi-topbar-item {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    position: relative;
+}
+
+.fi-topbar-item-button {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.85rem;
+    width: 2.85rem;
+    position: relative;
+    border-radius: 0.85rem;
+    background: transparent;
+}
+
+.fi-topbar-item-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0.75rem;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(123, 108, 246, 0.2), rgba(123, 108, 246, 0.05));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.fi-topbar-item-button:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(135deg, rgba(123, 108, 246, 0.1), rgba(123, 108, 246, 0.05));
+    box-shadow: 0 4px 12px rgba(123, 108, 246, 0.15), 0 2px 4px rgba(123, 108, 246, 0.1);
+}
+
+.fi-topbar-item-button:hover::before {
+    opacity: 1;
+}
+
+.dark .fi-topbar-item-button:hover {
+    background: linear-gradient(135deg, rgba(123, 108, 246, 0.15), rgba(123, 108, 246, 0.08));
+    box-shadow: 0 4px 12px rgba(123, 108, 246, 0.25), 0 2px 4px rgba(123, 108, 246, 0.15);
+}
+
+.fi-topbar-item-button:active {
+    transform: translateY(0);
+    transition: transform 0.1s ease;
+}
+
+/* Notification Badge Positioning */
+.fi-topbar-item .absolute {
+    top: -0.25rem;
+    right: -0.25rem;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.dark .fi-topbar-item .absolute {
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5), 0 0 0 2px rgba(17, 24, 39, 0.8);
+}
+
+@keyframes pulse-badge {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.9;
+        transform: scale(1.05);
+    }
+}
+
+/* Icon Button Enhancements */
+.fi-topbar-item-button .fi-icon {
+    height: 1.65rem;
+    width: 1.65rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fi-topbar-item-button:hover .fi-icon {
+    transform: scale(1.1);
+    filter: drop-shadow(0 2px 4px rgba(123, 108, 246, 0.3));
+}
+
+/* Language Dropdown Icon Enhancement */
+.fi-topbar-item [data-filament-dropdown-trigger] {
+    transition: all 0.3s ease;
+}
+
+.fi-topbar-item [data-filament-dropdown-trigger]:hover {
+    transform: rotate(5deg) scale(1.05);
+}
+
+/* Modern Button Styles */
+.fi-btn {
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.fi-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.fi-btn:active {
+    transform: translateY(0);
+}
+
+/* Enhanced Card Shadows */
+.fi-section {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease;
+}
+
+.fi-section:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Improved Typography */
+.fi-section-header-title {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+/* Smooth Transitions */
+* {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Enhanced Focus States */
+.fi-topbar-item-button:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+/* Better Spacing */
+.fi-section-content {
+    padding: 1.5rem;
+}
+
+/* Modern Input Fields */
+.fi-input {
+    transition: all 0.2s ease;
+}
+
+.fi-input:focus {
+    box-shadow: 0 0 0 3px rgba(123, 108, 246, 0.1);
+}
+
+/* Improved Table Styles */
+.fi-ta-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.fi-ta-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.fi-ta-table tbody tr:hover {
+    background-color: rgba(123, 108, 246, 0.05);
+}

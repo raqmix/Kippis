@@ -26,7 +26,7 @@ class CustomTheme implements \Filament\Contracts\Plugin
     
     protected function getRtlAsset(): Asset
     {
-        return Css::make('rtl-support', __DIR__ . '/../../resources/css/filament/admin/rtl.css');
+        return Css::make('rtl-support', __DIR__ . '/../../../resources/css/filament/admin/rtl.css');
     }
 
     public function boot(\Filament\Panel $panel): void
@@ -46,7 +46,7 @@ class CustomTheme implements \Filament\Contracts\Plugin
 
     protected function getThemeAsset(): Asset
     {
-        return Css::make('custom-theme', __DIR__ . '/../../resources/css/filament/admin/theme.css');
+        return Css::make('custom-theme', __DIR__ . '/../../../resources/css/filament/admin/theme.css');
     }
 
     public static function make(): static

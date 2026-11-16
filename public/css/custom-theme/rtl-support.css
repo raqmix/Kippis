@@ -1,0 +1,33 @@
+/* RTL Support for Arabic Locale */
+[dir="rtl"] {
+    direction: rtl;
+}
+
+[dir="rtl"] .fi-topbar-item {
+    direction: rtl;
+}
+
+[dir="rtl"] .fi-sidebar {
+    direction: rtl;
+}
+
+[dir="rtl"] .fi-main {
+    direction: rtl;
+}
+
+/* RTL adjustments for dropdowns */
+[dir="rtl"] .fi-topbar-item [x-show] {
+    right: auto;
+    left: 0;
+}
+
+/* RTL text alignment */
+[dir="rtl"] .fi-table td,
+[dir="rtl"] .fi-table th {
+    text-align: right;
+}
+
+[dir="rtl"] .fi-form-component-label {
+    text-align: right;
+}
+

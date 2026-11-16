@@ -5,6 +5,13 @@ use Knuckles\Scribe\Config\Defaults;
 use Knuckles\Scribe\Config\AuthIn;
 use function Knuckles\Scribe\Config\{removeStrategies, configureStrategy};
 
+// Scribe is a dev dependency. Without it (composer install --no-dev) this
+// file must not reference its classes, or every boot (package:discover,
+// config:cache, each request) fails.
+if (! class_exists(Defaults::class)) {
+    return [];
+}
+
 // Only the most common configs are shown. See the https://scribe.knuckles.wtf/laravel/reference/config for all.
 
 return [
