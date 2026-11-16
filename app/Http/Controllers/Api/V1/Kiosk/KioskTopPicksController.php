@@ -41,6 +41,7 @@ class KioskTopPicksController extends Controller
 
         $products = Product::whereIn('id', $topIds)
             ->active()
+            ->visibleOnPlatform()
             ->get()
             ->keyBy('id');
 
