@@ -98,6 +98,24 @@ class PartnerCodeTest extends TestCase
         $this->assertSame($customer->id, Referral::where('referral_code', 'FRIEND1')->first()->invitee_id);
     }
 
+    public function test_signup_code_accepts_reusable_personal_codes_for_many_friends_any_case(): void
+    {
+        $inviter = Customer::factory()->create();
+        $code = $this->actingAs($inviter, 'api')->getJson('/api/v1/referral/code')->assertOk()->json('data.referral_code');
+        $this->assertSame(0, Referral::whereNotNull('invitee_id')->count());
+
+        $this->register(['signup_code' => $code])->assertCreated();
+        $first = Customer::latest('id')->first();
+        $this->register(['signup_code' => strtolower($code)])->assertCreated();
+        $second = Customer::latest('id')->first();
+
+        $this->assertNotSame($first->id, $second->id);
+        foreach ([$first, $second] as $friend) {
+            $this->assertSame($inviter->id, Referral::where('invitee_id', $friend->id)->value('inviter_id'));
+        }
+        $this->register(['signup_code' => 'NOT-A-CODE'])->assertStatus(422);
+    }
+
     public function test_invalid_signup_code_is_422_with_message(): void
     {
         $this->register(['signup_code' => 'WHATEVER'])

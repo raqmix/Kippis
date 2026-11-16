@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Core\Models\PartnerCode;
-use App\Core\Models\Referral;
 use App\Core\Models\Setting;
+use App\Services\ReferralService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -72,8 +72,10 @@ class RegisterCustomerRequest extends FormRequest
             return ['type' => 'partner', 'partner' => $partner];
         }
 
+        // Personal reusable codes (customers.referral_code) and legacy
+        // pending referral codes both resolve through findInviter().
         if (Setting::get('referral.enabled', true)
-            && Referral::where('referral_code', $code)->where('status', 'pending')->whereNull('invitee_id')->exists()) {
+            && app(ReferralService::class)->findInviter($code)) {
             return ['type' => 'referral', 'code' => $code];
         }
 
