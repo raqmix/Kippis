@@ -157,6 +157,31 @@ class AppOfferTest extends TestCase
         $this->assertEquals(70.00, (float) $order->total);
     }
 
+    public function test_points_charged_are_reduced_to_the_capped_discount(): void
+    {
+        Setting::set('loyalty.points_to_egp_rate', 10, 'number', 'loyalty');
+        $product = Product::factory()->create(['base_price' => 100]);
+        $cart = $this->cartWith([[$product, 1]], ['X-Kippis-Platform' => 'web']);
+        $this->promo('HALF', 50);
+        $cart->update(['promo_code_id' => PromoCode::where('code', 'HALF')->value('id')]);
+
+        // 50 EGP is left after the code: 1000 points would be worth 100 EGP.
+        $cart->update(['points_used' => 1000]);
+        $cart->recalculate();
+        $cart->refresh();
+        $this->assertEquals(50.0, (float) $cart->promo_discount);
+        $this->assertEquals(50.0, (float) $cart->points_discount);
+        $this->assertSame(500, (int) $cart->points_used);
+        $this->assertEquals(0.0, (float) $cart->total);
+
+        // Not capped, but with a sub-EGP remainder: 55 points = 5 EGP, 5 points are not charged.
+        $cart->update(['promo_code_id' => null, 'points_used' => 55]);
+        $cart->recalculate();
+        $cart->refresh();
+        $this->assertEquals(5.0, (float) $cart->points_discount);
+        $this->assertSame(50, (int) $cart->points_used);
+    }
+
     public function test_cart_response_exposes_app_offer_fields(): void
     {
         $product = Product::factory()->create(['base_price' => 80]);

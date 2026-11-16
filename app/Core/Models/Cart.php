@@ -208,6 +208,12 @@ class Cart extends Model
                 // money on sub-unit conversions).
                 $pointsDiscount = floor($pointsUsed / $rate);
                 $pointsDiscount = min($pointsDiscount, $remaining);
+                // Charge only the points the (possibly capped) discount is
+                // worth, rounded down so the customer never pays more
+                // points than the value received.
+                $pointsUsed = min($pointsUsed, (int) floor(round($pointsDiscount * $rate, 6)));
+            } else {
+                $pointsUsed = 0;
             }
         }
 
@@ -232,9 +238,9 @@ class Cart extends Model
                 'winner'         => $source,
                 'suppressed_promotions' => $suppressed,
             ],
-            // points_used is admin-supplied — preserve the original
-            // request so the customer's "I spent 50 pts" intent doesn't
-            // get rewritten by silent recalc rounding.
+            // points_used is what the customer is actually charged: the
+            // requested points, reduced when the discount was capped.
+            'points_used'     => $pointsUsed,
             'total'           => max(0, round($subtotal - $totalDiscount, 2)),
         ]);
     }
