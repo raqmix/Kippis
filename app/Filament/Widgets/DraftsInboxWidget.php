@@ -56,7 +56,7 @@ class DraftsInboxWidget extends BaseWidget
                     ->label(__('system.branches'))
                     ->badge()
                     ->getStateUsing(function ($record) {
-                        $names = $record->stores->map(fn ($s) => $s->getName(app()->getLocale()))->all();
+                        $names = $record->stores->map(fn ($s) => $s->getNameLocalized(app()->getLocale()))->all();
                         return empty($names) ? [__('system.available_everywhere')] : $names;
                     })
                     ->separator(','),

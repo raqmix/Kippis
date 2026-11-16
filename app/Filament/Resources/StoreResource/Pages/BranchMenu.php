@@ -53,7 +53,7 @@ class BranchMenu extends Page implements HasTable
 
     public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
     {
-        return $this->record->getName(app()->getLocale())
+        return $this->record->getNameLocalized(app()->getLocale())
             . ' — ' . __('system.branch_menu');
     }
 

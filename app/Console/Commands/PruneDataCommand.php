@@ -102,8 +102,10 @@ class PruneDataCommand extends Command
             $ids = $expiredCustomers->pluck('id');
 
             // Cascade: remove loyalty, referrals, check-ins, carts
-            DB::table('loyalty_wallets')->whereIn('customer_id', $ids)->delete();
-            DB::table('loyalty_transactions')->whereIn('customer_id', $ids)->delete();
+            // loyalty_transactions has no customer_id: delete through the wallets first.
+            $walletIds = DB::table('loyalty_wallets')->whereIn('customer_id', $ids)->pluck('id');
+            DB::table('loyalty_transactions')->whereIn('wallet_id', $walletIds)->delete();
+            DB::table('loyalty_wallets')->whereIn('id', $walletIds)->delete();
             DB::table('referrals')->whereIn('inviter_id', $ids)->orWhereIn('invitee_id', $ids)->delete();
             DB::table('check_ins')->whereIn('customer_id', $ids)->delete();
             DB::table('cart_items')
