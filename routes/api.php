@@ -183,6 +183,11 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/wallet-items',           [\App\Http\Controllers\Api\V1\RedeemController::class, 'wallet']);
     });
 
+    // ==================== REWARDS WALLET ====================
+    Route::middleware('auth:api')->prefix('v1/rewards')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\RewardsController::class, 'index']);
+    });
+
     // ==================== QR CODES APIs ====================
     Route::middleware('auth:api')->prefix('v1/qr-receipts')->group(function () {
         Route::post('/scan', [\App\Http\Controllers\Api\V1\QrReceiptController::class, 'scan']);

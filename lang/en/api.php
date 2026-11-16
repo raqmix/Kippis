@@ -68,5 +68,7 @@ return [
     // Error Messages
     'product_not_found' => 'Product not found.',
     'order_not_found' => 'Order not found.',
-];
 
+    // Rewards wallet
+    'wallet_item_counter_only' => 'Show this gift\'s QR code at the counter; it can\'t be used in the app cart.',
+];

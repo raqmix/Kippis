@@ -642,6 +642,10 @@ class CartController extends Controller
         if (! $wallet->isUsable()) {
             return apiError('WALLET_ITEM_UNUSABLE', 'wallet_item_already_used_or_expired', 422);
         }
+        if (! $wallet->isUsableInApp()) {
+            // Counter gifts are redeemed by the cashier scanning the code.
+            return apiError('WALLET_ITEM_COUNTER_ONLY', 'wallet_item_counter_only', 422);
+        }
 
         $this->cartRepository->applyWalletItem($cart, $wallet);
         $this->cartRepository->recalculate($cart);

@@ -28,6 +28,13 @@ class OrderObserver
             OrderStatusUpdated::dispatch($order, $oldStatus);
         }
 
+        // Cancelled before completion: give the gift back (single use
+        // means "used on an order that went through").
+        if ($order->status === 'cancelled' && $oldStatus !== 'cancelled' && $oldStatus !== 'completed') {
+            $this->restoreWalletItem($order);
+            return;
+        }
+
         // Only process customer orders that just became completed
         if ($order->status !== 'completed' || $oldStatus === 'completed') {
             return;
@@ -91,6 +98,36 @@ class OrderObserver
             if ($reward && $reward->status === \App\Core\Models\CustomerSpendReward::STATUS_APPLIED) {
                 $this->spendRewardService->markRedeemed($reward, $order);
             }
+        }
+    }
+
+    /**
+     * Put the rewards-wallet entry this order consumed back to available.
+     * Only touches the entry if it is still linked to this order, so a
+     * restore can't revive a gift that has since been used elsewhere.
+     */
+    private function restoreWalletItem(Order $order): void
+    {
+        if (! $order->wallet_item_id) {
+            return;
+        }
+
+        try {
+            \App\Core\Models\CustomerRedeemWallet::query()
+                ->whereKey($order->wallet_item_id)
+                ->where('status', \App\Core\Models\CustomerRedeemWallet::STATUS_APPLIED)
+                ->where('used_order_id', $order->id)
+                ->update([
+                    'status'        => \App\Core\Models\CustomerRedeemWallet::STATUS_AVAILABLE,
+                    'used_order_id' => null,
+                    'used_at'       => null,
+                    'updated_at'    => now(),
+                ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to restore wallet item on cancelled order', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
