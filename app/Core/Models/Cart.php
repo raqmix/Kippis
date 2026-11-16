@@ -20,6 +20,9 @@ class Cart extends Model
         return CartFactory::new();
     }
 
+    public const DISCOUNT_SOURCE_APP_OFFER = 'app_offer';
+    public const DISCOUNT_SOURCE_PROMOTION = 'promotion';
+
     protected $fillable = [
         'customer_id',
         'session_id',
@@ -30,6 +33,11 @@ class Cart extends Model
         'points_used',
         'points_discount',
         'applied_promotions_snapshot',
+        'platform',
+        'app_discount',
+        'promo_discount',
+        'discount_source',
+        'app_offer_snapshot',
         'subtotal',
         'discount',
         'total',
@@ -46,6 +54,9 @@ class Cart extends Model
             'points_used'     => 'integer',
             'total'           => 'decimal:2',
             'applied_promotions_snapshot' => 'array',
+            'app_discount'    => 'decimal:2',
+            'promo_discount'  => 'decimal:2',
+            'app_offer_snapshot' => 'array',
             'abandoned_at'    => 'datetime',
         ];
     }
@@ -89,9 +100,35 @@ class Cart extends Model
 
     /**
      * Recalculate cart totals.
+     *
+     * Discount order (app brief, items 1/2/6):
+     *   1) reward / wallet gift value comes off first (product reward:
+     *      linked product price; free_item reward: most expensive
+     *      qualifying line, capped). Capped at the subtotal.
+     *   2) app discount = app_offer.percent x (subtotal - gift), only for
+     *      carts on an app platform (app_offer.platforms).
+     *   3) promotions (engine: auto-apply + explicit code), capped at
+     *      subtotal - gift. Promotions do NOT combine with the app
+     *      discount: the larger of the two wins (tie -> app discount) and
+     *      app_offer_snapshot records the loser so the app can say "your
+     *      app discount is better than this code".
+     *   4) raw points -> EGP via loyalty.points_to_egp_rate, capped at what
+     *      is left.
+     *
+     * For carts without the app discount the totals equal the old
+     * promo-then-wallet order (both cap at the subtotal); only the split
+     * between promo and wallet can differ when they exceed it.
      */
     public function recalculate(): void
     {
+        // Stamp the client platform from the current request. Requests
+        // that can't tell (3DS browser return, console) keep what the
+        // cart already has.
+        $requestPlatform = \App\Support\ClientPlatform::current();
+        if (\App\Support\ClientPlatform::isKnown($requestPlatform)) {
+            $this->platform = $requestPlatform;
+        }
+
         // Ensure product is loaded so we can fall back to base_price for items
         // whose snapshot price is 0 (e.g. added before prices were set).
         //
@@ -117,41 +154,50 @@ class Cart extends Model
             }
             return $price * $item->quantity;
         });
+        $subtotal = round((float) $subtotal, 2);
 
-        // Discount stack:
-        //   1) promotions (the engine — auto-applied + explicit code)
-        //   2) wallet item — subsidises the linked product's base price up
-        //      to the subtotal-after-promo, so a wallet item never goes
-        //      negative or pays the customer money back
-        //   3) raw points — converted from points to EGP via
-        //      Setting::get('loyalty.points_to_egp_rate', 10), capped at
-        //      the remaining cart total
-        //
-        // The engine reads cart.promo_code_id internally for the explicit
-        // code, so we don't pass it twice.
+        // 1) Reward / wallet gift.
+        $walletDiscount = 0.0;
+        if ($this->walletItem && $this->walletItem->isUsable()) {
+            $value = app(\App\Services\Rewards\RewardValueCalculator::class)
+                ->valueFor($this->walletItem, $this);
+            $walletDiscount = round(min($value, $subtotal), 2);
+        }
+        $base = max(0.0, round($subtotal - $walletDiscount, 2));
+
+        // 2) App discount candidate.
+        $appOffer = app(\App\Services\AppOffer\AppOffer::class);
+        $appEligible = $appOffer->appliesTo($this->platform);
+        $appCandidate = $appEligible ? $appOffer->discountFor($base) : 0.0;
+
+        // 3) Promotions candidate. The engine reads cart.promo_code_id
+        // internally for the explicit code, so we don't pass it twice.
         $evaluator = app(\App\Services\Promotions\PromotionEvaluator::class);
         $evaluation = $evaluator->evaluate(
             $this,
             $this->customer,
             $this->store,
         );
-        $promoDiscount = (float) min($evaluation->totalDiscount, $subtotal);
+        $promoCandidate = round((float) min($evaluation->totalDiscount, $base), 2);
 
-        $remaining = max(0, $subtotal - $promoDiscount);
-
-        $walletDiscount = 0;
-        if ($this->walletItem && $this->walletItem->isUsable()) {
-            $linkedProduct = $this->walletItem->redeemItem?->product;
-            // No linked product → no implicit discount; an admin claim
-            // for a generic coupon will require future logic. For now,
-            // skip the wallet credit silently rather than block checkout.
-            if ($linkedProduct) {
-                $walletDiscount = min((float) $linkedProduct->base_price, $remaining);
-            }
+        $appDiscount = 0.0;
+        $promoDiscount = 0.0;
+        $source = null;
+        $appliedSnapshot = [];
+        $suppressed = [];
+        if ($appEligible && $appCandidate > 0 && $appCandidate >= $promoCandidate) {
+            $source = self::DISCOUNT_SOURCE_APP_OFFER;
+            $appDiscount = $appCandidate;
+            $suppressed = $evaluation->snapshot();
+        } elseif ($promoCandidate > 0) {
+            $source = self::DISCOUNT_SOURCE_PROMOTION;
+            $promoDiscount = $promoCandidate;
+            $appliedSnapshot = $evaluation->snapshot();
         }
 
-        $remaining = max(0, $remaining - $walletDiscount);
+        $remaining = max(0.0, $base - $appDiscount - $promoDiscount);
 
+        // 4) Raw points.
         $pointsDiscount = 0;
         $pointsUsed = (int) $this->points_used;
         if ($pointsUsed > 0) {
@@ -164,19 +210,31 @@ class Cart extends Model
             }
         }
 
-        $totalDiscount = $promoDiscount + $walletDiscount + $pointsDiscount;
+        $totalDiscount = round($walletDiscount + $appDiscount + $promoDiscount + $pointsDiscount, 2);
 
         $this->update([
+            'platform'        => $this->platform,
             'subtotal'        => $subtotal,
             'discount'        => $totalDiscount,
             'wallet_discount' => $walletDiscount,
+            'app_discount'    => $appDiscount,
+            'promo_discount'  => $promoDiscount,
+            'discount_source' => $source,
             'points_discount' => $pointsDiscount,
-            'applied_promotions_snapshot' => $evaluation->snapshot(),
+            'applied_promotions_snapshot' => $appliedSnapshot,
+            'app_offer_snapshot' => [
+                'eligible'       => $appEligible,
+                'percent'        => $appEligible ? $appOffer->percent() : 0,
+                'base'           => $base,
+                'app_discount'   => $appCandidate,
+                'promo_discount' => $promoCandidate,
+                'winner'         => $source,
+                'suppressed_promotions' => $suppressed,
+            ],
             // points_used is admin-supplied — preserve the original
             // request so the customer's "I spent 50 pts" intent doesn't
             // get rewritten by silent recalc rounding.
-            'total'           => max(0, $subtotal - $totalDiscount),
+            'total'           => max(0, round($subtotal - $totalDiscount, 2)),
         ]);
     }
 }
-

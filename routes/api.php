@@ -50,6 +50,11 @@ Route::middleware('api.locale')->group(function () {
         });
     });
 
+    // ==================== APP CONFIG (public) ====================
+    // Small bag of switches the mobile app reads on launch (app offer
+    // banner; order streak is added later).
+    Route::get('v1/app-config', [\App\Http\Controllers\Api\V1\AppConfigController::class, 'show']);
+
     // ==================== STORES APIs ====================
     Route::prefix('v1/stores')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\StoreController::class, 'index']);

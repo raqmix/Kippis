@@ -54,64 +54,70 @@ class OrderRepository
             $paymentMethod,
             $pickupCode
         ) {
+            // The cart was just recalculated by the caller (checkout /
+            // 3DS return), and for card payments its total is what the
+            // gateway charged. So the order takes the cart's discount
+            // components as they are; we only lock and re-validate the
+            // promo / wallet rows so a dead code isn't counted and a
+            // wallet item can't be spent twice.
+            //
+            // cart.discount = wallet + app + promo + points. (Before the
+            // app brief, the order summed cart.discount + wallet + points,
+            // double-counting wallet/points.)
             $promoCode = null;
-            $discount = (float) $cart->discount;
-            $promoCodeId = $cart->promo_code_id;
+            $promoCodeId = null;
+            $promoDiscount = (float) $cart->promo_discount;
+            $appDiscount = (float) $cart->app_discount;
+            $discountSource = $cart->discount_source;
 
-            if ($cart->promo_code_id) {
+            if ($cart->promo_code_id && $discountSource === \App\Core\Models\Cart::DISCOUNT_SOURCE_PROMOTION) {
                 $promoCode = PromoCode::query()
                     ->whereKey($cart->promo_code_id)
                     ->lockForUpdate()
                     ->first();
 
                 if ($promoCode && $promoCode->isValid()) {
-                    // Recompute the discount from the locked row in case
-                    // admin edited discount_value while the cart sat.
-                    $discount = round(min(
-                        $promoCode->calculateDiscount((float) $cart->subtotal),
-                        (float) $cart->subtotal
-                    ), 2);
+                    $promoCodeId = $promoCode->id;
                 } else {
                     // Promo expired or exhausted between cart load and
-                    // checkout — drop it silently. (For card orders the
-                    // gateway charge already used cart.total at pay()
-                    // time; we honour what the customer was charged by
-                    // keeping the existing discount but null the promo
-                    // refs so used_count doesn't get bumped against a
-                    // dead code.)
+                    // checkout. We honour what the customer was priced /
+                    // charged (keep the discount) but null the promo refs
+                    // so used_count doesn't get bumped against a dead code.
                     $promoCode = null;
-                    $promoCodeId = null;
                 }
             }
 
             // Loyalty-as-discount snapshots from the cart. The cart's
-            // recalculate() already capped these against the
-            // subtotal-after-promo, so they can never make the order
-            // total negative. We re-clamp here defensively in case of
-            // mid-flight changes (e.g. an admin disabled redemption).
+            // recalculate() already capped these, so they can never make
+            // the order total negative.
             $walletItem = null;
-            $walletDiscount = 0.0;
+            $walletDiscount = (float) $cart->wallet_discount;
             $pointsUsed = 0;
-            $pointsDiscount = 0.0;
+            $pointsDiscount = (float) $cart->points_discount;
             if ($cart->wallet_item_id) {
                 $walletItem = \App\Core\Models\CustomerRedeemWallet::query()
                     ->whereKey($cart->wallet_item_id)
                     ->lockForUpdate()
                     ->first();
-                if ($walletItem && $walletItem->isUsable() && $walletItem->customer_id === $cart->customer_id) {
-                    $walletDiscount = (float) $cart->wallet_discount;
-                } else {
+                if (! $walletItem || ! $walletItem->isUsable() || $walletItem->customer_id !== $cart->customer_id) {
                     $walletItem = null;
                 }
+            }
+            if (! $walletItem) {
+                // Single use: the gift was spent / expired since the cart
+                // was priced (Cart::recalculate drops it before payment,
+                // so this is only a race). Same as before: no discount.
+                $walletDiscount = 0.0;
             }
             if ((int) $cart->points_used > 0
                 && (bool) \App\Core\Models\Setting::get('loyalty.redemption_enabled', true)
             ) {
                 $pointsUsed = (int) $cart->points_used;
-                $pointsDiscount = (float) $cart->points_discount;
+            } else {
+                $pointsDiscount = 0.0;
             }
 
-            $allDiscounts = round($discount + $walletDiscount + $pointsDiscount, 2);
+            $allDiscounts = round($walletDiscount + $appDiscount + $promoDiscount + $pointsDiscount, 2);
             $finalTotal = round(max(0, ((float) $cart->subtotal) - $allDiscounts), 2);
 
             $order = Order::create([
@@ -146,11 +152,16 @@ class OrderRepository
                 })->toArray(),
                 'modifiers_snapshot' => $cart->items->pluck('modifiers_snapshot')->toArray(),
                 'promo_code_id' => $promoCodeId,
-                'promo_discount' => $discount,
+                'promo_discount' => $promoDiscount,
                 'wallet_item_id' => $walletItem?->id,
                 'wallet_discount' => $walletDiscount,
                 'points_used' => $pointsUsed,
                 'points_discount' => $pointsDiscount,
+                'applied_promotions_snapshot' => $cart->applied_promotions_snapshot ?? [],
+                'platform' => $cart->platform,
+                'app_discount' => $appDiscount,
+                'discount_source' => $discountSource,
+                'app_offer_snapshot' => $cart->app_offer_snapshot,
             ]);
 
             // Mark the wallet item as applied so it doesn't show up in
@@ -187,7 +198,7 @@ class OrderRepository
                         'promo_code_id' => $promoCode->id,
                         'customer_id' => $cart->customer_id,
                         'order_id' => $order->id,
-                        'discount_amount' => $discount,
+                        'discount_amount' => $promoDiscount,
                         'used_at' => now(),
                     ]);
                 }
@@ -316,6 +327,7 @@ class OrderRepository
                 }, $items),
                 'promo_code_id' => $promoCodeModel?->id,
                 'promo_discount' => $discount,
+                'platform' => \App\Support\ClientPlatform::KIOSK,
             ]);
 
             // Increment promo code usage count (for guest orders, don't track customer usage)

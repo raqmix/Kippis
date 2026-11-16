@@ -572,6 +572,7 @@ class SquadOrderService
             $subtotal = $items->sum(fn ($i) => $i->lineTotal());
 
             $order = Order::create([
+                'platform' => \App\Support\ClientPlatform::SQUAD,
                 'customer_id'    => $session->host_id,
                 'store_id'       => $session->store_id,
                 'status'         => 'pending',
