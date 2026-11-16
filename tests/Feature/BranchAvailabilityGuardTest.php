@@ -132,4 +132,93 @@ class BranchAvailabilityGuardTest extends TestCase
         $this->assertSame('open', $session->fresh()->status);
         $this->assertSame(0, SquadPayment::count());
     }
+
+    public function test_squad_checkout_by_non_host_does_not_reveal_cart(): void
+    {
+        $store = Store::factory()->create(['is_active' => true]);
+        $product = Product::factory()->create(['base_price' => 50.00]);
+        $product->stores()->attach($store->id, ['is_available' => false]);
+        [, $session] = $this->squadWithItem($store, $product);
+        $stranger = Customer::factory()->create();
+
+        $res = $this->actingAs($stranger, 'api')
+            ->postJson("/api/v1/squad/{$session->id}/checkout", ['store_id' => $store->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'SQUAD_ERROR');
+        $this->assertNull($res->json('error.product_ids'));
+    }
+
+    public function test_squad_checkout_guard_uses_session_store(): void
+    {
+        $sessionStore = Store::factory()->create(['is_active' => true]);
+        $other = Store::factory()->create(['is_active' => true]);
+        $product = Product::factory()->create(['base_price' => 50.00]);
+        $product->stores()->attach($sessionStore->id, ['is_available' => false]);
+        $product->stores()->attach($other->id, ['is_available' => true]);
+        [$host, $session] = $this->squadWithItem($sessionStore, $product);
+
+        $this->actingAs($host, 'api')
+            ->postJson("/api/v1/squad/{$session->id}/checkout", ['store_id' => $other->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'ITEMS_UNAVAILABLE');
+    }
+
+    public function test_squad_checkout_with_available_item_passes_the_guard(): void
+    {
+        $store = Store::factory()->create(['is_active' => true]);
+        $product = Product::factory()->create(['base_price' => 50.00]);
+        $product->stores()->attach($store->id, ['is_available' => true]);
+        [$host, $session] = $this->squadWithItem($store, $product);
+
+        $res = $this->actingAs($host, 'api')
+            ->postJson("/api/v1/squad/{$session->id}/checkout", ['store_id' => $store->id]);
+        $this->assertNotSame('ITEMS_UNAVAILABLE', $res->json('error.code'), $res->getContent());
+        $res->assertSuccessful();
+    }
+
+    private function appCheckoutWith(Product $product, Store $store)
+    {
+        $customer = Customer::factory()->create();
+        $cash = PaymentMethod::create(['name' => 'Cash', 'code' => 'cash', 'is_active' => true]);
+        $this->actingAs($customer, 'api')->withHeaders(['X-Kippis-Platform' => 'ios'])
+            ->postJson('/api/v1/cart/items', ['item_type' => 'product', 'product_id' => $product->id, 'quantity' => 1, 'store_id' => $store->id])
+            ->assertStatus(201);
+
+        return $this->actingAs($customer, 'api')->withHeaders(['X-Kippis-Platform' => 'ios'])
+            ->postJson('/api/v1/orders/checkout', ['payment_method_id' => $cash->id, 'store_id' => $store->id]);
+    }
+
+    public function test_app_checkout_rejects_item_switched_off_at_branch(): void
+    {
+        $store = Store::factory()->create(['is_active' => true, 'receive_online_orders' => true]);
+        $product = Product::factory()->create(['base_price' => 50.00]);
+        $product->stores()->attach($store->id, ['is_available' => true]);
+        // Add while available, then the branch switches it off before pay.
+        $customerCheckout = function () use ($product, $store) {
+            $product->stores()->updateExistingPivot($store->id, ['is_available' => false]);
+        };
+        $customer = Customer::factory()->create();
+        $cash = PaymentMethod::create(['name' => 'Cash', 'code' => 'cash', 'is_active' => true]);
+        $this->actingAs($customer, 'api')->withHeaders(['X-Kippis-Platform' => 'ios'])
+            ->postJson('/api/v1/cart/items', ['item_type' => 'product', 'product_id' => $product->id, 'quantity' => 1, 'store_id' => $store->id])
+            ->assertStatus(201);
+        $customerCheckout();
+
+        $this->actingAs($customer, 'api')->withHeaders(['X-Kippis-Platform' => 'ios'])
+            ->postJson('/api/v1/orders/checkout', ['payment_method_id' => $cash->id, 'store_id' => $store->id])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'ITEMS_UNAVAILABLE')
+            ->assertJsonPath('error.product_ids', [$product->id]);
+        $this->assertDatabaseCount('orders', 0);
+    }
+
+    public function test_app_checkout_with_available_item_passes_the_guard(): void
+    {
+        $store = Store::factory()->create(['is_active' => true, 'receive_online_orders' => true]);
+        $product = Product::factory()->create(['base_price' => 50.00]);
+        $product->stores()->attach($store->id, ['is_available' => true]);
+
+        $res = $this->appCheckoutWith($product, $store);
+        $this->assertNotSame('ITEMS_UNAVAILABLE', $res->json('error.code'), $res->getContent());
+    }
 }

@@ -157,6 +157,12 @@ class SquadController extends Controller
         $customer = auth('api')->user();
         $store    = Store::findOrFail($data['store_id']);
 
+        // Host check first: non-members must not learn the cart contents
+        // from the availability error below.
+        if ($session->host_id !== $customer->id) {
+            return apiError('SQUAD_ERROR', 'Only the host can perform this action.', 422);
+        }
+
         // Same per-branch availability guard as the single-customer checkout:
         // a squad cart built before an item was switched off at this branch
         // must not start split-pay.
@@ -168,7 +174,8 @@ class SquadController extends Controller
                     'name' => $item->product?->getName(app()->getLocale()),
                 ])
                 ->values(),
-            (int) $store->id
+            // Finalize sends the order to the session's store once it is set.
+            (int) ($session->store_id ?? $store->id)
         );
         if ($unavailableResponse) {
             return $unavailableResponse;
