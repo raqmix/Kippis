@@ -5,10 +5,15 @@ namespace Tests\Feature;
 use App\Core\Models\Store;
 use App\Integrations\Foodics\Services\FoodicsAuthService;
 use App\Modules\Stores\Services\FoodicsBranchesSyncService;
-use Illuminate\Database\Schema\Blueprint;
+use App\Core\Models\Admin;
+use App\Filament\Resources\StoreResource\Pages\CreateStore;
+use App\Filament\Resources\StoreResource\Pages\EditStore;
+use Filament\Facades\Filament;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -18,6 +23,8 @@ use Tests\TestCase;
  */
 class FoodicsBranchesSyncTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -27,32 +34,6 @@ class FoodicsBranchesSyncTest extends TestCase
         $auth = $this->createMock(FoodicsAuthService::class);
         $auth->method('getAccessToken')->willReturn('test-token');
         $this->app->instance(FoodicsAuthService::class, $auth);
-
-        // The full migration set uses MySQL-only DDL (ALTER ... MODIFY) and
-        // can't run on the sqlite test DB, so build just the table under test.
-        Schema::dropIfExists('stores');
-        Schema::create('stores', function (Blueprint $t) {
-            $t->id();
-            $t->string('name');
-            $t->json('name_localized')->nullable();
-            $t->text('address')->nullable();
-            $t->decimal('latitude', 10, 8)->nullable();
-            $t->decimal('longitude', 11, 8)->nullable();
-            $t->string('phone')->nullable();
-            $t->time('open_time')->nullable();
-            $t->time('close_time')->nullable();
-            $t->boolean('is_active')->default(true);
-            $t->boolean('receive_online_orders')->default(true);
-            $t->boolean('is_employee_only')->default(false);
-            $t->boolean('is_proximity_only')->default(false);
-            $t->integer('proximity_radius_meters')->nullable();
-            $t->string('foodics_branch_id')->nullable()->unique();
-            $t->string('foodics_menu_group_id')->nullable();
-            $t->timestamp('synced_from_foodics_at')->nullable();
-            $t->string('kiosk_api_key')->nullable();
-            $t->timestamps();
-            $t->softDeletes();
-        });
     }
 
     private function fakeBranches(array $branches): void
@@ -168,5 +149,144 @@ class FoodicsBranchesSyncTest extends TestCase
         $this->assertFalse($store->is_active);
         $this->assertFalse($store->receive_online_orders);
         $this->assertNull($store->open_time);
+    }
+
+    public function test_admin_edited_name_survives_a_sync(): void
+    {
+        $store = Store::factory()->create([
+            'name' => 'Smash Heliopolis',
+            'name_localized' => ['en' => 'Smash Heliopolis', 'ar' => 'سماش مصر الجديدة'],
+            'foodics_branch_id' => 'b-smash',
+            'name_edited_at' => now()->subDay(),
+        ]);
+
+        $this->fakeBranches([$this->branch(['name_localized' => 'سماش'])]);
+        $this->sync();
+
+        $store->refresh();
+        $this->assertSame('Smash Heliopolis', $store->name);
+        $this->assertSame('سماش مصر الجديدة', $store->name_localized['ar']);
+        $this->assertNotNull($store->name_edited_at);
+        $this->assertNotNull($store->synced_from_foodics_at);   // other fields still sync
+    }
+
+    public function test_unedited_name_is_updated_from_foodics(): void
+    {
+        $store = Store::factory()->create([
+            'name' => 'Old name',
+            'foodics_branch_id' => 'b-smash',
+            'name_edited_at' => null,
+        ]);
+
+        $this->fakeBranches([$this->branch(['name' => 'Smash New'])]);
+        $this->sync();
+
+        $store->refresh();
+        $this->assertSame('Smash New', $store->name);
+        $this->assertNull($store->name_edited_at);              // the sync never sets it
+    }
+
+    public function test_inactive_store_stays_inactive_after_sync(): void
+    {
+        $store = Store::factory()->create([
+            'foodics_branch_id' => 'b-smash',
+            'is_active' => false,
+            'receive_online_orders' => false,
+        ]);
+
+        $this->fakeBranches([$this->branch()]);
+        $this->sync();
+
+        $store->refresh();
+        $this->assertFalse($store->is_active);
+        $this->assertFalse($store->receive_online_orders);
+    }
+
+    public function test_store_without_foodics_branch_id_is_untouched(): void
+    {
+        $manual = Store::factory()->create(['name' => 'Pop-up', 'foodics_branch_id' => null]);
+
+        $this->fakeBranches([$this->branch()]);
+        $this->sync();
+
+        $manual->refresh();
+        $this->assertSame('Pop-up', $manual->name);
+        $this->assertNull($manual->synced_from_foodics_at);
+        $this->assertSame(2, Store::count());                   // the Foodics branch became a new store
+    }
+
+    private function actAsStoreAdmin(): void
+    {
+        Permission::findOrCreate('manage_stores', 'admin');
+        $admin = Admin::factory()->create();
+        $admin->givePermissionTo('manage_stores');
+        $this->actingAs($admin, 'admin');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+    }
+
+    public function test_admin_renaming_a_store_marks_the_name_as_edited(): void
+    {
+        $this->actAsStoreAdmin();
+        $store = Store::factory()->create(['name' => 'Smash', 'foodics_branch_id' => 'b-smash']);
+
+        Livewire::test(EditStore::class, ['record' => $store->getRouteKey()])
+            ->fillForm(['name' => 'Smash Maadi'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $store->refresh();
+        $this->assertSame('Smash Maadi', $store->name);
+        $this->assertNotNull($store->name_edited_at);
+
+        $this->fakeBranches([$this->branch()]);
+        $this->sync();
+        $this->assertSame('Smash Maadi', $store->fresh()->name);
+    }
+
+    public function test_admin_changing_arabic_name_marks_the_name_as_edited(): void
+    {
+        $this->actAsStoreAdmin();
+        $store = Store::factory()->create([
+            'name' => 'Smash',
+            'name_localized' => ['en' => 'Smash', 'ar' => 'سماش'],
+        ]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getRouteKey()])
+            ->fillForm(['name_localized' => ['en' => 'Smash', 'ar' => 'سماش المعادي']])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertNotNull($store->fresh()->name_edited_at);
+    }
+
+    public function test_admin_saving_other_fields_does_not_mark_the_name_as_edited(): void
+    {
+        $this->actAsStoreAdmin();
+        $store = Store::factory()->create([
+            'name' => 'Smash',
+            'name_localized' => ['en' => 'Smash', 'ar' => 'سماش'],
+            'address' => 'Old address',
+        ]);
+
+        Livewire::test(EditStore::class, ['record' => $store->getRouteKey()])
+            ->fillForm(['address' => 'New address'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $store->refresh();
+        $this->assertSame('New address', $store->address);
+        $this->assertNull($store->name_edited_at);
+    }
+
+    public function test_store_created_by_hand_in_admin_is_marked_as_edited(): void
+    {
+        $this->actAsStoreAdmin();
+
+        Livewire::test(CreateStore::class)
+            ->fillForm(['name' => 'Hand made', 'is_active' => true, 'receive_online_orders' => true])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertNotNull(Store::where('name', 'Hand made')->firstOrFail()->name_edited_at);
     }
 }

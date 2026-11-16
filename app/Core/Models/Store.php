@@ -24,6 +24,7 @@ class Store extends Model
     protected $fillable = [
         'name',
         'name_localized',
+        'name_edited_at',
         'address',
         'latitude',
         'longitude',
@@ -55,6 +56,7 @@ class Store extends Model
             'is_proximity_only' => 'boolean',
             'proximity_radius_meters' => 'integer',
             'synced_from_foodics_at' => 'datetime',
+            'name_edited_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
     }

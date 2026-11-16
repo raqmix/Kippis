@@ -17,6 +17,9 @@ class CreateStore extends CreateRecord
             $data['name_localized'] = !empty($data['name_localized']) ? $data['name_localized'] : null;
         }
 
+        // A hand-made name is admin-owned: the Foodics sync must not rename it.
+        $data['name_edited_at'] = now();
+
         return $data;
     }
 }

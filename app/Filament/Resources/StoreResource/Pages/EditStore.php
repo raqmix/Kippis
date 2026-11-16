@@ -30,6 +30,16 @@ class EditStore extends EditRecord
                         ->send();
                     $this->refreshFormData(['kiosk_api_key']);
                 }),
+            Actions\Action::make('use_foodics_name')
+                ->label('Use Foodics name again')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalDescription('The next Foodics branch sync will overwrite this store\'s name with the Foodics one.')
+                ->visible(fn () => $this->record->name_edited_at !== null && $this->record->foodics_branch_id)
+                ->action(function () {
+                    $this->record->update(['name_edited_at' => null]);
+                }),
             Actions\ViewAction::make(),
             Actions\DeleteAction::make(),
         ];
@@ -41,6 +51,21 @@ class EditStore extends EditRecord
         if (isset($data['name_localized']) && is_array($data['name_localized'])) {
             $data['name_localized'] = array_filter($data['name_localized'], fn($value) => !empty($value));
             $data['name_localized'] = !empty($data['name_localized']) ? $data['name_localized'] : null;
+        }
+
+        // An admin changing the name makes it theirs: the Foodics sync stops
+        // overwriting it (name_edited_at). Saving other fields leaves it alone.
+        $normalize = function ($localized) {
+            $localized = array_filter((array) $localized, fn ($v) => $v !== null && $v !== '');
+            ksort($localized);
+
+            return $localized;
+        };
+        if (
+            ($data['name'] ?? $this->record->name) !== $this->record->name
+            || $normalize($data['name_localized'] ?? null) !== $normalize($this->record->name_localized)
+        ) {
+            $data['name_edited_at'] = now();
         }
 
         return $data;

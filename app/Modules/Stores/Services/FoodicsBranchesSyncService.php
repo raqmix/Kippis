@@ -161,6 +161,13 @@ class FoodicsBranchesSyncService
             // flags) is owned by the Kippis admin and never touched by a sync:
             // Foodics has no is_active on branches, and the old `?? true`
             // default silently switched hidden branches back on.
+            //
+            // The name is Foodics' unless an admin edited it in Kippis
+            // (name_edited_at): then both name fields stay as the admin set.
+            if ($store->name_edited_at !== null) {
+                unset($fromFoodics['name'], $fromFoodics['name_localized']);
+            }
+
             $store->update($fromFoodics);
 
             return $store;
