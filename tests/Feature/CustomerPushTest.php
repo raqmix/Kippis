@@ -163,6 +163,34 @@ class CustomerPushTest extends TestCase
         $this->assertSame('sent', $this->pushes()->send($c, 'gift_expiring', [], [], 'g1')->status);
     }
 
+    public function test_fcm_http_rejection_is_a_failure_that_frees_key_and_cap(): void
+    {
+        $c = $this->customer();
+        $this->fcm->reject = true;
+        $row = $this->pushes()->send($c, 'gift_expiring', [], [], 'g1');
+        $this->assertSame('failed', $row->status);
+        $this->assertNull($row->dedup_key);
+        $this->assertFalse($this->pushes()->marketingSentToday($c));
+
+        $this->fcm->reject = false;
+        $this->assertSame('sent', $this->pushes()->send($c, 'gift_expiring', [], [], 'g1')->status);
+    }
+
+    public function test_fcm_service_returns_false_on_http_error_and_true_on_success(): void
+    {
+        $fcm = new \App\Core\Services\FcmService();
+        $token = new \ReflectionProperty($fcm, 'accessToken');
+        $token->setAccessible(true);
+        $token->setValue($fcm, 'test-access-token');
+
+        \Illuminate\Support\Facades\Http::fake(['fcm.googleapis.com/*' => \Illuminate\Support\Facades\Http::sequence()
+            ->push(['error' => ['status' => 'UNAVAILABLE']], 503)
+            ->push(['name' => 'projects/x/messages/1'], 200)]);
+
+        $this->assertFalse($fcm->sendDataToToken('t', 'T', 'B', []));
+        $this->assertTrue($fcm->sendDataToToken('t', 'T', 'B', []));
+    }
+
     public function test_payload_has_type_screen_and_bilingual_text(): void
     {
         $c = $this->customer();
@@ -312,6 +340,28 @@ class CustomerPushTest extends TestCase
         (new SendScheduledPushBatchJob($push->id, $send->id, [], $customerIds))
             ->handle($this->fcm, app(ScheduledPushService::class), $this->pushes());
         $this->send = $send->refresh();
+    }
+
+    public function test_batch_job_serialized_before_customer_ids_existed_still_runs(): void
+    {
+        $customer = $this->customer();
+        $push = $this->scheduledPush();
+        $send = \App\Core\Models\ScheduledPushSend::create([
+            'scheduled_push_id' => $push->id, 'window_at' => now(), 'fired_at' => now(), 'recipients_count' => 0,
+        ]);
+
+        // Simulate a payload queued by the previous release: SerializesModels
+        // leaves default-valued properties out, exactly like an old payload
+        // that never had a customerIds key.
+        $payload = serialize(new SendScheduledPushBatchJob($push->id, $send->id, [$customer->fcm_token], []));
+        $this->assertStringNotContainsString('customerIds', $payload);
+
+        $job = unserialize($payload);
+        $this->assertSame([], $job->customerIds);
+        $job->handle($this->fcm, app(ScheduledPushService::class), $this->pushes());
+
+        $this->assertSame([$customer->fcm_token], array_column($this->fcm->sent, 'token'));
+        $this->assertSame(1, $send->refresh()->sent_ok_count);
     }
 
     public function test_scheduled_batch_respects_daily_cap_and_logs(): void

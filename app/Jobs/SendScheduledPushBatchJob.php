@@ -33,13 +33,25 @@ class SendScheduledPushBatchJob implements ShouldQueue
     public int $tries = 3;
     public int $backoff = 30;
 
+    /**
+     * Legacy payload from jobs queued before the push log existed; sent uncapped.
+     * Declared with defaults (not promoted) so a job serialized before the
+     * customerIds property existed unserializes with [] instead of an
+     * uninitialized property.
+     */
+    public array $tokens = [];
+
+    public array $customerIds = [];
+
     public function __construct(
         public int $scheduledPushId,
         public int $scheduledPushSendId,
-        /** Legacy payload from jobs queued before the push log existed; sent uncapped. */
-        public array $tokens = [],
-        public array $customerIds = [],
-    ) {}
+        array $tokens = [],
+        array $customerIds = [],
+    ) {
+        $this->tokens = $tokens;
+        $this->customerIds = $customerIds;
+    }
 
     public function handle(
         FcmService $fcm,
@@ -96,7 +108,9 @@ class SendScheduledPushBatchJob implements ShouldQueue
 
         foreach ($this->tokens as $token) {
             try {
-                $fcm->sendDataToToken($token, $title, $body, $data);
+                if ($fcm->sendDataToToken($token, $title, $body, $data) === false) {
+                    throw new \RuntimeException('fcm_rejected');
+                }
                 $ok++;
             } catch (\Throwable $e) {
                 $failed++;

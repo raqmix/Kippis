@@ -133,7 +133,9 @@ class CustomerPushService
         }
 
         try {
-            $this->fcm->sendDataToToken($customer->fcm_token, $title, $body, $payload);
+            if ($this->fcm->sendDataToToken($customer->fcm_token, $title, $body, $payload) === false) {
+                throw new \RuntimeException('fcm_rejected');
+            }
         } catch (\Throwable $e) {
             // Free the key and the cap so a later run can retry.
             $reserved->update([
