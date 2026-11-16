@@ -695,7 +695,7 @@ class CartController extends Controller
 
         $wallet = app(\App\Core\Repositories\LoyaltyWalletRepository::class)
             ->getOrCreateForCustomer($customer->id);
-        if ($wallet->balance < $data['points']) {
+        if ((int) $wallet->points < $data['points']) {
             return apiError('INSUFFICIENT_POINTS', 'insufficient_points', 422);
         }
 
