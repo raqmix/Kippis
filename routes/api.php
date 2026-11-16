@@ -354,6 +354,9 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/squad/{session}/cart',                     [\App\Http\Controllers\Api\V1\SquadCartController::class, 'show']);
     });
 
+    // Order streak (app orders on consecutive days; separate from check-in)
+    Route::middleware('auth:api')->get('v1/order-streak', [\App\Http\Controllers\Api\V1\OrderStreakController::class, 'show']);
+
     // Daily Check-In Rewards
     Route::middleware('auth:api')->prefix('v1/check-in')->group(function () {
         Route::post('/', [\App\Http\Controllers\Api\V1\CheckInController::class, 'store']);

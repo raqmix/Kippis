@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\AppOffer\AppOffer;
+use App\Services\Loyalty\OrderStreakService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -11,7 +12,7 @@ use Illuminate\Http\JsonResponse;
  */
 class AppConfigController extends Controller
 {
-    public function show(AppOffer $appOffer): JsonResponse
+    public function show(AppOffer $appOffer, OrderStreakService $streak): JsonResponse
     {
         $offer = $appOffer->toArray();
 
@@ -21,6 +22,10 @@ class AppConfigController extends Controller
                 'percent'  => $offer['percent'],
                 'label_en' => $offer['label_en'],
                 'label_ar' => $offer['label_ar'],
+            ],
+            'order_streak' => [
+                'enabled' => $streak->enabled(),
+                'length'  => $streak->length(),
             ],
         ]);
     }

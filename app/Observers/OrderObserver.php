@@ -4,8 +4,12 @@ namespace App\Observers;
 
 use App\Core\Models\Order;
 use App\Core\Repositories\LoyaltyWalletRepository;
+use App\Events\MonthlyDrawEntered;
 use App\Events\OrderStatusUpdated;
+use App\Services\AppOffer\AppOffer;
+use App\Services\Loyalty\OrderStreakService;
 use App\Services\Loyalty\PointsEarning;
+use App\Services\ReferralService;
 use App\Services\SpendRewardService;
 use Illuminate\Support\Facades\Log;
 
@@ -75,6 +79,8 @@ class OrderObserver
             }
         }
 
+        $this->handleAppOrderCompleted($order);
+
         // Spend-milestone counter — increment the customer's lifetime
         // spend and issue any newly-crossed tier vouchers. Isolated
         // from the loyalty path so a failure here doesn't rollback the
@@ -102,6 +108,38 @@ class OrderObserver
             if ($reward && $reward->status === \App\Core\Models\CustomerSpendReward::STATUS_APPLIED) {
                 $this->spendRewardService->markRedeemed($reward, $order);
             }
+        }
+    }
+
+    /**
+     * Perks that only app orders (app_offer.platforms) trigger: order
+     * streak, Monthly Big Win entry, Bring a Friend first-order reward.
+     * Each is isolated so one failing never blocks the others or loyalty.
+     */
+    private function handleAppOrderCompleted(Order $order): void
+    {
+        if (! app(AppOffer::class)->isAppPlatform($order->platform)) {
+            return;
+        }
+
+        try {
+            app(OrderStreakService::class)->recordCompletedOrder($order);
+        } catch (\Throwable $e) {
+            Log::error('Failed to update order streak', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+
+        try {
+            app(ReferralService::class)->handleCompletedOrder($order);
+        } catch (\Throwable $e) {
+            Log::error('Failed to process referral reward', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+
+        try {
+            if ($order->customer) {
+                MonthlyDrawEntered::dispatch($order->customer, $order);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to dispatch monthly draw entry', ['order_id' => $order->id, 'error' => $e->getMessage()]);
         }
     }
 
