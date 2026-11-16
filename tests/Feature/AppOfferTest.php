@@ -100,6 +100,63 @@ class AppOfferTest extends TestCase
         $this->assertNull($web->discount_source);
     }
 
+    public function test_headerless_request_on_an_app_cart_drops_the_app_discount(): void
+    {
+        $product = Product::factory()->create(['base_price' => 100]);
+        $cart = $this->cartWith([[$product, 1]], self::MOBILE);
+        $this->assertEquals(30.00, (float) $cart->app_discount);
+
+        // Website: no X-Kippis-Platform header, browser UA (withHeaders is
+        // sticky, so drop the app header first).
+        $this->flushHeaders();
+        $this->actingAs($this->customer, 'api')->withHeaders(['User-Agent' => 'Mozilla/5.0'])
+            ->postJson('/api/v1/cart/items', [
+                'item_type' => 'product', 'product_id' => $product->id, 'quantity' => 1,
+            ])->assertSuccessful();
+
+        $cart->refresh();
+        $this->assertSame('unknown', $cart->platform);
+        $this->assertEquals(0.0, (float) $cart->app_discount);
+        $this->assertEquals(200.00, (float) $cart->total);
+
+        // Checkout re-stamps too: app add, then a header-less checkout.
+        $cart->update(['platform' => 'mobile']);
+        $payment = PaymentMethod::create(['name' => 'Cash', 'code' => 'cash', 'is_active' => true]);
+        $this->actingAs($this->customer, 'api')->postJson('/api/v1/orders/checkout', ['payment_method_id' => $payment->id]);
+        $this->assertSame('unknown', $cart->fresh()->platform);
+        $this->assertEquals(0.0, (float) $cart->fresh()->app_discount);
+    }
+
+    public function test_payment_callback_keeps_the_app_discount(): void
+    {
+        $payment = PaymentMethod::create(['name' => 'Card', 'code' => 'card', 'is_active' => true]);
+        $product = Product::factory()->create(['base_price' => 100]);
+        $cart = $this->cartWith([[$product, 1]], self::MOBILE);
+        $this->assertEquals(70.00, (float) $cart->total);
+
+        $gateway = \Mockery::mock(\App\Services\MastercardPaymentService::class);
+        $gateway->shouldReceive('pay')->once()->andReturn(['success' => true]);
+        $this->app->instance(\App\Services\MastercardPaymentService::class, $gateway);
+        \Illuminate\Support\Facades\Cache::put('mpgs_pending_REF1', [
+            'customer_id' => $this->customer->id,
+            'gateway_order_id' => 'gw_1',
+            'amount' => '70.00',
+            'currency' => 'EGP',
+            'session_id' => 'S1',
+            'payment_method_id' => $payment->id,
+            'store_id' => $this->store->id,
+        ], 600);
+
+        // No client headers, as when the card issuer redirects the browser back.
+        $this->flushHeaders();
+        $this->post('/api/v1/payment/mastercard/3ds-return/REF1')->assertOk();
+
+        $order = Order::where('customer_id', $this->customer->id)->firstOrFail();
+        $this->assertSame('mobile', $order->platform);
+        $this->assertEquals(30.00, (float) $order->app_discount);
+        $this->assertEquals(70.00, (float) $order->total);
+    }
+
     public function test_cart_response_exposes_app_offer_fields(): void
     {
         $product = Product::factory()->create(['base_price' => 80]);

@@ -121,11 +121,12 @@ class Cart extends Model
      */
     public function recalculate(): void
     {
-        // Stamp the client platform from the current request. Requests
-        // that can't tell (3DS browser return, console) keep what the
-        // cart already has.
-        $requestPlatform = \App\Support\ClientPlatform::current();
-        if (\App\Support\ClientPlatform::isKnown($requestPlatform)) {
+        // Stamp the client platform from the current customer-facing
+        // request, unknown included (a header-less web call on an app
+        // cart must lose the app discount). Console / queue and gateway
+        // returns (3DS) give null and keep what the cart already has.
+        $requestPlatform = \App\Support\ClientPlatform::forStamping();
+        if ($requestPlatform !== null) {
             $this->platform = $requestPlatform;
         }
 

@@ -32,6 +32,8 @@ final class ClientPlatform
 
     public const HEADER = 'X-Kippis-Platform';
     public const ATTRIBUTE = 'client_platform';
+    /** Set on gateway returns / callbacks: they carry no client headers and must not restamp carts. */
+    public const PASSIVE_ATTRIBUTE = 'client_platform_passive';
 
     public static function resolve(Request $request): string
     {
@@ -68,6 +70,21 @@ final class ClientPlatform
         $value = request()->attributes->get(self::ATTRIBUTE);
 
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * The platform to record on a cart touched by the current request:
+     * the request's platform as-is (unknown included, so a header-less web
+     * request never inherits an app cart's discount), or null (keep what
+     * the cart has) outside HTTP and on payment gateway returns/callbacks.
+     */
+    public static function forStamping(): ?string
+    {
+        if (! app()->bound('request') || request()->attributes->get(self::PASSIVE_ATTRIBUTE) === true) {
+            return null;
+        }
+
+        return self::current();
     }
 
     /** True when $platform is a known surface (not null / unknown). */
