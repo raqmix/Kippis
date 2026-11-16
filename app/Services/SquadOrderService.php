@@ -107,6 +107,12 @@ class SquadOrderService
         }
 
         $product = Product::findOrFail($dto['product_id']);
+
+        // Secret-menu products can only be ordered from the mobile app.
+        if (! $product->isVisibleOnPlatform()) {
+            throw new \DomainException((new \App\Exceptions\AppOnlyProductException())->getMessage());
+        }
+
         $unitPrice = Money::toPiasters((float) $product->base_price);
 
         $item = SquadCartItem::create([

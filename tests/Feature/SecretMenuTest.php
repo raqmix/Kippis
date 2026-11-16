@@ -187,4 +187,40 @@ class SecretMenuTest extends TestCase
             ->postJson('/api/v1/kiosk/cart/items', ['item_type' => 'product', 'product_id' => $this->secret->id, 'quantity' => 1]);
         $this->assertSame(422, $res->status());
     }
+
+    public function test_squad_add_rejects_secret_item_off_app(): void
+    {
+        $host = Customer::factory()->create();
+        $session = app(\App\Services\SquadOrderService::class)->createSession($host);
+        $url = "/api/v1/squad/{$session->id}/items";
+
+        $this->actingAs($host, 'api')->withHeaders(self::WEB)
+            ->postJson($url, ['product_id' => $this->secret->id, 'quantity' => 1])
+            ->assertStatus(422);
+
+        $this->actingAs($host, 'api')->withHeaders(self::MOBILE)
+            ->postJson($url, ['product_id' => $this->secret->id, 'quantity' => 1])
+            ->assertSuccessful();
+    }
+
+    public function test_kiosk_reorder_drops_secret_items(): void
+    {
+        $customer = Customer::factory()->create();
+        $wallet = \App\Core\Models\LoyaltyWallet::factory()->create(['customer_id' => $customer->id]);
+        $order = Order::factory()->completed()->create([
+            'store_id' => $this->store->id,
+            'customer_id' => $customer->id,
+            'items_snapshot' => [
+                ['product_id' => $this->normal->id, 'name' => 'Normal Latte', 'quantity' => 1],
+                ['product_id' => $this->secret->id, 'name' => 'Secret Latte', 'quantity' => 1],
+            ],
+        ]);
+
+        $items = $this->withHeaders($this->kioskHeaders())
+            ->postJson('/api/v1/kiosk/reorder/confirm', ['qr_data' => $wallet->qr_token, 'order_id' => $order->id])
+            ->assertOk()
+            ->json('data.items');
+
+        $this->assertSame([$this->normal->id], array_column($items, 'product_id'));
+    }
 }
