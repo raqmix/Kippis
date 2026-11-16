@@ -74,3 +74,11 @@ Schedule::command('rewards:issue-birthday-treats')
     ->dailyAt('08:00')
     ->timezone('Africa/Cairo')
     ->withoutOverlapping();
+
+// Lifecycle pushes (gift/points expiring, enough/close to a gift) — daily
+// late morning Cairo. Each trigger dedups through customer_push_log and all
+// are marketing, so the 1-per-day cap applies.
+Schedule::command('pushes:lifecycle-triggers')
+    ->dailyAt('11:00')
+    ->timezone('Africa/Cairo')
+    ->withoutOverlapping();
