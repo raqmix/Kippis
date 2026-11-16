@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Core\Models\Setting;
+use App\Services\Loyalty\LoyaltyRescaler;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -12,6 +13,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Locked;
 
 /**
  * Admin-side knobs for the loyalty system. Everything customers
@@ -53,8 +55,17 @@ class LoyaltySettings extends Page implements HasForms
 
     public ?array $data = [];
 
+    /**
+     * loyalty.rescaled_at when the form was loaded. A form opened before
+     * loyalty:rescale holds old-scale point values; save() refuses it.
+     */
+    #[Locked]
+    public ?string $loadedRescaledAt = null;
+
     public function mount(): void
     {
+        $this->loadedRescaledAt = $this->currentRescaledAt();
+
         $this->form->fill([
             // Loyalty basics
             'loyalty_welcome_bonus_points' => (int) Setting::get(
@@ -244,8 +255,26 @@ class LoyaltySettings extends Page implements HasForms
         ];
     }
 
+    private function currentRescaledAt(): ?string
+    {
+        $at = Setting::get(LoyaltyRescaler::MARKER_AT);
+
+        return $at === null ? null : (string) $at;
+    }
+
     public function save(): void
     {
+        if ($this->currentRescaledAt() !== $this->loadedRescaledAt) {
+            Notification::make()
+                ->title(__('system.loyalty_settings_stale'))
+                ->body(__('system.loyalty_settings_stale_body'))
+                ->danger()
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
         $data = $this->form->getState();
 
         // Map form field → (setting key, type, group). Group lets the

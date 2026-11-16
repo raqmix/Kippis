@@ -11,16 +11,55 @@ use App\Core\Models\PromoQrCode;
 use App\Core\Models\QrCode;
 use App\Core\Models\RedeemItem;
 use App\Core\Models\Setting;
+use App\Core\Models\Admin;
 use App\Events\MonthlyDrawEntered;
+use App\Filament\Pages\LoyaltySettings;
+use App\Services\Loyalty\AlreadyRescaledException;
+use App\Services\Loyalty\LoyaltyRescaler;
 use App\Services\RefundService;
+use Filament\Facades\Filament;
+use Illuminate\Contracts\Foundation\MaintenanceMode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /** loyalty:rescale: 1 point per EGP -> 1 point per 10 EGP without losing value. */
 class LoyaltyRescaleTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** In-memory maintenance mode (never touches storage/framework/down). */
+    private MaintenanceMode $maintenance;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->maintenance = new class implements MaintenanceMode {
+            public bool $down = false;
+
+            public function activate(array $payload): void { $this->down = true; }
+
+            public function deactivate(): void { $this->down = false; }
+
+            public function active(): bool { return $this->down; }
+
+            public function data(): array { return []; }
+        };
+        $this->app->instance(MaintenanceMode::class, $this->maintenance);
+    }
+
+    /** Real run inside a maintenance window. */
+    private function inMaintenance(callable $fn): mixed
+    {
+        $this->maintenance->activate([]);
+        try {
+            return $fn();
+        } finally {
+            $this->maintenance->deactivate();
+        }
+    }
 
     private function wallet(int $earn = 0): LoyaltyWallet
     {
@@ -44,7 +83,15 @@ class LoyaltyRescaleTest extends TestCase
 
     private function rescale(array $options = []): int
     {
-        return $this->artisan('loyalty:rescale', ['--factor' => 10] + $options)->run();
+        return $this->inMaintenance(fn () => $this->artisan('loyalty:rescale', ['--factor' => 10] + $options)->run());
+    }
+
+    private function negativeWallet(int $points): LoyaltyWallet
+    {
+        $wallet = LoyaltyWallet::factory()->create(['points' => $points]);
+        LoyaltyTransaction::create(['wallet_id' => $wallet->id, 'type' => LoyaltyTransaction::TYPE_DEDUCTED, 'points' => $points]);
+
+        return $wallet->refresh();
     }
 
     public function test_dry_run_writes_nothing(): void
@@ -165,11 +212,100 @@ class LoyaltyRescaleTest extends TestCase
         $this->rescale();
         $this->assertSame(15, $wallet->refresh()->points);
 
-        $this->artisan('loyalty:rescale', ['--factor' => 10])
-            ->expectsOutputToContain('already rescaled')
-            ->assertFailed();
+        $this->inMaintenance(fn () => $this->artisan('loyalty:rescale', ['--factor' => 10])
+            ->expectsOutputToContain('already rescaled (factor 10 at')
+            ->assertFailed());
         $this->assertSame(15, $wallet->refresh()->points);
         $this->assertSame(1, Setting::get('loyalty.points_to_egp_rate'));
+        $this->assertSame(10, Setting::get('loyalty.rescaled_factor'));
+    }
+
+    public function test_real_run_requires_maintenance_mode(): void
+    {
+        $wallet = $this->wallet(150);
+        $item = $this->item(250);
+
+        $this->artisan('loyalty:rescale', ['--factor' => 10])
+            ->expectsOutputToContain('must be in maintenance mode')
+            ->expectsOutputToContain('Runbook: php artisan down; stop queue workers + scheduler; run; php artisan up; restart workers')
+            ->assertFailed();
+
+        $this->assertSame(150, $wallet->refresh()->points);
+        $this->assertSame(250, $item->refresh()->points_cost);
+        $this->assertNull(Setting::get('loyalty.rescaled_factor'));
+    }
+
+    public function test_racing_second_run_is_refused_inside_the_transaction(): void
+    {
+        // Both runs passed the command's early marker check; the second one
+        // must still be refused by the re-check under the row lock.
+        $wallet = $this->wallet(150);
+        $item = $this->item(250);
+        $rescaler = app(LoyaltyRescaler::class);
+        $rescaler->apply(10);
+        $rows = LoyaltyTransaction::count();
+        $settings = Setting::orderBy('id')->get(['key', 'value'])->toArray();
+
+        try {
+            $rescaler->apply(10);
+            $this->fail('second apply() should have been refused');
+        } catch (AlreadyRescaledException) {
+        }
+
+        $this->assertSame(15, $wallet->refresh()->points);
+        $this->assertSame(25, $item->refresh()->points_cost);
+        $this->assertSame($rows, LoyaltyTransaction::count());
+        $this->assertSame($settings, Setting::orderBy('id')->get(['key', 'value'])->toArray());
+    }
+
+    public function test_negative_balances_round_toward_zero(): void
+    {
+        $debt = $this->negativeWallet(-25);
+        $small = $this->negativeWallet(-5);
+
+        $this->artisan('loyalty:rescale', ['--factor' => 10, '--dry-run' => true])
+            ->expectsOutputToContain('negative balance (rescaled toward zero): 2')
+            ->assertSuccessful();
+        $this->rescale();
+
+        $this->assertSame(-2, $debt->refresh()->points);
+        $this->assertSame(0, $small->refresh()->points);
+        foreach ([$debt, $small] as $wallet) {
+            $this->assertSame($this->ledgerSum($wallet), $wallet->points);
+        }
+
+        // A later earn pays the debt off first; only what is left can expire.
+        $debt->addPoints(30, LoyaltyTransaction::TYPE_EARNED);
+        $this->assertSame(28, $debt->refresh()->points);
+        $this->travel(13)->months();
+        $this->artisan('loyalty:expire-points')->assertSuccessful();
+        $this->assertSame(0, $debt->refresh()->points);
+        $this->assertSame(-28, (int) LoyaltyTransaction::where('wallet_id', $debt->id)->where('type', 'expired')->sum('points'));
+        $this->assertSame($this->ledgerSum($debt), $debt->points);
+    }
+
+    public function test_stale_admin_settings_form_cannot_restore_old_scale_values(): void
+    {
+        Permission::findOrCreate('manage_settings', 'admin');
+        $admin = Admin::factory()->create();
+        $admin->givePermissionTo('manage_settings');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        $this->actingAs($admin, 'admin');
+        Setting::set('check_in.daily_points', 30, 'number', 'check_in');
+
+        $page = Livewire::test(LoyaltySettings::class); // opened before the rescale
+        $this->rescale();
+        $this->assertSame(3, Setting::get('check_in.daily_points'));
+
+        $page->call('save')->assertNotified(__('system.loyalty_settings_stale'));
+        $this->assertSame(3, Setting::get('check_in.daily_points'));
+
+        // a freshly loaded form saves normally
+        Livewire::test(LoyaltySettings::class)
+            ->set('data.check_in_daily_points', 4)
+            ->call('save')
+            ->assertNotified(__('system.loyalty_settings_saved'));
+        $this->assertSame(4, Setting::get('check_in.daily_points'));
     }
 
     public function test_expiry_after_rescale_only_takes_carried_over_lots(): void

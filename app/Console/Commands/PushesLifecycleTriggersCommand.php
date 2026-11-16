@@ -113,8 +113,11 @@ class PushesLifecycleTriggersCommand extends Command
         LoyaltyWallet::query()
             ->where('points', '>', 0)
             ->whereHas('customer', fn (Builder $c) => $this->eligible($c))
+            // Candidate filter only (expiringBy below decides): earn lots, and
+            // the lots loyalty:rescale carried over (type rescale, original expiry).
             ->whereHas('transactions', fn (Builder $t) => $t
-                ->where('type', LoyaltyTransaction::TYPE_EARNED)
+                ->whereIn('type', [LoyaltyTransaction::TYPE_EARNED, LoyaltyTransaction::TYPE_RESCALE])
+                ->where('points', '>', 0)
                 ->where('expires_at', '>', $now)
                 ->where('expires_at', '<=', $cutoff))
             ->with('customer')

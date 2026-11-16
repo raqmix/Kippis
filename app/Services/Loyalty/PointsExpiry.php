@@ -55,7 +55,7 @@ class PointsExpiry
             return 0;
         }
 
-        return (int) min(max(0, $pool - $this->consumed($wallet, $from)), (int) $wallet->points);
+        return (int) max(0, min($pool - $this->consumed($wallet, $from), (int) $wallet->points));
     }
 
     /** Earliest expires_at (<= $horizon) among the window's expiring rows. */
@@ -108,14 +108,20 @@ class PointsExpiry
             ->whereNotNull('expires_at');
     }
 
-    /** Every point that has left the wallet inside the window (rescale rows excluded). */
+    /**
+     * Every point that has left the wallet inside the window. A negative
+     * balance carried over by the rescale counts (later earns first pay off
+     * that debt); the close-out row itself never does.
+     */
     private function consumed(LoyaltyWallet $wallet, int $from): int
     {
         return (int) -LoyaltyTransaction::query()
             ->where('wallet_id', $wallet->id)
             ->where('id', '>', $from)
             ->where('points', '<', 0)
-            ->where('type', '!=', LoyaltyTransaction::TYPE_RESCALE)
+            ->where(fn (Builder $q) => $q
+                ->whereNull('reference_type')
+                ->orWhere('reference_type', '!=', LoyaltyTransaction::REF_RESCALE_CLOSE))
             ->sum('points');
     }
 }

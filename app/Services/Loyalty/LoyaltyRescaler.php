@@ -24,12 +24,23 @@ use Illuminate\Support\Facades\DB;
  * balance, and PointsExpiry only looks at rows after the close-out (and after
  * the global epoch for wallets at 0), so expiry runs purely in the new scale.
  *
- * plan() only reads; apply() writes everything in one DB transaction.
+ * Negative balances (debts) are rescaled toward zero, -intdiv(|old|, f), so
+ * a debt never grows: close-out row +|old|, then one 'rescale' row with the
+ * new (negative) balance.
+ *
+ * plan() only reads; apply() writes everything in one DB transaction and must
+ * run with the app in maintenance mode, workers and scheduler stopped (the
+ * order/redeem/checkout paths compute point amounts before taking the wallet
+ * lock). A second run is refused, also when two runs race: the marker is
+ * re-checked inside the transaction under a row lock. There is deliberately
+ * no way to rescale twice (refund reversal assumes a single factor).
  */
 class LoyaltyRescaler
 {
     public const MARKER_FACTOR = 'loyalty.rescaled_factor';
     public const MARKER_AT = 'loyalty.rescaled_at';
+    /** Guard row that concurrent runs serialize on (SELECT ... FOR UPDATE). */
+    public const LOCK_KEY = 'loyalty.rescale_lock';
 
     /**
      * Point-denominated amounts: key => [default when no Setting row, group, rule].
@@ -98,6 +109,11 @@ class LoyaltyRescaler
     public function planWallet(LoyaltyWallet $wallet, int $factor): array
     {
         $old = (int) $wallet->points;
+        $ledgerSum = (int) $wallet->transactions()->sum('points');
+        if ($old < 0) {
+            // A debt rounds toward zero so it never grows.
+            return ['old' => $old, 'new' => -intdiv(-$old, $factor), 'lots' => [], 'residue' => 0, 'ledger_sum' => $ledgerSum];
+        }
         $new = self::ceilDiv($old, $factor);
 
         // Group the still-held earn lots by expiry day (latest time of the
@@ -133,7 +149,7 @@ class LoyaltyRescaler
             'new'        => $new,
             'lots'       => $lots,
             'residue'    => max(0, $new - $cumNew),
-            'ledger_sum' => (int) $wallet->transactions()->sum('points'),
+            'ledger_sum' => $ledgerSum,
         ];
     }
 
@@ -151,61 +167,69 @@ class LoyaltyRescaler
     }
 
     /**
-     * Do it. Caller checks the marker/--force and factor >= 2.
+     * Do it. The caller checks factor >= 2 and maintenance mode; the
+     * already-rescaled check is repeated here under a row lock.
+     *
+     * Order inside the transaction: lock + marker check, then every config
+     * value (settings, earn rate, reward prices, QR codes, carts), then the
+     * wallets, then the expiry epoch and the markers.
      *
      * @return array{plan: array, wallets: array, changed_wallet_ids: array<int,int>}
+     *
+     * @throws AlreadyRescaledException
      */
     public function apply(int $factor): array
     {
+        // The guard row must exist before the transaction so that two
+        // concurrent runs both find (and queue on) the same row.
+        Setting::query()->createOrFirst(['key' => self::LOCK_KEY], ['value' => '', 'type' => 'string', 'group' => 'system']);
+
         $changed = [];
 
         $result = DB::transaction(function () use ($factor, &$changed) {
+            Setting::query()->where('key', self::LOCK_KEY)->lockForUpdate()->first();
+            $marker = Setting::query()->where('key', self::MARKER_FACTOR)->lockForUpdate()->first();
+            if ($marker !== null) {
+                throw new AlreadyRescaledException("Loyalty was already rescaled (factor {$marker->value}).");
+            }
+
             $plan = $this->plan($factor);
             $epoch = (int) LoyaltyTransaction::query()->max('id');
 
-            // Wallets first: their lots are computed with the OLD ledger
-            // window, so the epoch setting is only moved afterwards.
-            $summary = $this->emptyWalletSummary();
-            LoyaltyWallet::query()->lockForUpdate()->chunkById(200, function ($wallets) use ($factor, &$summary, &$changed) {
-                foreach ($wallets as $wallet) {
-                    $this->addToSummary($summary, $wallet, $factor, function (LoyaltyWallet $wallet, array $w) use ($factor, &$changed) {
-                        $this->writeWallet($wallet, $w, $factor);
-                        if ($w['new'] !== $w['old']) {
-                            $changed[] = $wallet->id;
-                        }
-                    });
-                }
-            });
-
-            Setting::set(PointsExpiry::EPOCH_SETTING, $epoch, 'number', 'loyalty');
-
-            foreach ($plan['settings'] as $key => $s) {
-                if ($s['new'] !== null && $s['new'] !== $s['old']) {
-                    Setting::set($key, $s['new'], 'number', $s['group']);
-                } elseif ($s['new'] !== null && $s['source'] === 'default') {
-                    // Pin the code default so a later default change can't flip the scale.
-                    Setting::set($key, $s['new'], 'number', $s['group']);
-                }
-            }
-
-            $rate = $plan['earn_rate'];
-            if ($rate['new_egp_per_point'] !== null) {
-                $value = $rate['new_egp_per_point'];
-                if (abs($value - round($value)) < 1e-9) {
-                    Setting::set('loyalty.egp_per_point', (int) round($value), 'number', 'loyalty');
-                } else {
-                    // 'number' settings read back as int; keep the decimals.
-                    Setting::set('loyalty.egp_per_point', (string) round($value, 4), 'string', 'loyalty');
-                }
-            }
-
+            // 1. Config first, so nothing priced in points stays in the old scale.
+            $this->writeSettings($plan);
             $this->writeColumn(RedeemItem::withTrashed(), 'points_cost', $plan['redeem_items']);
             $this->writeColumn(PromoQrCode::query(), 'points', $plan['promo_qr']);
             $this->writeColumn(QrCode::query(), 'points_awarded', $plan['qr_codes']);
             $this->writeColumn(Cart::query(), 'points_used', $plan['carts']);
 
-            $previous = (int) Setting::get(self::MARKER_FACTOR, 1);
-            Setting::set(self::MARKER_FACTOR, max(1, $previous) * $factor, 'number', 'loyalty');
+            // 2. Wallets. Their lots are computed with the OLD ledger window,
+            // so the epoch setting is only moved afterwards.
+            $summary = $this->emptyWalletSummary();
+            LoyaltyWallet::query()->lockForUpdate()->chunkById(500, function ($wallets) use ($factor, &$summary, &$changed) {
+                $rows = [];
+                foreach ($wallets as $wallet) {
+                    $this->addToSummary($summary, $wallet, $factor, function (LoyaltyWallet $wallet, array $w) use ($factor, &$changed, &$rows) {
+                        if ($w['old'] === 0) {
+                            return; // 0 stays 0; its expiry window is reset by the global epoch
+                        }
+                        array_push($rows, ...$this->walletRows($wallet, $w, $factor));
+                        if ($w['new'] !== $w['old']) {
+                            LoyaltyWallet::query()->whereKey($wallet->id)->update(['points' => $w['new']]);
+                            $changed[] = $wallet->id;
+                        }
+                    });
+                }
+                // Multi-row inserts: ids ascend in row order, so each wallet's
+                // close-out row precedes its carried-over rows.
+                foreach (array_chunk($rows, 1000) as $batch) {
+                    LoyaltyTransaction::query()->insert($batch);
+                }
+            });
+
+            // 3. Expiry window and markers.
+            Setting::set(PointsExpiry::EPOCH_SETTING, $epoch, 'number', 'loyalty');
+            Setting::set(self::MARKER_FACTOR, $factor, 'number', 'loyalty');
             Setting::set(self::MARKER_AT, now()->toIso8601String(), 'string', 'loyalty');
 
             return ['plan' => $plan, 'wallets' => $summary];
@@ -221,41 +245,58 @@ class LoyaltyRescaler
         return $result + ['changed_wallet_ids' => $changed];
     }
 
-    private function writeWallet(LoyaltyWallet $wallet, array $w, int $factor): void
+    private function writeSettings(array $plan): void
     {
-        if ($w['old'] <= 0) {
-            return; // nothing to carry over; the global epoch resets its expiry window
+        foreach ($plan['settings'] as $key => $s) {
+            if ($s['new'] !== null && ($s['new'] !== $s['old'] || $s['source'] === 'default')) {
+                // A code default is pinned too, so a later default change can't flip the scale.
+                Setting::set($key, $s['new'], 'number', $s['group']);
+            }
         }
 
-        $wallet->transactions()->create([
+        $rate = $plan['earn_rate'];
+        if ($rate['new_egp_per_point'] !== null) {
+            $value = $rate['new_egp_per_point'];
+            if (abs($value - round($value)) < 1e-9) {
+                Setting::set('loyalty.egp_per_point', (int) round($value), 'number', 'loyalty');
+            } else {
+                // 'number' settings read back as int; keep the decimals.
+                Setting::set('loyalty.egp_per_point', (string) round($value, 4), 'string', 'loyalty');
+            }
+        }
+    }
+
+    /** Ledger rows for one wallet whose balance changes (close-out row first). */
+    private function walletRows(LoyaltyWallet $wallet, array $w, int $factor): array
+    {
+        $now = now();
+        $row = fn (int $points, string $ref, $expiresAt, string $description) => [
+            'wallet_id'      => $wallet->id,
             'type'           => LoyaltyTransaction::TYPE_RESCALE,
-            'points'         => -$w['old'],
-            'description'    => "Points rescaled 1:{$factor} ({$w['old']} old points)",
-            'reference_type' => LoyaltyTransaction::REF_RESCALE_CLOSE,
+            'points'         => $points,
+            'expires_at'     => $expiresAt,
+            'description'    => $description,
+            'reference_type' => $ref,
             'reference_id'   => $factor,
-        ]);
+            'created_by'     => null,
+            'created_at'     => $now,
+            'updated_at'     => $now,
+        ];
+
+        $rows = [$row(-$w['old'], LoyaltyTransaction::REF_RESCALE_CLOSE, null, "Points rescaled 1:{$factor} ({$w['old']} old points)")];
+        if ($w['new'] < 0) {
+            $rows[] = $row($w['new'], LoyaltyTransaction::REF_RESCALE_LOT, null, 'Negative balance carried over after rescale');
+
+            return $rows;
+        }
         foreach ($w['lots'] as $lot) {
-            $wallet->transactions()->create([
-                'type'           => LoyaltyTransaction::TYPE_RESCALE,
-                'points'         => $lot['points'],
-                'expires_at'     => $lot['expires_at'],
-                'description'    => 'Points carried over after rescale',
-                'reference_type' => LoyaltyTransaction::REF_RESCALE_LOT,
-                'reference_id'   => $factor,
-            ]);
+            $rows[] = $row($lot['points'], LoyaltyTransaction::REF_RESCALE_LOT, $lot['expires_at'], 'Points carried over after rescale');
         }
         if ($w['residue'] > 0) {
-            $wallet->transactions()->create([
-                'type'           => LoyaltyTransaction::TYPE_RESCALE,
-                'points'         => $w['residue'],
-                'expires_at'     => null,
-                'description'    => 'Points carried over after rescale',
-                'reference_type' => LoyaltyTransaction::REF_RESCALE_LOT,
-                'reference_id'   => $factor,
-            ]);
+            $rows[] = $row($w['residue'], LoyaltyTransaction::REF_RESCALE_LOT, null, 'Points carried over after rescale');
         }
 
-        LoyaltyWallet::query()->whereKey($wallet->id)->update(['points' => $w['new']]);
+        return $rows;
     }
 
     private function emptyWalletSummary(): array
@@ -282,14 +323,11 @@ class LoyaltyRescaler
         if ($w['ledger_sum'] !== $w['old']) {
             $summary['ledger_mismatch_ids'][] = $wallet->id;
         }
+        $summary['sum_after'] += $w['new'];
         if ($w['old'] < 0) {
             $summary['wallets_negative']++;
-            $summary['sum_after'] += $w['old'];
-
-            return; // never touched; reported
-        }
-        $summary['sum_after'] += $w['new'];
-        if ($w['old'] > 0) {
+            $summary['rows_to_write'] += 1 + ($w['new'] !== 0 ? 1 : 0);
+        } elseif ($w['old'] > 0) {
             $summary['wallets_with_balance']++;
             $summary['rows_to_write'] += 1 + count($w['lots']) + ($w['residue'] > 0 ? 1 : 0);
             $summary['expiring_lot_points'] += array_sum(array_column($w['lots'], 'points'));
