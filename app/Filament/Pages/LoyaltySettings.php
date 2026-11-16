@@ -65,6 +65,10 @@ class LoyaltySettings extends Page implements HasForms
                 'loyalty.points_per_order_egp',
                 (int) config('core.loyalty.points_per_order_egp', 1),
             ),
+            'loyalty_egp_per_point' => Setting::get('loyalty.egp_per_point'),
+            // Order streak
+            'order_streak_enabled' => (bool) Setting::get('order_streak.enabled', true),
+            'order_streak_length'  => (int) Setting::get('order_streak.length', 5),
             // Check-in
             'check_in_enabled'         => (bool) Setting::get('check_in.enabled', true),
             'check_in_daily_points'    => (int) Setting::get('check_in.daily_points', 3),
@@ -78,6 +82,7 @@ class LoyaltySettings extends Page implements HasForms
             'referral_monthly_cap'     => (int) Setting::get('referral.monthly_cap', 5),
             'referral_inviter_points'  => (int) Setting::get('referral.inviter_points', 30),
             'referral_invitee_points'  => (int) Setting::get('referral.invitee_points', 30),
+            'referral_reward_type'     => (string) Setting::get('referral.reward_type', 'points'),
             // Feedback
             'feedback_enabled'         => (bool) Setting::get('feedback.enabled', true),
             'feedback_points_per_rating' => (int) Setting::get('feedback.points_per_rating', 5),
@@ -111,6 +116,22 @@ class LoyaltySettings extends Page implements HasForms
                         ->label(__('system.points_per_egp'))
                         ->helperText(__('system.points_per_egp_help'))
                         ->numeric()->minValue(0)->required(),
+                    Forms\Components\TextInput::make('loyalty_egp_per_point')
+                        ->label(__('loyalty_rules.settings.egp_per_point'))
+                        ->helperText(__('loyalty_rules.settings.egp_per_point_help'))
+                        ->numeric()->minValue(0.01),
+                ])
+                ->columns(2),
+
+            Components\Section::make(__('loyalty_rules.settings.order_streak'))
+                ->icon('heroicon-o-fire')
+                ->description(__('loyalty_rules.settings.order_streak_help'))
+                ->schema([
+                    Forms\Components\Toggle::make('order_streak_enabled')
+                        ->label(__('loyalty_rules.settings.order_streak_enabled')),
+                    Forms\Components\TextInput::make('order_streak_length')
+                        ->label(__('loyalty_rules.settings.order_streak_length'))
+                        ->numeric()->minValue(2)->maxValue(60)->required(),
                 ])
                 ->columns(2),
 
@@ -167,6 +188,13 @@ class LoyaltySettings extends Page implements HasForms
                     Forms\Components\TextInput::make('referral_invitee_points')
                         ->label(__('system.referral_invitee_points'))
                         ->numeric()->minValue(0)->required(),
+                    Forms\Components\Select::make('referral_reward_type')
+                        ->label(__('loyalty_rules.settings.referral_reward_type'))
+                        ->options([
+                            'points'      => __('loyalty_rules.settings.referral_reward_points'),
+                            'free_coffee' => __('loyalty_rules.settings.referral_reward_free_coffee'),
+                        ])
+                        ->required(),
                 ])
                 ->columns(2),
 
@@ -226,6 +254,9 @@ class LoyaltySettings extends Page implements HasForms
         $map = [
             'loyalty_welcome_bonus_points' => ['loyalty.welcome_bonus_points', 'number', 'loyalty'],
             'loyalty_points_per_order_egp' => ['loyalty.points_per_order_egp', 'number', 'loyalty'],
+            'order_streak_enabled'     => ['order_streak.enabled',     'boolean', 'order_streak'],
+            'order_streak_length'      => ['order_streak.length',      'number',  'order_streak'],
+            'referral_reward_type'     => ['referral.reward_type',     'string',  'referral'],
             'check_in_enabled'         => ['check_in.enabled',         'boolean', 'check_in'],
             'check_in_daily_points'    => ['check_in.daily_points',    'number',  'check_in'],
             'check_in_streak_3_bonus'  => ['check_in.streak_3_bonus',  'number',  'check_in'],
@@ -244,6 +275,14 @@ class LoyaltySettings extends Page implements HasForms
             'loyalty_max_points_per_order'  => ['loyalty.max_points_per_order',  'number',  'loyalty'],
             'loyalty_wallet_item_ttl_days'  => ['loyalty.wallet_item_ttl_days',  'number',  'loyalty'],
         ];
+
+        // Empty = keep the legacy points-per-EGP rule (Setting::set would store '').
+        $egpPerPoint = $data['loyalty_egp_per_point'] ?? null;
+        if ($egpPerPoint === null || $egpPerPoint === '' || (float) $egpPerPoint <= 0) {
+            Setting::where('key', 'loyalty.egp_per_point')->delete();
+        } else {
+            Setting::set('loyalty.egp_per_point', $egpPerPoint, 'number', 'loyalty');
+        }
 
         foreach ($map as $formKey => [$settingKey, $type, $group]) {
             $value = $data[$formKey] ?? null;

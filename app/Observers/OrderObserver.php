@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Core\Models\Order;
 use App\Core\Repositories\LoyaltyWalletRepository;
 use App\Events\OrderStatusUpdated;
+use App\Services\Loyalty\PointsEarning;
 use App\Services\SpendRewardService;
 use Illuminate\Support\Facades\Log;
 
@@ -44,13 +45,16 @@ class OrderObserver
             return;
         }
 
-        // Admin-editable via Filament → Loyalty Settings
-        // (`loyalty.points_per_order_egp`); env is the fresh-install fallback.
-        $pointsPerEgp = (int) \App\Core\Models\Setting::get(
-            'loyalty.points_per_order_egp',
-            (int) config('core.loyalty.points_per_order_egp', 1),
-        );
-        $points = (int) round((float) $order->total * $pointsPerEgp);
+        // Rate: `loyalty.egp_per_point` when set (floor), else the legacy
+        // `loyalty.points_per_order_egp`; app orders may get a double-points
+        // rule on top (see PointsEarning).
+        $earning = app(PointsEarning::class)->calculate($order);
+        $points = $earning['points'];
+        $description = "Points from order #{$order->id}";
+        if ($earning['rule']) {
+            $description .= ' (x' . rtrim(rtrim(number_format($earning['multiplier'], 2, '.', ''), '0'), '.')
+                . ' ' . $earning['rule']->name . ')';
+        }
 
         if ($points > 0) {
             try {
@@ -59,7 +63,7 @@ class OrderObserver
                     $wallet,
                     $points,
                     'earned',
-                    "Points from order #{$order->id}",
+                    $description,
                     'order',
                     $order->id
                 );

@@ -72,6 +72,8 @@ class Customer extends Authenticatable implements JWTSubject
             'is_staff' => 'boolean',
             'push_marketing_opt_in' => 'boolean',
             'lifetime_spent_piasters' => 'integer',
+            'order_streak_count' => 'integer',
+            'order_streak_last_date' => 'date',
             'password' => 'hashed',
         ];
     }
