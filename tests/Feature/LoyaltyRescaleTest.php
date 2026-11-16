@@ -248,4 +248,15 @@ class LoyaltyRescaleTest extends TestCase
         $method = new \ReflectionMethod(RefundService::class, 'pointsToReverse');
         $this->assertSame(15, $method->invoke(app(RefundService::class), $wallet->refresh(), $order));
     }
+
+    public function test_customer_history_hides_rescale_rows(): void
+    {
+        $wallet = $this->wallet(1500);
+        $this->assertSame(0, $this->rescale());
+
+        $res = $this->actingAs($wallet->customer, 'api')->getJson('/api/v1/loyalty')->assertOk();
+        $types = collect($res->json('data.transactions'))->pluck('type')->unique()->values()->all();
+        $this->assertSame(['earned'], $types);
+        $this->assertSame(150, (int) $wallet->refresh()->points);
+    }
 }
