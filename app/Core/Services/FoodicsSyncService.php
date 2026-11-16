@@ -345,7 +345,12 @@ class FoodicsSyncService
                 $response = $this->foodicsClient->get('v5/products', \App\Integrations\Foodics\DTOs\FoodicsQueryParamsDTO::fromArray([
                     'page' => $page,
                     'per_page' => 100,
-                    'include' => ['category', 'modifiers', 'modifiers.options'],
+                    // `branches` carries the per-branch pivot (is_active,
+                    // is_in_stock, price) — needed only for a per-store sync
+                    // so we can tell whether this branch switched the item off.
+                    'include' => $attachTo
+                        ? ['category', 'modifiers', 'modifiers.options', 'branches']
+                        : ['category', 'modifiers', 'modifiers.options'],
                     'filters' => $filters,
                 ]), $mode);
 
@@ -487,8 +492,18 @@ class FoodicsSyncService
                         // menu-group sync — idempotent so re-syncs don't fail.
                         // syncWithoutDetaching keeps any other branches the
                         // admin has already added via Filament.
+                        //
+                        // is_available mirrors the branch's own switch in
+                        // Foodics (Products → branch → inactive / out of
+                        // stock). Without it, an item a branch turned off
+                        // stayed orderable in the app until the branch
+                        // rejected the order at the counter.
                         if ($attachTo) {
-                            $savedProduct->stores()->syncWithoutDetaching([$attachTo->id]);
+                            $savedProduct->stores()->syncWithoutDetaching([
+                                $attachTo->id => [
+                                    'is_available' => self::isAvailableAtBranch($productItem, $attachTo->foodics_branch_id),
+                                ],
+                            ]);
                         }
                     } catch (\Exception $e) {
                         $errors[] = "Error syncing product {$productItem['id']}: " . $e->getMessage();
@@ -525,6 +540,34 @@ class FoodicsSyncService
             'seen_foodics_ids' => array_values(array_unique($seenFoodicsIds)),
             'errors' => $errors,
         ];
+    }
+
+    /**
+     * Whether Foodics lets this branch sell the product. Reads the per-branch
+     * pivot from `include=branches`: a branch entry with is_active=false
+     * (product disabled in that branch) or is_in_stock=false (marked out of
+     * stock) means unavailable. No entry for the branch, or no branch id on
+     * the store, means no branch-specific override → available.
+     */
+    public static function isAvailableAtBranch(array $productItem, ?string $foodicsBranchId): bool
+    {
+        if (! $foodicsBranchId || ! isset($productItem['branches']) || ! is_array($productItem['branches'])) {
+            return true;
+        }
+
+        foreach ($productItem['branches'] as $branch) {
+            if ((string) ($branch['id'] ?? '') !== (string) $foodicsBranchId) {
+                continue;
+            }
+            $pivot = is_array($branch['pivot'] ?? null) ? $branch['pivot'] : [];
+            if (in_array($pivot['is_active'] ?? true, [false, 0, '0'], true)
+                || in_array($pivot['is_in_stock'] ?? true, [false, 0, '0'], true)) {
+                return false;
+            }
+            return true;
+        }
+
+        return true;
     }
 
     /**

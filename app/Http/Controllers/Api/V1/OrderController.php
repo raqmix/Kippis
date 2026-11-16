@@ -145,6 +145,26 @@ class OrderController extends Controller
             );
         }
 
+        // Block items the branch has switched off (Foodics per-branch
+        // inactive / out of stock, mirrored into product_store.is_available
+        // by the catalog sync) or that aren't on its menu at all. The app
+        // hides them, but a cart built before the switch-off, or against a
+        // different branch, must not reach the counter.
+        $checkoutStoreId = (int) ($request->input('store_id') ?? $cart->store_id);
+        $unavailableResponse = $this->guardItemsAvailableAtStore(
+            $cart->items
+                ->filter(fn ($item) => ($item->item_type ?? 'product') === 'product' && $item->product_id)
+                ->map(fn ($item) => [
+                    'product_id' => (int) $item->product_id,
+                    'name' => $item->name ?? $item->product?->getName(app()->getLocale()),
+                ])
+                ->values(),
+            $checkoutStoreId
+        );
+        if ($unavailableResponse) {
+            return $unavailableResponse;
+        }
+
         if ($paymentMethod->code === 'card') {
             $gatewayOrderId = 'ord_' . $customer->id . '_' . time();
             $amount         = number_format((float) $cart->total, 2, '.', '');
@@ -166,6 +186,11 @@ class OrderController extends Controller
                 );
             }
 
+            // Only reference an authentication on PAY when one actually
+            // completed (frictionless here, or the 3DS challenge via
+            // handle3dsReturn). Cards whose issuer doesn't support 3DS
+            // pay without it.
+            $authTransactionId = null;
             if ($initResult['authentication_required'] ?? false) {
                 // Step 2: AUTHENTICATE_PAYER — triggers the 3DS challenge (same transactionId)
                 $authResult = $this->mastercardPayment->authenticatePayer(
@@ -212,6 +237,8 @@ class OrderController extends Controller
                     }
                     return response()->json($body, 200);
                 }
+
+                $authTransactionId = 'auth_1';
             }
 
             // No 3DS (or frictionless) — charge immediately. Pass the
@@ -219,7 +246,7 @@ class OrderController extends Controller
             // treats the PAY as 3DS-authenticated (frictionless still
             // counts) and doesn't scheme-block for missing 3DS.
             $result = $this->mastercardPayment->pay(
-                $gatewayOrderId, 'pay_1', $amount, $currency, $sessionId, 'auth_1'
+                $gatewayOrderId, 'pay_1', $amount, $currency, $sessionId, $authTransactionId
             );
             if (!($result['success'] ?? false)) {
                 return apiError(
@@ -300,6 +327,19 @@ class OrderController extends Controller
 
         if (!$pending) {
             $url = htmlspecialchars($frontendUrl . '/checkout?payment_error=session_expired', ENT_QUOTES, 'UTF-8');
+            return response('<html><head></head><body><script>window.top.location.href="' . $url . '"</script></body></html>', 200, ['Content-Type' => 'text/html']);
+        }
+
+        // The ACS posts the authentication outcome back here (MPGS form
+        // fields; PHP turns the dots into underscores). If the issuer did
+        // not authenticate the payer, don't attempt the charge.
+        $recommendation = (string) ($request->input('response_gatewayRecommendation')
+            ?? $request->input('response.gatewayRecommendation')
+            ?? '');
+        if ($recommendation !== '' && $recommendation !== 'PROCEED') {
+            Cache::forget('mpgs_pending_' . $ref);
+            Log::warning('Mastercard 3DS return: not authenticated', ['recommendation' => $recommendation]);
+            $url = htmlspecialchars($frontendUrl . '/checkout?payment_error=authentication_failed', ENT_QUOTES, 'UTF-8');
             return response('<html><head></head><body><script>window.top.location.href="' . $url . '"</script></body></html>', 200, ['Content-Type' => 'text/html']);
         }
 
@@ -740,8 +780,8 @@ class OrderController extends Controller
             if ($itemType === 'product') {
                 // Handle product items
                 $product = \App\Core\Models\Product::find($item['product_id']);
-                if (!$product || !$product->is_active) {
-                    continue; // Skip inactive or deleted products
+                if (!$product || !$product->is_active || !$product->isVisibleOnPlatform()) {
+                    continue; // Skip inactive, deleted or (off-app) secret-menu products
                 }
 
                 // Extract addons from configuration if present, otherwise use modifiers

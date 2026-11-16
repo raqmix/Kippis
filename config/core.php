@@ -1,6 +1,10 @@
 <?php
 
 return [
+    // Every "day", "week", "Monday", "3-6 PM" business rule is evaluated
+    // in this timezone (APP_TIMEZONE stays UTC).
+    'business_timezone' => env('BUSINESS_TIMEZONE', 'Africa/Cairo'),
+
     'data_retention' => [
         'activity_logs' => 365, // days
         'security_logs' => 730,

@@ -24,7 +24,7 @@ class CreatorDropService
             });
         }
 
-        return $query->get();
+        return $this->hideAppOnly($query->get());
     }
 
     /**
@@ -35,7 +35,17 @@ class CreatorDropService
         return CreatorDrop::scheduled()
             ->with(['creator', 'product'])
             ->orderBy('starts_at')
-            ->get();
+            ->get()
+            ->pipe(fn (Collection $drops) => $this->hideAppOnly($drops));
+    }
+
+    /**
+     * Drop the drops whose product is an app-only (secret menu) item
+     * the current client platform may not see.
+     */
+    public function hideAppOnly(Collection $drops): Collection
+    {
+        return $drops->filter(fn (CreatorDrop $d) => ! $d->product || $d->product->isVisibleOnPlatform())->values();
     }
 
     /**

@@ -38,6 +38,19 @@ class Order extends Model
         'modifiers_snapshot',
         'promo_code_id',
         'promo_discount',
+        // Loyalty-as-discount + promotions snapshot. createFromCart has
+        // always set these; they were silently dropped until they were
+        // listed here.
+        'wallet_item_id',
+        'wallet_discount',
+        'points_used',
+        'points_discount',
+        'applied_promotions_snapshot',
+        // App-only discount (see Cart::recalculate()).
+        'platform',
+        'app_discount',
+        'discount_source',
+        'app_offer_snapshot',
         'refund_status',
         'refunded_amount',
         'gateway_order_id',
@@ -56,6 +69,12 @@ class Order extends Model
             'tax' => 'decimal:2',
             'discount' => 'decimal:2',
             'promo_discount' => 'decimal:2',
+            'wallet_discount' => 'decimal:2',
+            'points_used' => 'integer',
+            'points_discount' => 'decimal:2',
+            'app_discount' => 'decimal:2',
+            'applied_promotions_snapshot' => 'array',
+            'app_offer_snapshot' => 'array',
             'items_snapshot' => 'array',
             'modifiers_snapshot' => 'array',
             'deleted_at' => 'datetime',
@@ -103,6 +122,11 @@ class Order extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function walletItem(): BelongsTo
+    {
+        return $this->belongsTo(CustomerRedeemWallet::class, 'wallet_item_id');
     }
 
     public function refunds(): HasMany

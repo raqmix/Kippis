@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use App\Support\ClientPlatform;
 use Database\Factories\ProductFactory;
 
 class Product extends Model
@@ -41,6 +42,7 @@ class Product extends Model
         'caffeine_mg',
         'caffeine_level',
         'locally_overridden_fields',
+        'app_only',
     ];
 
     protected function casts(): array
@@ -52,6 +54,7 @@ class Product extends Model
             'base_price'      => 'decimal:2',
             'is_active'       => 'boolean',
             'is_draft'        => 'boolean',
+            'app_only'        => 'boolean',
             'last_synced_at'  => 'datetime',
             'deleted_at'      => 'datetime',
             'locally_overridden_fields' => 'array',
@@ -127,18 +130,22 @@ class Product extends Model
     public function stores(): BelongsToMany
     {
         return $this->belongsToMany(Store::class, 'product_store')
+            ->withPivot('is_available')
             ->withTimestamps();
     }
 
     /**
      * Scope: products visible at a specific store. Returns products that
-     * are either explicitly linked to that store, OR have no store links
-     * at all (the "available everywhere" legacy default).
+     * are either linked to that store and not switched off there
+     * (product_store.is_available), OR have no store links at all (the
+     * "available everywhere" legacy default).
      */
     public function scopeAvailableAtStore($query, int $storeId)
     {
         return $query->where(function ($q) use ($storeId) {
-            $q->whereHas('stores', fn ($s) => $s->where('stores.id', $storeId))
+            // On this branch's menu AND not switched off there in Foodics.
+            $q->whereHas('stores', fn ($s) => $s->where('stores.id', $storeId)
+                    ->where('product_store.is_available', true))
               ->orWhereDoesntHave('stores');
         });
     }
@@ -154,6 +161,32 @@ class Product extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true)->where('is_draft', false);
+    }
+
+    /**
+     * Scope: products the given client platform may see. App-only
+     * ("secret menu") products are visible on mobile only; web, kiosk,
+     * unknown clients never see them. $platform defaults to the platform
+     * of the current HTTP request; outside a request (console, jobs) no
+     * restriction applies.
+     */
+    public function scopeVisibleOnPlatform($query, ?string $platform = null)
+    {
+        $platform ??= ClientPlatform::current();
+
+        if ($platform === null || $platform === ClientPlatform::MOBILE) {
+            return $query;
+        }
+
+        return $query->where($query->getModel()->qualifyColumn('app_only'), false);
+    }
+
+    /** Instance counterpart of scopeVisibleOnPlatform(). */
+    public function isVisibleOnPlatform(?string $platform = null): bool
+    {
+        $platform ??= ClientPlatform::current();
+
+        return ! $this->app_only || $platform === null || $platform === ClientPlatform::MOBILE;
     }
 
     /**

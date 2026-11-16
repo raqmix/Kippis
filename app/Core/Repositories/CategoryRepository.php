@@ -42,7 +42,7 @@ class CategoryRepository
         // catalog) — same rule as Product::scopeAvailableAtStore.
         $storeId = !empty($filters['store_id']) ? (int) $filters['store_id'] : null;
         $query->whereHas('products', function ($q) use ($storeId) {
-            $q->where('is_active', true)->where('is_draft', false);
+            $q->where('is_active', true)->where('is_draft', false)->visibleOnPlatform();
             if ($storeId !== null) {
                 $q->availableAtStore($storeId);
             }
@@ -98,7 +98,7 @@ class CategoryRepository
         // when caller provides one (see getPaginated() for the same rule).
         $storeId = !empty($filters['store_id']) ? (int) $filters['store_id'] : null;
         $query->whereHas('products', function ($q) use ($storeId) {
-            $q->where('is_active', true)->where('is_draft', false);
+            $q->where('is_active', true)->where('is_draft', false)->visibleOnPlatform();
             if ($storeId !== null) {
                 $q->availableAtStore($storeId);
             }

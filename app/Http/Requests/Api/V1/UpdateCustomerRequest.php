@@ -46,6 +46,24 @@ class UpdateCustomerRequest extends FormRequest
     }
 
     /**
+     * Birthdate can be set once (while empty); after that only an admin
+     * can change it. Re-sending the same date is accepted.
+     */
+    public function after(): array
+    {
+        return [function (\Illuminate\Validation\Validator $validator) {
+            $customer = auth('api')->user();
+            if ($validator->errors()->isNotEmpty() || ! $customer?->birthdate || ! $this->has('birthdate')) {
+                return;
+            }
+
+            if (\Illuminate\Support\Carbon::parse($this->input('birthdate'))->toDateString() !== $customer->birthdate->toDateString()) {
+                $validator->errors()->add('birthdate', __('api.birthdate_locked'));
+            }
+        }];
+    }
+
+    /**
      * Get custom messages for validator errors.
      *
      * @return array<string, string>

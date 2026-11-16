@@ -15,7 +15,8 @@ class PromotionController extends Controller
     {
         $query = Promotion::where('is_active', true)->with('product')->orderBy('sort_order')->orderBy('id');
         if ($request->filled('date')) {
-            $d = Carbon::parse($request->date);
+            $request->validate(['date' => ['date_format:Y-m-d']]);
+            $d = Carbon::createFromFormat('Y-m-d', $request->date);
             $query->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $d->copy()->endOfDay()))
                 ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $d->copy()->startOfDay()));
         }

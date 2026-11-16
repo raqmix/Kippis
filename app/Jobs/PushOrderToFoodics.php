@@ -284,15 +284,50 @@ class PushOrderToFoodics implements ShouldQueue
             } else {
                 // Fallback when lazy sync didn't land a foodics_customer_id —
                 // ship the contact info inline so the branch still has it.
-                $payload['customer'] = [
+                $payload['customer'] = array_merge([
                     'name' => $order->customer->name,
                     'email' => $order->customer->email,
-                    'phone' => $order->customer->phone,
-                ];
+                ], self::foodicsPhoneFields($order->customer->phone, $order->customer->country_code));
             }
         }
 
         return $payload;
+    }
+
+    /**
+     * Foodics v5 wants the phone split into `dial_code` (int, no "+") and a
+     * national `phone` with no trunk "0" — e.g. +20 / "01001234567" becomes
+     * dial_code 20, phone "1001234567". Sending only `phone` was rejected
+     * with 422 "dial_code is required", so app customers never got linked
+     * to a Foodics customer. Defaults to Egypt (+20) when the customer has
+     * no country_code. Returns [] when there's no usable phone.
+     *
+     * @return array{dial_code?: int, phone?: string}
+     */
+    public static function foodicsPhoneFields(?string $phone, ?string $countryCode): array
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if ($digits === '') {
+            return [];
+        }
+
+        $dial = preg_replace('/\D+/', '', (string) $countryCode);
+        if ($dial === '') {
+            $dial = '20';
+        }
+
+        // Strip an international prefix the customer may have typed into the
+        // phone field itself ("0020…", "20…" when that leaves a full number).
+        if (str_starts_with($digits, '00' . $dial)) {
+            $digits = substr($digits, 2 + strlen($dial));
+        } elseif (str_starts_with($digits, $dial) && strlen($digits) - strlen($dial) >= 9) {
+            $digits = substr($digits, strlen($dial));
+        }
+
+        // National trunk prefix.
+        $digits = ltrim($digits, '0');
+
+        return $digits === '' ? [] : ['dial_code' => (int) $dial, 'phone' => $digits];
     }
 
     /**
@@ -305,11 +340,10 @@ class PushOrderToFoodics implements ShouldQueue
         $endpoint = config('foodics.endpoints.customers', 'v5/customers');
 
         try {
-            $response = $client->post($endpoint, [
+            $response = $client->post($endpoint, array_merge([
                 'name'  => $customer->name,
                 'email' => $customer->email,
-                'phone' => $customer->phone,
-            ]);
+            ], self::foodicsPhoneFields($customer->phone, $customer->country_code)));
         } catch (FoodicsException $e) {
             Log::warning('FOODICS_CUSTOMER_CREATE_FAILED', [
                 'customer_id' => $customer->id,

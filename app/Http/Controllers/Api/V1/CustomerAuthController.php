@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Core\Models\PartnerCode;
 use App\Core\Services\CustomerAuthService;
 use App\Http\Controllers\Controller;
 use App\Http\Exceptions\AccountNotVerifiedException;
@@ -73,8 +74,22 @@ class CustomerAuthController extends Controller
         try {
             $customer = $this->authService->register($request->validated());
 
+            // Partner code: explicit field, or the single signup_code field
+            // (partner first, else referral; already validated 422 above).
+            $signup = $request->resolveSignupCode();
+            if (filled($request->input('partner_code'))) {
+                $customer->applyPartnerCode(PartnerCode::findActive($request->input('partner_code')));
+            } elseif ($signup && $signup['type'] === 'partner') {
+                $customer->applyPartnerCode($signup['partner']);
+            }
+
+            $referralCode = $request->input('referral_code');
+            if (! $referralCode && $signup && $signup['type'] === 'referral') {
+                $referralCode = $signup['code'];
+            }
+
             // Apply referral code if provided
-            if ($referralCode = $request->input('referral_code')) {
+            if ($referralCode) {
                 try {
                     app(\App\Services\ReferralService::class)->applyReferralCode($customer, $referralCode);
                 } catch (\Throwable) {
@@ -653,6 +668,37 @@ class CustomerAuthController extends Controller
 
             return apiError('SERVER_ERROR', 'server_error', 500);
         }
+    }
+
+    /**
+     * Set the customer's partner code from the profile.
+     *
+     * One per account: 422 when already set or when the code is invalid.
+     *
+     * @authenticated
+     * @bodyParam code string required The partner code (case-insensitive). Example: PARTNER10
+     */
+    public function setPartnerCode(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate(['code' => ['required', 'string', 'max:40']]);
+
+        /** @var \App\Core\Models\Customer $customer */
+        $customer = auth('api')->user();
+
+        if ($customer->partner_code_id) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['code' => [__('api.partner_code_already_set')]]);
+        }
+
+        $partner = PartnerCode::findActive($request->input('code'));
+        if (! $partner) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['code' => [__('api.partner_code_invalid')]]);
+        }
+
+        if (! $customer->applyPartnerCode($partner)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['code' => [__('api.partner_code_already_set')]]);
+        }
+
+        return apiSuccess(new CustomerResource($customer->load('partnerCode')), 'partner_code_set');
     }
 
     /**

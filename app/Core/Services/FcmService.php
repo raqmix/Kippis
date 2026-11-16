@@ -43,8 +43,13 @@ class FcmService
      *
      * FCM v1 requires all `data` values to be strings; we coerce here so
      * callers can pass scalars / arrays without ceremony.
+     *
+     * Returns false when FCM answered with a non-2xx status (callers that
+     * need to know, like CustomerPushService, treat that as a failed send;
+     * the others ignore the result as before). Transport errors and a
+     * missing access token still behave as they always did.
      */
-    public function sendDataToToken(string $token, string $title, string $body, array $data): void
+    public function sendDataToToken(string $token, string $title, string $body, array $data): bool
     {
         $projectId = config('services.fcm.project_id');
         $url = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
@@ -65,7 +70,18 @@ class FcmService
             ],
         ];
 
-        Http::withToken($this->getAccessToken())->post($url, $payload);
+        $response = Http::withToken($this->getAccessToken())->post($url, $payload);
+        if (! $response->successful()) {
+            // Never log the token (PII); status + FCM error status is enough.
+            \Illuminate\Support\Facades\Log::warning('fcm.send_rejected', [
+                'http_status' => $response->status(),
+                'fcm_status' => $response->json('error.status'),
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 
     private function getAccessToken(): string

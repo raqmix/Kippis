@@ -66,3 +66,19 @@ Schedule::command('foodics:sync-catalog')
     ->everyFifteenMinutes()
     ->withoutOverlapping(20)
     ->runInBackground();
+
+// Birthday treat — every morning (Cairo), issue the birthday drink to
+// customers whose birthday is in the current Mon-Sun week. Idempotent per
+// customer per year, so re-runs are harmless.
+Schedule::command('rewards:issue-birthday-treats')
+    ->dailyAt('08:00')
+    ->timezone('Africa/Cairo')
+    ->withoutOverlapping();
+
+// Lifecycle pushes (gift/points expiring, enough/close to a gift) — daily
+// late morning Cairo. Each trigger dedups through customer_push_log and all
+// are marketing, so the 1-per-day cap applies.
+Schedule::command('pushes:lifecycle-triggers')
+    ->dailyAt('11:00')
+    ->timezone('Africa/Cairo')
+    ->withoutOverlapping();
