@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Core\Models\LoyaltyTransaction;
 use App\Core\Models\LoyaltyWallet;
+use App\Services\Loyalty\PointsExpiry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,11 @@ use Illuminate\Support\Facades\Log;
  * NOW using FIFO accounting:
  *
  *   expired_pool      = sum(earned.points where expires_at <= now)
- *   already_consumed  = sum(absolute value of every redeemed/adjusted-down/expired transaction)
+ *   already_consumed  = sum(absolute value of every negative transaction:
+ *                       redeemed, adjusted down, expired, refund-deducted)
+ *
+ * Only the ledger rows after the wallet's last loyalty:rescale count (see
+ * PointsExpiry): older rows are in the previous point scale.
  *   newly_expiring    = max(0, expired_pool - already_consumed)
  *
  * In other words: of every point that has crossed its expiry date, only
@@ -100,43 +105,10 @@ class ExpireLoyaltyPointsCommand extends Command
 
     private function computeExpiringForWallet(LoyaltyWallet $wallet, $now): int
     {
-        // expired_pool: sum of earned amounts whose expires_at has
-        // passed. Without this clamp the formula below would also
-        // expire still-valid earns when the wallet has been heavily
-        // redeemed.
-        $expiredPool = (int) LoyaltyTransaction::query()
-            ->where('wallet_id', $wallet->id)
-            ->where('type', LoyaltyTransaction::TYPE_EARNED)
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', $now)
-            ->sum('points');
-
-        if ($expiredPool <= 0) {
-            return 0;
-        }
-
-        // already_consumed: every absolute point that has left the
-        // wallet, in any way (redeem, admin-adjusted-down, prior expiry).
-        // We use abs() because redeem rows are stored as negative.
-        $alreadyConsumed = (int) LoyaltyTransaction::query()
-            ->where('wallet_id', $wallet->id)
-            ->whereIn('type', [
-                LoyaltyTransaction::TYPE_REDEEMED,
-                LoyaltyTransaction::TYPE_EXPIRED,
-            ])
-            ->sum(DB::raw('ABS(points)'));
-
-        // Admin adjustments that were negative also count as consumed.
-        $alreadyConsumed += (int) LoyaltyTransaction::query()
-            ->where('wallet_id', $wallet->id)
-            ->where('type', LoyaltyTransaction::TYPE_ADJUSTED)
-            ->where('points', '<', 0)
-            ->sum(DB::raw('ABS(points)'));
-
-        $newlyExpiring = max(0, $expiredPool - $alreadyConsumed);
-
-        // Hard floor: never drive the wallet below 0 via expiry.
-        return (int) min($newlyExpiring, $wallet->points);
+        // FIFO maths (and the post-rescale ledger window) live in
+        // PointsExpiry so the sweep, the wallet API banner and the
+        // lifecycle pushes can never disagree.
+        return app(PointsExpiry::class)->expiringBy($wallet, $now);
     }
 
     private function expireForWallet(LoyaltyWallet $wallet, int $amount, $now): void
