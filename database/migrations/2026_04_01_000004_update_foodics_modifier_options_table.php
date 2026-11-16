@@ -10,6 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         $columns = Schema::getColumnListing('foodics_modifier_options');
+        $renamed = false;
 
         // Only rename if the old column still exists (idempotent)
         if (in_array('foodics_modifier_group_id', $columns)) {
@@ -24,6 +25,7 @@ return new class extends Migration
             Schema::table('foodics_modifier_options', function (Blueprint $table) {
                 $table->renameColumn('foodics_modifier_group_id', 'foodics_modifier_id');
             });
+            $renamed = true;
         }
 
         Schema::table('foodics_modifier_options', function (Blueprint $table) use ($columns) {
@@ -38,7 +40,9 @@ return new class extends Migration
             }
         });
 
-        if (DB::getDriverName() !== 'sqlite') {
+        // A fresh install gets foodics_modifier_id, its FK and indexes from
+        // 000002 already; only re-add them after the legacy rename above.
+        if ($renamed && DB::getDriverName() !== 'sqlite') {
             Schema::table('foodics_modifier_options', function (Blueprint $table) {
                 $table->foreign('foodics_modifier_id')
                       ->references('id')
