@@ -136,8 +136,15 @@ class CustomerPushTest extends TestCase
         $this->assertSame('sent', $this->pushes()->send($c, 'big_win_entry', [], [], 'bw')->status);
     }
 
+    public function test_marketing_reaches_customers_without_opt_in_by_default(): void
+    {
+        $c = $this->customer(['push_marketing_opt_in' => false]);
+        $this->assertSame('sent', $this->pushes()->send($c, 'gift_expiring')->status);
+    }
+
     public function test_opt_out_blocks_marketing_but_not_transactional(): void
     {
+        \App\Core\Models\Setting::set('pushes.marketing_requires_opt_in', true, 'boolean', 'pushes');
         $c = $this->customer(['push_marketing_opt_in' => false]);
         $row = $this->pushes()->send($c, 'gift_expiring');
         $this->assertSame('not_opted_in', $row->reason);

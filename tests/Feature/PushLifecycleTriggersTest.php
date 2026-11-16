@@ -67,6 +67,7 @@ class PushLifecycleTriggersTest extends TestCase
 
     public function test_gift_expiring_three_days_ahead_only_once(): void
     {
+        \App\Core\Models\Setting::set('pushes.marketing_requires_opt_in', true, 'boolean', 'pushes');
         $due = $this->customer();
         $soon = $this->customer();
         $later = $this->customer();

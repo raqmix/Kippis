@@ -241,10 +241,14 @@ class PushesLifecycleTriggersCommand extends Command
         return ['en' => $item->getTitle('en'), 'ar' => $item->getTitle('ar')];
     }
 
-    /** Marketing needs an opt-in and a token; filter here so we do not log millions of skips. */
+    /** Marketing needs a token (and the opt-in when the setting asks for it); filter here so we do not log millions of skips. */
     private function eligible(Builder $customers): Builder
     {
-        return $customers->where('push_marketing_opt_in', true)->whereNotNull('fcm_token');
+        if (\App\Services\Notifications\CustomerPushService::marketingRequiresOptIn()) {
+            $customers->where('push_marketing_opt_in', true);
+        }
+
+        return $customers->whereNotNull('fcm_token');
     }
 
     /**

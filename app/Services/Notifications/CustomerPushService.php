@@ -13,8 +13,10 @@ use Illuminate\Support\Facades\Log;
  * Single entry point for customer pushes (brief section E).
  *
  *  - transactional: always sent when the customer has an FCM token.
- *  - marketing: needs customers.push_marketing_opt_in and at most ONE
- *    marketing push per Cairo day (any marketing type counts).
+ *  - marketing: at most ONE marketing push per Cairo day (any marketing
+ *    type counts). Automatic pushes go to everyone with a token unless the
+ *    setting pushes.marketing_requires_opt_in is on; admin scheduled pushes
+ *    pass their own audience rule.
  *  - dedup key: a key can be consumed once per customer.
  *
  * Every attempt is written to customer_push_log, skips included.
@@ -83,8 +85,9 @@ class CustomerPushService
         array $data = [],
         ?string $category = null,
         ?string $dedupKey = null,
-        bool $enforceOptIn = true,
+        ?bool $enforceOptIn = null,
     ): CustomerPushLog {
+        $enforceOptIn ??= self::marketingRequiresOptIn();
         [$defaultCategory, $screen] = self::TYPES[$type] ?? [self::MARKETING, null];
         $category ??= $defaultCategory;
 
@@ -186,5 +189,11 @@ class CustomerPushService
             'attempt_key' => $key,
             'sent_at' => now(),
         ]);
+    }
+
+    /** Automatic marketing pushes need the opt-in flag only when this setting is on (default off). */
+    public static function marketingRequiresOptIn(): bool
+    {
+        return (bool) \App\Core\Models\Setting::get('pushes.marketing_requires_opt_in', false);
     }
 }

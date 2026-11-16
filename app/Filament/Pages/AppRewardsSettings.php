@@ -61,6 +61,7 @@ class AppRewardsSettings extends Page implements HasForms
             'birthday_drink_category_ids' => $this->ids(Setting::get('rewards.birthday_drink.category_ids', [])),
             'birthday_drink_max_value'    => (int) Setting::get('rewards.birthday_drink.max_value', 170),
             'wallet_ttl_days'             => (int) Setting::get('rewards.wallet_ttl_days', 30),
+            'marketing_requires_opt_in'   => (bool) Setting::get('pushes.marketing_requires_opt_in', false),
         ]);
     }
 
@@ -126,6 +127,14 @@ class AppRewardsSettings extends Page implements HasForms
                         ->numeric()->minValue(0)->required(),
                 ])
                 ->columns(2),
+
+            Components\Section::make('Notifications')
+                ->icon('heroicon-o-bell')
+                ->schema([
+                    Forms\Components\Toggle::make('marketing_requires_opt_in')
+                        ->label('Marketing pushes only to opted-in customers')
+                        ->helperText('Off: automatic marketing pushes (gift expiring, streak, Big Win, birthday...) go to everyone with notifications on, at most one per day. On: only to customers who opted in to marketing.'),
+                ]),
         ];
     }
 
@@ -152,6 +161,7 @@ class AppRewardsSettings extends Page implements HasForms
             'birthday_drink_max_value' => ['rewards.birthday_drink.max_value', 'number', 'rewards'],
             'birthday_treat_enabled'   => ['birthday_treat.enabled', 'boolean', 'rewards'],
             'wallet_ttl_days'          => ['rewards.wallet_ttl_days',          'number', 'rewards'],
+            'marketing_requires_opt_in' => ['pushes.marketing_requires_opt_in', 'boolean', 'pushes'],
         ];
         foreach ($map as $formKey => [$settingKey, $type, $group]) {
             Setting::set($settingKey, $data[$formKey] ?? null, $type, $group);
