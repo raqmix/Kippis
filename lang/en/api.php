@@ -73,9 +73,9 @@ return [
     'wallet_item_counter_only' => 'Show this gift\'s QR code at the counter; it can\'t be used in the app cart.',
 
     // Partner codes / birthdate lock
-    'partner_code_invalid' => 'That code isn't valid.',
-    'signup_code_invalid' => 'That code isn't valid.',
+    'partner_code_invalid' => 'That code is not valid.',
+    'signup_code_invalid' => 'That code is not valid.',
     'partner_code_already_set' => 'A partner code is already set on your account.',
     'partner_code_set' => 'Partner code added.',
-    'birthdate_locked' => 'Birthday can't be changed; contact support.',
+    'birthdate_locked' => 'Birthday can\'t be changed; contact support.',
 ];
