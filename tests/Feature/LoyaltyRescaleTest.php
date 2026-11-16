@@ -206,7 +206,7 @@ class LoyaltyRescaleTest extends TestCase
         $this->assertSame(1, $b->points);
     }
 
-    public function test_second_run_is_refused_without_force(): void
+    public function test_second_run_is_always_refused(): void
     {
         $wallet = $this->wallet(150);
         $this->rescale();
