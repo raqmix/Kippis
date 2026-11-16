@@ -293,7 +293,8 @@ class ProductResource extends Resource
                     ->label('Secret menu')
                     ->boolean()
                     ->trueIcon('heroicon-o-eye-slash')
-                    ->falseIcon('')
+                    ->falseIcon('heroicon-o-minus')
+                    ->falseColor('gray')
                     ->trueColor('warning')
                     ->tooltip(fn ($record) => $record->app_only ? 'App only (secret menu)' : null)
                     ->toggleable(),
