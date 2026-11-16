@@ -2,9 +2,12 @@
 
 namespace App\Jobs;
 
+use App\Core\Models\Customer;
+use App\Core\Models\CustomerPushLog;
 use App\Core\Models\ScheduledPush;
 use App\Core\Models\ScheduledPushSend;
 use App\Core\Services\FcmService;
+use App\Services\Notifications\CustomerPushService;
 use App\Services\ScheduledPushService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -33,12 +36,15 @@ class SendScheduledPushBatchJob implements ShouldQueue
     public function __construct(
         public int $scheduledPushId,
         public int $scheduledPushSendId,
-        public array $tokens,
+        /** Legacy payload from jobs queued before the push log existed; sent uncapped. */
+        public array $tokens = [],
+        public array $customerIds = [],
     ) {}
 
     public function handle(
         FcmService $fcm,
         ScheduledPushService $service,
+        CustomerPushService $pushes,
     ): void {
         $push = ScheduledPush::find($this->scheduledPushId);
         $send = ScheduledPushSend::find($this->scheduledPushSendId);
@@ -59,6 +65,35 @@ class SendScheduledPushBatchJob implements ShouldQueue
 
         $ok = 0;
         $failed = 0;
+        $skipped = [];
+
+        // Admin scheduled pushes count as marketing: the 1-per-Cairo-day cap
+        // and the push log apply. Audience "all" keeps its meaning (every
+        // customer with a token), so the opt-in flag is not enforced there.
+        $enforceOptIn = $push->audience !== 'all';
+        foreach (array_chunk($this->customerIds, 200) as $ids) {
+            foreach (Customer::query()->whereIn('id', $ids)->get() as $customer) {
+                $row = $pushes->sendText(
+                    $customer,
+                    'scheduled_push',
+                    $title,
+                    $body,
+                    $data,
+                    CustomerPushService::MARKETING,
+                    null,
+                    $enforceOptIn,
+                );
+                match ($row->status) {
+                    CustomerPushLog::STATUS_SENT => $ok++,
+                    CustomerPushLog::STATUS_FAILED => $failed++,
+                    default => $skipped[$row->reason] = ($skipped[$row->reason] ?? 0) + 1,
+                };
+            }
+        }
+        if ($skipped) {
+            Log::info('scheduled_push.batch.skipped', ['push_id' => $push->id, 'skipped' => $skipped]);
+        }
+
         foreach ($this->tokens as $token) {
             try {
                 $fcm->sendDataToToken($token, $title, $body, $data);

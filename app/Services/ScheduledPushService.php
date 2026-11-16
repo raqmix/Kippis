@@ -89,16 +89,19 @@ class ScheduledPushService
         // Chunk to keep memory bounded and to let queued jobs retry
         // independently. Each chunk becomes one queued batch job.
         $recipientsQuery->chunkById(500, function ($chunk) use ($push, $send, &$count) {
-            $tokens = $chunk->pluck('fcm_token')->filter()->values()->all();
-            if (empty($tokens)) {
+            $ids = $chunk->filter(fn ($c) => ! empty($c->fcm_token))->pluck('id')->values()->all();
+            if (empty($ids)) {
                 return;
             }
+            // Customer ids, not tokens: the batch job goes through
+            // CustomerPushService (daily marketing cap + push log).
             SendScheduledPushBatchJob::dispatch(
                 $push->id,
                 $send->id,
-                $tokens,
+                [],
+                $ids,
             );
-            $count += count($tokens);
+            $count += count($ids);
         });
 
         $send->update(['recipients_count' => $count]);
