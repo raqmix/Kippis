@@ -7,6 +7,7 @@ use App\Services\Rewards\CounterRedemptionService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 
 /**
@@ -25,6 +26,7 @@ class RedeemGift extends Page
     #[Url(as: 'code')]
     public string $code = '';
 
+    #[Locked]
     public ?int $entryId = null;
 
     public bool $searched = false;

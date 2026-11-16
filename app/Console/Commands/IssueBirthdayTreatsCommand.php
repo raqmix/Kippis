@@ -36,7 +36,7 @@ class IssueBirthdayTreatsCommand extends Command
             ? CarbonImmutable::parse($this->option('date'), $tz)->startOfDay()
             : CarbonImmutable::now($tz)->startOfDay();
         $weekStart = $today->startOfWeek(CarbonImmutable::MONDAY);
-        $expiresAt = $weekStart->addDays(6)->endOfDay();
+        $expiresAt = $weekStart->addDays(6)->endOfDay()->utc(); // Eloquent stores Carbon as-is, so hand it UTC
 
         // (month, day) => the calendar date this week on which it is celebrated
         $days = [];

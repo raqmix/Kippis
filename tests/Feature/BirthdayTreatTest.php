@@ -71,7 +71,9 @@ class BirthdayTreatTest extends TestCase
         $this->assertSame('free_item', $reward->reward_type);
         $this->assertSame([5, 6], $reward->reward_config['category_ids']);
         $this->assertEquals(99.0, $reward->reward_config['max_value']);
-        $this->assertSame('2026-11-22 23:59:59', $reward->expires_at->setTimezone('Africa/Cairo')->format('Y-m-d H:i:s'));
+        // Stored as a UTC instant (Sunday 23:59:59 Cairo = 21:59:59 UTC in November). Read the raw
+        // column: setTestNow() with a Cairo instant would skew how the cast re-parses it.
+        $this->assertSame('2026-11-22 21:59:59', \DB::table('customer_redeem_wallet')->where('id', $reward->id)->value('expires_at'));
     }
 
     public function test_once_per_year_and_event_fired_once(): void
