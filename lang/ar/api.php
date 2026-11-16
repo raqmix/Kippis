@@ -69,6 +69,9 @@ return [
     'product_not_found' => 'المنتج غير موجود.',
     'order_not_found' => 'الطلب غير موجود.',
 
+    // Secret menu
+    'app_only_product' => 'هذا المنتج متاح فقط في تطبيق كيبيس.',
+
     // Rewards wallet
     'wallet_item_counter_only' => 'اعرض رمز QR الخاص بهذه الهدية عند الكاشير؛ لا يمكن استخدامها في سلة التطبيق.',
 

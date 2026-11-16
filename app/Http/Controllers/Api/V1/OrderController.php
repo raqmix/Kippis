@@ -803,8 +803,8 @@ class OrderController extends Controller
             if ($itemType === 'product') {
                 // Handle product items
                 $product = \App\Core\Models\Product::find($item['product_id']);
-                if (!$product || !$product->is_active) {
-                    continue; // Skip inactive or deleted products
+                if (!$product || !$product->is_active || !$product->isVisibleOnPlatform()) {
+                    continue; // Skip inactive, deleted or (off-app) secret-menu products
                 }
 
                 // Extract addons from configuration if present, otherwise use modifiers
