@@ -4,6 +4,7 @@ namespace App\Core\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -47,6 +48,8 @@ class Customer extends Authenticatable implements JWTSubject
         'push_marketing_opt_in',
         'lifetime_spent_piasters',
         'is_staff',
+        'partner_code_id',
+        'partner_code_set_at',
     ];
 
     /**
@@ -70,10 +73,32 @@ class Customer extends Authenticatable implements JWTSubject
             'birthdate' => 'date',
             'is_verified' => 'boolean',
             'is_staff' => 'boolean',
+            'partner_code_set_at' => 'datetime',
             'push_marketing_opt_in' => 'boolean',
             'lifetime_spent_piasters' => 'integer',
             'password' => 'hashed',
         ];
+    }
+
+    public function partnerCode(): BelongsTo
+    {
+        return $this->belongsTo(PartnerCode::class);
+    }
+
+    /**
+     * Tag this customer with a partner code. One per account: the update
+     * only lands while partner_code_id is still null, so concurrent calls
+     * can't overwrite each other. Returns false when already tagged.
+     */
+    public function applyPartnerCode(PartnerCode $code): bool
+    {
+        $updated = static::whereKey($this->getKey())
+            ->whereNull('partner_code_id')
+            ->update(['partner_code_id' => $code->id, 'partner_code_set_at' => now()]);
+
+        $this->refresh();
+
+        return $updated > 0;
     }
 
     /**

@@ -2,7 +2,11 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Core\Models\PartnerCode;
+use App\Core\Models\Referral;
+use App\Core\Models\Setting;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class RegisterCustomerRequest extends FormRequest
 {
@@ -30,7 +34,50 @@ class RegisterCustomerRequest extends FormRequest
             'password' => ['required', 'string', 'min:8', 'confirmed', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[#?!@$%^&*-])[A-Za-z\d#?!@$%^&*-]{8,}$/'],
             'avatar' => ['nullable', 'image', 'max:2048'],
             'referral_code' => ['nullable', 'string', 'max:30'],
+            'partner_code' => ['nullable', 'string', 'max:40'],
+            'signup_code' => ['nullable', 'string', 'max:40'],
         ];
+    }
+
+    /**
+     * partner_code must be an active partner code. signup_code is the
+     * single app field: a partner code first, else a referral code.
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            if (filled($this->input('partner_code')) && ! PartnerCode::findActive($this->input('partner_code'))) {
+                $validator->errors()->add('partner_code', __('api.partner_code_invalid'));
+            }
+
+            if (filled($this->input('signup_code')) && ! $this->resolveSignupCode()) {
+                $validator->errors()->add('signup_code', __('api.signup_code_invalid'));
+            }
+        }];
+    }
+
+    /** @return array{type: 'partner', partner: PartnerCode}|array{type: 'referral', code: string}|null */
+    public function resolveSignupCode(): ?array
+    {
+        $code = trim((string) $this->input('signup_code'));
+        if ($code === '') {
+            return null;
+        }
+
+        if ($partner = PartnerCode::findActive($code)) {
+            return ['type' => 'partner', 'partner' => $partner];
+        }
+
+        if (Setting::get('referral.enabled', true)
+            && Referral::where('referral_code', $code)->where('status', 'pending')->whereNull('invitee_id')->exists()) {
+            return ['type' => 'referral', 'code' => $code];
+        }
+
+        return null;
     }
 
     /**

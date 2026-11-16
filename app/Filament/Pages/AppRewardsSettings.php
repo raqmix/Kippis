@@ -57,6 +57,7 @@ class AppRewardsSettings extends Page implements HasForms
             'app_offer_label_ar' => (string) Setting::get('app_offer.label_ar', ''),
             'free_coffee_category_ids'    => $this->ids(Setting::get('rewards.free_coffee.category_ids', [])),
             'free_coffee_max_value'       => (int) Setting::get('rewards.free_coffee.max_value', 130),
+            'birthday_treat_enabled'      => (bool) Setting::get('birthday_treat.enabled', true),
             'birthday_drink_category_ids' => $this->ids(Setting::get('rewards.birthday_drink.category_ids', [])),
             'birthday_drink_max_value'    => (int) Setting::get('rewards.birthday_drink.max_value', 170),
             'wallet_ttl_days'             => (int) Setting::get('rewards.wallet_ttl_days', 30),
@@ -111,6 +112,8 @@ class AppRewardsSettings extends Page implements HasForms
             Components\Section::make(__('rewards.admin.birthday_drink'))
                 ->icon('heroicon-o-cake')
                 ->schema([
+                    Forms\Components\Toggle::make('birthday_treat_enabled')
+                        ->label('Birthday treat enabled'),
                     Forms\Components\Select::make('birthday_drink_category_ids')
                         ->label(__('rewards.admin.categories'))
                         ->multiple()->options($categories),
@@ -147,6 +150,7 @@ class AppRewardsSettings extends Page implements HasForms
             'app_offer_label_ar' => ['app_offer.label_ar', 'string',  'app_offer'],
             'free_coffee_max_value'    => ['rewards.free_coffee.max_value',    'number', 'rewards'],
             'birthday_drink_max_value' => ['rewards.birthday_drink.max_value', 'number', 'rewards'],
+            'birthday_treat_enabled'   => ['birthday_treat.enabled', 'boolean', 'rewards'],
             'wallet_ttl_days'          => ['rewards.wallet_ttl_days',          'number', 'rewards'],
         ];
         foreach ($map as $formKey => [$settingKey, $type, $group]) {

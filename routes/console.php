@@ -66,3 +66,11 @@ Schedule::command('foodics:sync-catalog')
     ->everyFifteenMinutes()
     ->withoutOverlapping(20)
     ->runInBackground();
+
+// Birthday treat — every morning (Cairo), issue the birthday drink to
+// customers whose birthday is in the current Mon-Sun week. Idempotent per
+// customer per year, so re-runs are harmless.
+Schedule::command('rewards:issue-birthday-treats')
+    ->dailyAt('08:00')
+    ->timezone('Africa/Cairo')
+    ->withoutOverlapping();

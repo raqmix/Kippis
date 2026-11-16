@@ -93,6 +93,10 @@ class CustomerResource extends Resource
                             ->label(__('system.birthdate'))
                             ->required()
                             ->before('today'),
+                        Forms\Components\Select::make('partner_code_id')
+                            ->label('Partner code')
+                            ->relationship('partnerCode', 'code')
+                            ->searchable()->preload()->nullable(),
                         Forms\Components\TextInput::make('password')
                             ->label(__('system.password'))
                             ->password()

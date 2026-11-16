@@ -71,4 +71,11 @@ return [
 
     // Rewards wallet
     'wallet_item_counter_only' => 'اعرض رمز QR الخاص بهذه الهدية عند الكاشير؛ لا يمكن استخدامها في سلة التطبيق.',
+
+    // Partner codes / birthdate lock
+    'partner_code_invalid' => 'هذا الكود غير صالح.',
+    'signup_code_invalid' => 'هذا الكود غير صالح.',
+    'partner_code_already_set' => 'تم إضافة كود شريك لحسابك بالفعل.',
+    'partner_code_set' => 'تمت إضافة كود الشريك.',
+    'birthdate_locked' => 'لا يمكن تغيير تاريخ الميلاد، يرجى التواصل مع الدعم.',
 ];
