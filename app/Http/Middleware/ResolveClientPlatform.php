@@ -19,7 +19,7 @@ class ResolveClientPlatform
 
         // Payment gateway returns / callbacks carry no client headers: they
         // must keep the platform the cart was priced with.
-        if ($request->is('api/v1/payment/*', 'api/v1/webhooks/*')) {
+        if ($request->is('api/v1/payment/mastercard/3ds-return/*', 'api/v1/webhooks/*')) {
             $request->attributes->set(ClientPlatform::PASSIVE_ATTRIBUTE, true);
         }
 
