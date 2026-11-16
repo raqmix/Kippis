@@ -25,6 +25,7 @@ class ProductResource extends JsonResource
             'image' => $this->getImageUrl(),
             'base_price' => (float) $this->base_price,
             'product_kind' => $this->product_kind,
+            'app_only' => (bool) $this->app_only,
             'allergens' => $this->allergens ?? [],
             'caffeine_mg' => $this->caffeine_mg,
             'caffeine_level' => $this->caffeine_level,

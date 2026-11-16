@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Core\Services\FcmService;
 use App\Events\OrderStatusUpdated;
+use App\Services\Notifications\PushText;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 
@@ -73,31 +74,23 @@ class NotifyCustomerOnOrderStatusUpdate implements ShouldQueue
     }
 
     /**
-     * Bilingual (English + Arabic) per-status copy. Returns null when no
-     * push should be sent for this status. Bilingual format is intentional —
-     * we don't store the customer's preferred locale, and Egyptian users
-     * are typically comfortable with either language.
+     * Bilingual (English + Arabic) per-status copy from lang/{en,ar}/pushes.php
+     * (order_status.*), so the texts are editable. Returns null when no push
+     * should be sent for this status. Bilingual format is intentional: we
+     * don't store the customer's preferred locale, and Egyptian users are
+     * typically comfortable with either language.
      */
     private function copyFor(string $status): ?array
     {
-        return match ($status) {
-            'mixing' => [
-                'title' => 'Your order is being prepared • جاري تحضير طلبك',
-                'body'  => "We're mixing it now — hang tight! نقوم بتحضير طلبك الآن.",
-            ],
-            'ready' => [
-                'title' => 'Your order is ready! • طلبك جاهز!',
-                'body'  => 'Head to the counter to pick it up. توجه إلى المنضدة لاستلام طلبك.',
-            ],
-            'completed' => [
-                'title' => 'Enjoy your Kippis! • استمتع بـ Kippis!',
-                'body'  => 'Tap to rate your order and earn bonus points. قيّم طلبك واكسب نقاط إضافية.',
-            ],
-            'cancelled' => [
-                'title' => 'Order cancelled • تم إلغاء الطلب',
-                'body'  => 'Your order was cancelled. Tap for details. تم إلغاء طلبك. اضغط للتفاصيل.',
-            ],
-            default => null,
-        };
+        if (! in_array($status, ['mixing', 'ready', 'completed', 'cancelled'], true)) {
+            return null;
+        }
+
+        $key = "pushes.order_status.{$status}";
+
+        return [
+            'title' => PushText::title("{$key}.title"),
+            'body'  => PushText::body("{$key}.body"),
+        ];
     }
 }

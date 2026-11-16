@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Core\Models\Cart;
 use App\Core\Models\Product;
+use App\Exceptions\AppOnlyProductException;
 use App\Core\Repositories\CartRepository;
 use App\Services\MixPriceCalculator;
 
@@ -30,6 +31,12 @@ class CartService
     {
         if (!$product->is_active) {
             throw new \InvalidArgumentException('Product is not active.');
+        }
+
+        // Secret-menu products can only be ordered from the mobile app.
+        // No platform (console / jobs) means no restriction.
+        if (!$product->isVisibleOnPlatform()) {
+            throw new AppOnlyProductException();
         }
 
         // Calculate price with addons

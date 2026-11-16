@@ -4,7 +4,12 @@ namespace App\Observers;
 
 use App\Core\Models\Order;
 use App\Core\Repositories\LoyaltyWalletRepository;
+use App\Events\MonthlyDrawEntered;
 use App\Events\OrderStatusUpdated;
+use App\Services\AppOffer\AppOffer;
+use App\Services\Loyalty\OrderStreakService;
+use App\Services\Loyalty\PointsEarning;
+use App\Services\ReferralService;
 use App\Services\SpendRewardService;
 use Illuminate\Support\Facades\Log;
 
@@ -28,6 +33,13 @@ class OrderObserver
             OrderStatusUpdated::dispatch($order, $oldStatus);
         }
 
+        // Cancelled before completion: give the gift back (single use
+        // means "used on an order that went through").
+        if ($order->status === 'cancelled' && $oldStatus !== 'cancelled' && $oldStatus !== 'completed') {
+            $this->restoreWalletItem($order);
+            return;
+        }
+
         // Only process customer orders that just became completed
         if ($order->status !== 'completed' || $oldStatus === 'completed') {
             return;
@@ -37,13 +49,16 @@ class OrderObserver
             return;
         }
 
-        // Admin-editable via Filament → Loyalty Settings
-        // (`loyalty.points_per_order_egp`); env is the fresh-install fallback.
-        $pointsPerEgp = (int) \App\Core\Models\Setting::get(
-            'loyalty.points_per_order_egp',
-            (int) config('core.loyalty.points_per_order_egp', 1),
-        );
-        $points = (int) round((float) $order->total * $pointsPerEgp);
+        // Rate: `loyalty.egp_per_point` when set (floor), else the legacy
+        // `loyalty.points_per_order_egp`; app orders may get a double-points
+        // rule on top (see PointsEarning).
+        $earning = app(PointsEarning::class)->calculate($order);
+        $points = $earning['points'];
+        $description = "Points from order #{$order->id}";
+        if ($earning['rule']) {
+            $description .= ' (x' . rtrim(rtrim(number_format($earning['multiplier'], 2, '.', ''), '0'), '.')
+                . ' ' . $earning['rule']->name . ')';
+        }
 
         if ($points > 0) {
             try {
@@ -52,7 +67,7 @@ class OrderObserver
                     $wallet,
                     $points,
                     'earned',
-                    "Points from order #{$order->id}",
+                    $description,
                     'order',
                     $order->id
                 );
@@ -63,6 +78,8 @@ class OrderObserver
                 ]);
             }
         }
+
+        $this->handleAppOrderCompleted($order);
 
         // Spend-milestone counter — increment the customer's lifetime
         // spend and issue any newly-crossed tier vouchers. Isolated
@@ -91,6 +108,68 @@ class OrderObserver
             if ($reward && $reward->status === \App\Core\Models\CustomerSpendReward::STATUS_APPLIED) {
                 $this->spendRewardService->markRedeemed($reward, $order);
             }
+        }
+    }
+
+    /**
+     * Perks that only app orders (app_offer.platforms) trigger: order
+     * streak, Monthly Big Win entry, Bring a Friend first-order reward.
+     * Each is isolated so one failing never blocks the others or loyalty.
+     */
+    private function handleAppOrderCompleted(Order $order): void
+    {
+        if (! app(AppOffer::class)->isAppPlatform($order->platform)) {
+            return;
+        }
+
+        try {
+            app(OrderStreakService::class)->recordCompletedOrder($order);
+        } catch (\Throwable $e) {
+            Log::error('Failed to update order streak', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+
+        try {
+            app(ReferralService::class)->handleCompletedOrder($order);
+        } catch (\Throwable $e) {
+            Log::error('Failed to process referral reward', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+
+        try {
+            if ($order->customer) {
+                MonthlyDrawEntered::dispatch($order->customer, $order);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to dispatch monthly draw entry', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Put the rewards-wallet entry this order consumed back to available.
+     * Only touches the entry if it is still linked to this order, so a
+     * restore can't revive a gift that has since been used elsewhere.
+     */
+    private function restoreWalletItem(Order $order): void
+    {
+        if (! $order->wallet_item_id) {
+            return;
+        }
+
+        try {
+            \App\Core\Models\CustomerRedeemWallet::query()
+                ->whereKey($order->wallet_item_id)
+                ->where('status', \App\Core\Models\CustomerRedeemWallet::STATUS_APPLIED)
+                ->where('used_order_id', $order->id)
+                ->update([
+                    'status'        => \App\Core\Models\CustomerRedeemWallet::STATUS_AVAILABLE,
+                    'used_order_id' => null,
+                    'used_at'       => null,
+                    'updated_at'    => now(),
+                ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to restore wallet item on cancelled order', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

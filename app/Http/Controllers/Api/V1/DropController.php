@@ -35,6 +35,9 @@ class DropController extends Controller
         }
 
         $drop->load(['creator', 'product']);
+        if ($drop->product && ! $drop->product->isVisibleOnPlatform()) {
+            return apiError('NOT_LIVE', 'This drop is not currently active.', 404);
+        }
         return apiSuccess(['drop' => $this->formatDrop($drop)]);
     }
 

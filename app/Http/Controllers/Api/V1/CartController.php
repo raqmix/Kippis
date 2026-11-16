@@ -8,6 +8,7 @@ use App\Core\Repositories\PromoCodeRepository;
 use App\Core\Models\Store;
 use App\Services\MixPriceCalculator;
 use App\Services\CartService;
+use App\Exceptions\AppOnlyProductException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\AddProductToCartRequest;
 use App\Http\Requests\Api\V1\AddMixToCartRequest;
@@ -436,7 +437,7 @@ class CartController extends Controller
 
         try {
             if ($itemType === 'product') {
-                $product = $this->productRepository->findById($validated['product_id']);
+                $product = $this->productRepository->findById($validated['product_id'], true);
                 if (!$product || !$product->is_active) {
                     return apiError('PRODUCT_INACTIVE', 'product_inactive', 400);
                 }
@@ -477,6 +478,8 @@ class CartController extends Controller
                 'item_added',
                 201
             );
+        } catch (AppOnlyProductException $e) {
+            return apiError('APP_ONLY_PRODUCT', 'app_only_product', 422);
         } catch (\InvalidArgumentException $e) {
             return apiError('INVALID_CONFIGURATION', $e->getMessage(), 400);
         } catch (\Exception $e) {
@@ -641,6 +644,10 @@ class CartController extends Controller
         }
         if (! $wallet->isUsable()) {
             return apiError('WALLET_ITEM_UNUSABLE', 'wallet_item_already_used_or_expired', 422);
+        }
+        if (! $wallet->isUsableInApp()) {
+            // Counter gifts are redeemed by the cashier scanning the code.
+            return apiError('WALLET_ITEM_COUNTER_ONLY', 'wallet_item_counter_only', 422);
         }
 
         $this->cartRepository->applyWalletItem($cart, $wallet);

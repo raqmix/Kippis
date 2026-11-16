@@ -65,11 +65,17 @@ class RedeemService
                 );
 
                 $ttl = $item->wallet_ttl_days
-                    ?? (int) Setting::get('loyalty.wallet_item_ttl_days', 0);
+                    ?? (int) Setting::get('loyalty.wallet_item_ttl_days', 30);
 
                 return CustomerRedeemWallet::create([
                     'customer_id'         => $customer->id,
                     'redeem_item_id'      => $item->id,
+                    'source'              => CustomerRedeemWallet::SOURCE_REDEEM,
+                    // A redeem item without a linked product can't be
+                    // priced in the cart, so it is a counter gift.
+                    'reward_type'         => $item->product_id
+                        ? CustomerRedeemWallet::TYPE_PRODUCT
+                        : CustomerRedeemWallet::TYPE_COUNTER,
                     'points_spent'        => $item->points_cost,
                     'status'              => CustomerRedeemWallet::STATUS_AVAILABLE,
                     'expires_at'          => $ttl > 0 ? now()->addDays($ttl) : null,
@@ -153,7 +159,7 @@ class RedeemService
      * Expire stale wallet items. Cheap to run inline on each fetch —
      * upper-bound is the customer's claim history, not the global table.
      */
-    private function sweepExpired(Customer $customer): void
+    public function sweepExpired(Customer $customer): void
     {
         CustomerRedeemWallet::query()
             ->where('customer_id', $customer->id)
