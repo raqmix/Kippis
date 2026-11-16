@@ -74,6 +74,12 @@ class PromoCode extends Model
         'visible_to_customer',
     ];
 
+    /** Empty minimum means "no minimum"; the column is NOT NULL. */
+    public function setMinimumOrderAmountAttribute($value): void
+    {
+        $this->attributes['minimum_order_amount'] = ($value === null || $value === '') ? 0 : $value;
+    }
+
     protected function casts(): array
     {
         return [
