@@ -183,6 +183,10 @@ class ProductResource extends Resource
                             ->label(__('system.is_active'))
                             ->default(true)
                             ->required(),
+                        Forms\Components\Toggle::make('app_only')
+                            ->label('App only (secret menu)')
+                            ->default(false)
+                            ->helperText('Only shown and orderable in the mobile app. Hidden on the web, kiosk and every other channel.'),
                         Forms\Components\Select::make('stores')
                             ->label('Available at')
                             ->multiple()
@@ -285,6 +289,15 @@ class ProductResource extends Resource
                     ->label(__('system.is_active'))
                     ->boolean()
                     ->sortable(),
+                Tables\Columns\IconColumn::make('app_only')
+                    ->label('Secret menu')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-eye-slash')
+                    ->falseIcon('heroicon-o-minus')
+                    ->falseColor('gray')
+                    ->trueColor('warning')
+                    ->tooltip(fn ($record) => $record->app_only ? 'App only (secret menu)' : null)
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status_badge')
                     ->label('Status')
                     ->badge()
@@ -333,6 +346,11 @@ class ProductResource extends Resource
                     ->placeholder(__('system.all'))
                     ->trueLabel(__('system.active'))
                     ->falseLabel(__('system.inactive')),
+                Tables\Filters\TernaryFilter::make('app_only')
+                    ->label('App only (secret menu)')
+                    ->placeholder('All')
+                    ->trueLabel('App only')
+                    ->falseLabel('Everywhere'),
                 Tables\Filters\TernaryFilter::make('is_draft')
                     ->label('Draft')
                     ->placeholder('All')

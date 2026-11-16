@@ -85,6 +85,11 @@ class RedeemController extends Controller
                 'points_spent'   => $w->points_spent,
                 'expires_at'     => optional($w->expires_at)->toIso8601String(),
                 'created_at'     => $w->created_at->toIso8601String(),
+                // Additive (rewards wallet): older apps ignore these.
+                'source'         => $w->source,
+                'reward_type'    => $w->reward_type,
+                'code'           => $w->code,
+                'usable_in_app'  => $w->isUsableInApp(),
             ])->values(),
         ]);
     }

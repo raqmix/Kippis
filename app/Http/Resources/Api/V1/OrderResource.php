@@ -29,6 +29,12 @@ class OrderResource extends JsonResource
             'total' => (float) $this->total,
             'subtotal' => (float) $this->subtotal,
             'discount' => (float) $this->discount,
+            // App brief (additive): where the order came from and which
+            // discount won. `discount` above still includes app_discount.
+            'platform' => $this->platform,
+            'app_discount' => (float) ($this->app_discount ?? 0),
+            'discount_source' => $this->discount_source,
+            'wallet_discount' => (float) ($this->wallet_discount ?? 0),
             'payment_method' => $this->payment_method, // Keep for backward compatibility
             'payment_method_id' => $this->payment_method_id,
             'payment_method_details' => $this->when($this->relationLoaded('paymentMethod') && $this->paymentMethod, function () {

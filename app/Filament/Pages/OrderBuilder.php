@@ -296,6 +296,7 @@ class OrderBuilder extends Page
             'pickup_code'        => $this->generatePickupCode(),
             'items_snapshot'     => $items,
             'modifiers_snapshot' => [],
+            'platform'           => \App\Support\ClientPlatform::COUNTER,
         ]);
 
         Notification::make()

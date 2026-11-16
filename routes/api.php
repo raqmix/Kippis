@@ -39,6 +39,7 @@ Route::middleware('api.locale')->group(function () {
             Route::patch('/me', [CustomerAuthController::class, 'update']);
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
             Route::post('/refresh-token', [CustomerAuthController::class, 'refreshToken']);
+            Route::post('/me/partner-code', [CustomerAuthController::class, 'setPartnerCode']);
             Route::post('/fcm-token', [CustomerAuthController::class, 'registerFcmToken']);
             Route::patch('/me/push-preferences', [CustomerAuthController::class, 'updatePushPreferences']);
             Route::delete('/account', [CustomerAuthController::class, 'deleteAccount']);
@@ -49,6 +50,11 @@ Route::middleware('api.locale')->group(function () {
             Route::post('/link-social', [CustomerAuthController::class, 'linkSocial']);
         });
     });
+
+    // ==================== APP CONFIG (public) ====================
+    // Small bag of switches the mobile app reads on launch (app offer
+    // banner; order streak is added later).
+    Route::get('v1/app-config', [\App\Http\Controllers\Api\V1\AppConfigController::class, 'show']);
 
     // ==================== STORES APIs ====================
     Route::prefix('v1/stores')->group(function () {
@@ -176,6 +182,11 @@ Route::middleware('api.locale')->group(function () {
         Route::get('/redeem-items',           [\App\Http\Controllers\Api\V1\RedeemController::class, 'items']);
         Route::post('/redeem-items/claim',    [\App\Http\Controllers\Api\V1\RedeemController::class, 'claim']);
         Route::get('/wallet-items',           [\App\Http\Controllers\Api\V1\RedeemController::class, 'wallet']);
+    });
+
+    // ==================== REWARDS WALLET ====================
+    Route::middleware('auth:api')->prefix('v1/rewards')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\RewardsController::class, 'index']);
     });
 
     // ==================== QR CODES APIs ====================
@@ -343,6 +354,9 @@ Route::middleware('api.locale')->group(function () {
         Route::delete('/squad/{session}/items/{item}',          [\App\Http\Controllers\Api\V1\SquadItemController::class, 'destroy']);
         Route::get('/squad/{session}/cart',                     [\App\Http\Controllers\Api\V1\SquadCartController::class, 'show']);
     });
+
+    // Order streak (app orders on consecutive days; separate from check-in)
+    Route::middleware('auth:api')->get('v1/order-streak', [\App\Http\Controllers\Api\V1\OrderStreakController::class, 'show']);
 
     // Daily Check-In Rewards
     Route::middleware('auth:api')->prefix('v1/check-in')->group(function () {

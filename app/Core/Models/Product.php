@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use App\Support\ClientPlatform;
 use Database\Factories\ProductFactory;
 
 class Product extends Model
@@ -41,6 +42,7 @@ class Product extends Model
         'caffeine_mg',
         'caffeine_level',
         'locally_overridden_fields',
+        'app_only',
     ];
 
     protected function casts(): array
@@ -52,6 +54,7 @@ class Product extends Model
             'base_price'      => 'decimal:2',
             'is_active'       => 'boolean',
             'is_draft'        => 'boolean',
+            'app_only'        => 'boolean',
             'last_synced_at'  => 'datetime',
             'deleted_at'      => 'datetime',
             'locally_overridden_fields' => 'array',
@@ -158,6 +161,32 @@ class Product extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true)->where('is_draft', false);
+    }
+
+    /**
+     * Scope: products the given client platform may see. App-only
+     * ("secret menu") products are visible on mobile only; web, kiosk,
+     * unknown clients never see them. $platform defaults to the platform
+     * of the current HTTP request; outside a request (console, jobs) no
+     * restriction applies.
+     */
+    public function scopeVisibleOnPlatform($query, ?string $platform = null)
+    {
+        $platform ??= ClientPlatform::current();
+
+        if ($platform === null || $platform === ClientPlatform::MOBILE) {
+            return $query;
+        }
+
+        return $query->where($query->getModel()->qualifyColumn('app_only'), false);
+    }
+
+    /** Instance counterpart of scopeVisibleOnPlatform(). */
+    public function isVisibleOnPlatform(?string $platform = null): bool
+    {
+        $platform ??= ClientPlatform::current();
+
+        return ! $this->app_only || $platform === null || $platform === ClientPlatform::MOBILE;
     }
 
     /**

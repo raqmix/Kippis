@@ -200,7 +200,10 @@ class PromoCodeResource extends Resource
                             ->numeric()
                             ->prefix('EGP')
                             ->default(0)
-                            ->step(0.01),
+                            ->minValue(0)
+                            ->step(0.01)
+                            // Column is NOT NULL: a cleared field means "no minimum".
+                            ->dehydrateStateUsing(fn ($state) => filled($state) ? $state : 0),
                     ])
                     ->columns(2)
                     ->collapsible(),

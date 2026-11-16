@@ -18,7 +18,8 @@ class ProductRepository
         // straight into the drink-details screen (no extra fetch), so a
         // sparse list response would leave the detail screen with no
         // size/extra/customize/foodics modifiers.
-        $query = Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions']);
+        $query = Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions'])
+            ->visibleOnPlatform();
 
         // Filter by is_active (default to active only if not specified)
         if (isset($filters['is_active'])) {
@@ -115,7 +116,7 @@ class ProductRepository
      */
     public function getAllActive(array $filters = []): Collection
     {
-        $query = Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions'])->active();
+        $query = Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions'])->active()->visibleOnPlatform();
 
         // Exclude mix bases from regular product listings unless explicitly requested
         if (!isset($filters['include_bases']) || $filters['include_bases'] !== true) {
@@ -147,9 +148,14 @@ class ProductRepository
     /**
      * Find product by ID.
      */
-    public function findById(int $id): ?Product
+    public function findById(int $id, bool $ignorePlatform = false): ?Product
     {
-        return Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions'])->active()->find($id);
+        $query = Product::with(['category', 'addonModifiers', 'foodicsModifiers.activeOptions'])->active();
+        if (! $ignorePlatform) {
+            $query->visibleOnPlatform();
+        }
+
+        return $query->find($id);
     }
 
     /**

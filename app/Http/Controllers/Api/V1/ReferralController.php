@@ -29,13 +29,19 @@ class ReferralController extends Controller
         $customer = auth('api')->user();
 
         try {
-            $this->service->applyReferralCode($customer, $data['code']);
+            $referral = $this->service->applyReferralCode($customer, $data['code']);
         } catch (\RuntimeException $e) {
             return apiError('REFERRAL_DISABLED', $e->getMessage(), 403);
         } catch (\DomainException $e) {
             return apiError('REFERRAL_ERROR', $e->getMessage(), 422);
         }
 
-        return apiSuccess(['message' => 'Referral applied. Points have been awarded.']);
+        // Old app versions read only `message`; it keeps its meaning in points mode.
+        return apiSuccess([
+            'message'     => $referral->status === 'converted'
+                ? 'Referral applied. Points have been awarded.'
+                : 'Referral applied. You both get a free coffee after your first order in the app.',
+            'reward_type' => $this->service->rewardType(),
+        ]);
     }
 }

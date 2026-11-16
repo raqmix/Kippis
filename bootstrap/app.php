@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->api(append: [
             \App\Http\Middleware\AuthRateLimit::class,
+            \App\Http\Middleware\ResolveClientPlatform::class,
         ]);
 
         // Global security headers

@@ -86,8 +86,16 @@ class KioskReorderController extends Controller
         }
 
         // Return items from the original order for the kiosk to load into cart
+        // Drop secret-menu (app-only) products: the kiosk can't sell them.
+        $items = collect($order->items_snapshot ?? []);
+        $productIds = $items->pluck('product_id')->filter()->unique()->all();
+        $appOnlyIds = $productIds
+            ? \App\Core\Models\Product::whereIn('id', $productIds)->where('app_only', true)->pluck('id')->all()
+            : [];
+        $items = $items->reject(fn ($i) => in_array($i['product_id'] ?? null, $appOnlyIds, true))->values()->all();
+
         return apiSuccess([
-            'items' => $order->items_snapshot ?? [],
+            'items' => $items,
             'message' => 'Items ready to add to cart.',
         ]);
     }

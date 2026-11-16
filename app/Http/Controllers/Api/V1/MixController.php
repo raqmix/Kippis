@@ -74,6 +74,7 @@ class MixController extends Controller
         // Get base products query
         $basesQuery = Product::with('category')
             ->active()
+            ->visibleOnPlatform()
             ->mixBases();
 
         // Filter by builder if provided

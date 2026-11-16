@@ -21,6 +21,10 @@ class CustomerResource extends JsonResource
             'phone' => $this->phone,
             'country_code' => $this->country_code,
             'birthdate' => $this->birthdate?->format('Y-m-d'),
+            'birthdate_locked' => $this->birthdate !== null,
+            'partner_code' => $this->partner_code_id && $this->partnerCode
+                ? ['code' => $this->partnerCode->code, 'name' => $this->partnerCode->name]
+                : null,
             'avatar' => $this->avatar ? asset('storage/' . $this->avatar) : null,
             'foodics_customer_id' => $this->foodics_customer_id,
             'is_verified' => $this->is_verified,
