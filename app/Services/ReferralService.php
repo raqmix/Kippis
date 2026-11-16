@@ -146,20 +146,6 @@ class ReferralService
             throw new \DomainException('You cannot use your own referral code.');
         }
 
-        if (Referral::where('invitee_id', $invitee->id)->exists()) {
-            throw new \DomainException('A referral code has already been applied to this account.');
-        }
-
-        $monthCap = (int) Setting::get('referral.monthly_cap', 5);
-        $friendsThisMonth = Referral::where('inviter_id', $inviter->id)
-            ->whereNotNull('invitee_id')
-            ->whereBetween('registered_at', [now()->startOfMonth(), now()->endOfMonth()])
-            ->count();
-
-        if ($friendsThisMonth >= $monthCap) {
-            throw new \DomainException('This referral code has reached its monthly limit.');
-        }
-
         $pointsMode = $this->rewardType() === self::MODE_POINTS;
         $inviterPoints = $pointsMode ? (int) Setting::get('referral.inviter_points', 30) : 0;
         $inviteePoints = $pointsMode ? (int) Setting::get('referral.invitee_points', 30) : 0;
@@ -175,7 +161,29 @@ class ReferralService
             'invitee_points' => $inviteePoints,
         ];
 
-        $referral = DB::transaction(function () use ($inviter, $code, $attributes) {
+        $referral = DB::transaction(function () use ($inviter, $invitee, $code, $attributes) {
+            // Serialise concurrent applies: lock the invitee row (one code
+            // per account) and the inviter row (monthly cap) before the
+            // checks. Locked in id order so two customers referring each
+            // other cannot deadlock.
+            foreach (collect([$inviter->id, $invitee->id])->sort()->values() as $id) {
+                Customer::query()->whereKey($id)->lockForUpdate()->value('id');
+            }
+
+            if (Referral::where('invitee_id', $invitee->id)->exists()) {
+                throw new \DomainException('A referral code has already been applied to this account.');
+            }
+
+            $monthCap = (int) Setting::get('referral.monthly_cap', 5);
+            $friendsThisMonth = Referral::where('inviter_id', $inviter->id)
+                ->whereNotNull('invitee_id')
+                ->whereBetween('registered_at', [now()->startOfMonth(), now()->endOfMonth()])
+                ->count();
+
+            if ($friendsThisMonth >= $monthCap) {
+                throw new \DomainException('This referral code has reached its monthly limit.');
+            }
+
             // A legacy open row with this exact code becomes this invitee's row.
             $open = Referral::where('inviter_id', $inviter->id)
                 ->where('referral_code', $code)
