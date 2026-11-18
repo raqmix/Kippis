@@ -66,6 +66,18 @@ class FoodicsRateLimiter
     }
 
     /**
+     * Non-blocking variant of acquire(): consume one unit of budget if any
+     * remains this window, otherwise return false immediately.
+     *
+     * For callers that cannot afford to wait (the kiosk's synchronous push
+     * inside an HTTP request): they hand the work to the queue instead.
+     */
+    public function tryAcquire(): bool
+    {
+        return $this->tryConsume();
+    }
+
+    /**
      * Consume one unit of budget if any remains.
      *
      * Cache::increment() on an existing key is atomic, but creating the

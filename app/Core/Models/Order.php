@@ -34,6 +34,7 @@ class Order extends Model
         'payment_method_id',
         'pos_code',
         'pickup_code',
+        'idempotency_key',
         'items_snapshot',
         'modifiers_snapshot',
         'promo_code_id',

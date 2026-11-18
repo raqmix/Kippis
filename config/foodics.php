@@ -34,6 +34,11 @@ return [
 
     'timeout' => env('FOODICS_TIMEOUT', 30),
 
+    // Total time budget (seconds) for the synchronous Foodics push inside
+    // kiosk checkout. The kiosk gives up on the request after 30s, so this
+    // stays well below that; anything slower falls back to the queued push.
+    'kiosk_inline_timeout' => env('FOODICS_KIOSK_INLINE_TIMEOUT', 8),
+
     'retry' => [
         'max_attempts' => env('FOODICS_RETRY_MAX_ATTEMPTS', 3),
         'delay_seconds' => env('FOODICS_RETRY_DELAY_SECONDS', 2),

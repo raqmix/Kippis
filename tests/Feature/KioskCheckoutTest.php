@@ -177,7 +177,11 @@ class KioskCheckoutTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
     }
 
-    public function test_cash_payment_requires_pos_code(): void
+    /**
+     * pos_code is optional on purpose (a00d427): the kiosk now pushes cash
+     * orders straight to Foodics, so the counter-code handoff is legacy.
+     */
+    public function test_cash_payment_does_not_require_pos_code(): void
     {
         $this->paymentMethods();
         $store = $this->kioskStore();
@@ -194,7 +198,24 @@ class KioskCheckoutTest extends TestCase
                 ]],
             ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(201);
+        $order = Order::find($response->json('data.order_id'));
+        $this->assertNull($order->pos_code);
+        $this->assertSame('received', $order->status);
+
+        // A malformed code is still rejected when one is sent.
+        $this->withHeaders($this->headers($store))
+            ->postJson('/api/v1/kiosk/orders/checkout', [
+                'payment_method' => 'cash',
+                'pos_code' => '12a',
+                'items' => [[
+                    'product_id' => $product->id,
+                    'item_type' => 'product',
+                    'name' => 'Drink',
+                    'quantity' => 1,
+                ]],
+            ])
+            ->assertStatus(422);
     }
 
     public function test_checkout_requires_auth_headers(): void

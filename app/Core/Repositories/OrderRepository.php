@@ -9,6 +9,7 @@ use App\Core\Models\Product;
 use App\Core\Models\PromoCode;
 use App\Core\Models\PromoCodeUsage;
 use App\Events\OrderCreated;
+use App\Exceptions\AppOnlyProductException;
 use App\Services\MixPriceCalculator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -236,6 +237,9 @@ class OrderRepository
      * @param string $paymentMethodCode Payment method code (cash, card, online)
      * @param string|null $promoCode Optional promo code to apply
      * @param string|null $posCode Optional 4-digit POS code for cash payments
+     * @param string|null $idempotencyKey Kiosk Idempotency-Key header. Unique per
+     *        store (DB index), so a concurrent duplicate fails the insert with
+     *        UniqueConstraintViolationException and rolls back cleanly.
      * @return Order
      */
     public function createFromItems(
@@ -243,7 +247,8 @@ class OrderRepository
         array $items,
         string $paymentMethodCode,
         ?string $promoCode = null,
-        ?string $posCode = null
+        ?string $posCode = null,
+        ?string $idempotencyKey = null
     ): Order {
         $paymentMethod = PaymentMethod::where('code', $paymentMethodCode)->first();
         if (!$paymentMethod) {
@@ -308,7 +313,8 @@ class OrderRepository
             $pickupCode,
             $snapshotItems,
             $items,
-            $promoCodeModel
+            $promoCodeModel,
+            $idempotencyKey
         ) {
             $order = Order::create([
                 'store_id' => $storeId,
@@ -321,6 +327,7 @@ class OrderRepository
                 'payment_method_id' => $paymentMethod->id,
                 'pos_code' => $posCode, // 4-digit code for cash POS processing
                 'pickup_code' => $pickupCode,
+                'idempotency_key' => $idempotencyKey,
                 'items_snapshot' => $snapshotItems,
                 'modifiers_snapshot' => array_map(function ($item) {
                     return $item['modifiers'] ?? null;
@@ -362,6 +369,14 @@ class OrderRepository
             $product = isset($item['product_id']) ? Product::find($item['product_id']) : null;
             if (!$product || !$product->is_active) {
                 throw new \InvalidArgumentException('Product not found or inactive.');
+            }
+
+            // Kiosk-only path: secret-menu (app-only) products can't be sold
+            // here, same rule as the kiosk cart. The kiosk caches its catalog,
+            // so a product switched to app-only after the last refresh can
+            // still arrive in a checkout.
+            if (!$product->isVisibleOnPlatform(\App\Support\ClientPlatform::KIOSK)) {
+                throw new AppOnlyProductException();
             }
 
             $addons = $config['addons'] ?? $item['modifiers'] ?? [];
