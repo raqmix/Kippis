@@ -31,10 +31,43 @@ class FoodicsClient
      */
     private const MAX_RETRY_AFTER_WAIT = 20;
 
+    /**
+     * Fail-fast mode (see withDeadline()): a microtime() after which no new
+     * request may start. Null means the normal, patient behaviour.
+     */
+    private ?float $deadline = null;
+
     public function __construct(
         private FoodicsAuthService $authService,
         private FoodicsRateLimiter $rateLimiter,
     ) {
+    }
+
+    /**
+     * A copy of this client for callers that must answer within a fixed
+     * budget, i.e. a push made inside an HTTP request (kiosk checkout).
+     *
+     * In this mode the client never sleeps: it does not wait on the shared
+     * rate limiter (no budget left = FoodicsRateLimitException at once), it
+     * does not retry 429 or 503, and every HTTP call's timeout is clipped to
+     * what is left of the budget. Once the budget is spent it throws
+     * FoodicsTimeoutException without making the call. The caller is
+     * expected to hand the work to the queue, which has the patient path.
+     *
+     * The shared instance is untouched, so queued/background callers keep
+     * waiting and retrying exactly as before.
+     */
+    public function withDeadline(float $budgetSeconds): static
+    {
+        $clone = clone $this;
+        $clone->deadline = microtime(true) + max(0.0, $budgetSeconds);
+
+        return $clone;
+    }
+
+    private function failFast(): bool
+    {
+        return $this->deadline !== null;
     }
 
     /**
@@ -82,7 +115,16 @@ class FoodicsClient
                 'has_body' => $body !== null,
             ]);
 
-            $http = Http::timeout(config('foodics.timeout', 30))
+            $timeout = config('foodics.timeout', 30);
+            if ($this->failFast()) {
+                $remaining = $this->deadline - microtime(true);
+                if ($remaining <= 0.05) {
+                    throw new FoodicsTimeoutException('Inline Foodics budget exhausted before ' . $method . ' ' . $endpoint);
+                }
+                $timeout = min((float) $timeout, $remaining);
+            }
+
+            $http = Http::timeout($timeout)
                 ->withHeaders([
                     'Authorization' => "Bearer {$token}",
                     'Accept' => 'application/json',
@@ -91,7 +133,15 @@ class FoodicsClient
             // Spend from the shared per-minute budget before going out. This
             // is what actually keeps us under Foodics' limit; the 429 branch
             // below is the fallback for when our count and theirs disagree.
-            $this->rateLimiter->acquire($method . ' ' . $endpoint);
+            // In fail-fast mode we take budget only if it is there right now;
+            // waiting up to a minute for the next window is the queue's job.
+            if ($this->failFast()) {
+                if (! $this->rateLimiter->tryAcquire()) {
+                    throw new FoodicsRateLimitException('Local Foodics budget exhausted; not waiting in fail-fast mode');
+                }
+            } else {
+                $this->rateLimiter->acquire($method . ' ' . $endpoint);
+            }
 
             $response = match (strtoupper($method)) {
                 'GET' => $http->get($url, $query),
@@ -160,7 +210,7 @@ class FoodicsClient
                     ? $retryAfter
                     : config('foodics.retry.delay_seconds', self::RETRY_DELAY) * ($retryCount + 1);
 
-                if ($retryCount < $maxRetries && $waitFor <= self::MAX_RETRY_AFTER_WAIT) {
+                if (! $this->failFast() && $retryCount < $maxRetries && $waitFor <= self::MAX_RETRY_AFTER_WAIT) {
                     sleep($waitFor);
                     return $this->request($method, $endpoint, $body, $queryParams, $mode, $retryCount + 1);
                 }
@@ -179,7 +229,7 @@ class FoodicsClient
                 $maxRetries = config('foodics.retry.max_attempts', self::MAX_RETRIES);
                 $retryDelay = config('foodics.retry.delay_seconds', self::RETRY_DELAY);
 
-                if ($retryCount < $maxRetries) {
+                if (! $this->failFast() && $retryCount < $maxRetries) {
                     sleep($retryDelay * ($retryCount + 1));
                     return $this->request($method, $endpoint, $body, $queryParams, $mode, $retryCount + 1);
                 }

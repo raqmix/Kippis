@@ -188,6 +188,22 @@ class SecretMenuTest extends TestCase
         $this->assertSame(422, $res->status());
     }
 
+    public function test_kiosk_checkout_rejects_secret_product(): void
+    {
+        \App\Core\Models\PaymentMethod::create(['name' => 'Card', 'code' => 'card', 'is_active' => true]);
+        $checkout = fn (Product $product) => $this->withHeaders($this->kioskHeaders() + self::MOBILE)
+            ->postJson('/api/v1/kiosk/orders/checkout', [
+                'payment_method' => 'card',
+                'items' => [['product_id' => $product->id, 'item_type' => 'product', 'name' => 'Latte', 'quantity' => 1]],
+            ]);
+
+        // Catalog cached before the product went app-only: checkout still refuses it.
+        $checkout($this->secret)->assertStatus(422)->assertJsonPath('error.code', 'APP_ONLY_PRODUCT');
+        $this->assertSame(0, Order::count());
+
+        $checkout($this->normal)->assertStatus(201);
+    }
+
     public function test_squad_add_rejects_secret_item_off_app(): void
     {
         $host = Customer::factory()->create();
