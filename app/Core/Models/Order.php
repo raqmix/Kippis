@@ -50,6 +50,7 @@ class Order extends Model
         // App-only discount (see Cart::recalculate()).
         'platform',
         'app_discount',
+        'cup_card_discount',
         'discount_source',
         'app_offer_snapshot',
         'refund_status',
@@ -74,6 +75,7 @@ class Order extends Model
             'points_used' => 'integer',
             'points_discount' => 'decimal:2',
             'app_discount' => 'decimal:2',
+            'cup_card_discount' => 'decimal:2',
             'applied_promotions_snapshot' => 'array',
             'app_offer_snapshot' => 'array',
             'items_snapshot' => 'array',

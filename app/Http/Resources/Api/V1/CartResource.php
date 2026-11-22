@@ -50,10 +50,12 @@ class CartResource extends JsonResource
             'original_total' => (float) $this->subtotal,
             'platform' => $this->platform,
             'app_discount' => (float) $this->app_discount,
+            'cup_card_discount' => (float) $this->cup_card_discount,
             'app_discount_percent' => $this->appDiscountPercent(),
             'promo_discount' => (float) $this->promo_discount,
             'discount_source' => $this->discount_source,
             'app_offer' => $this->appOfferBlock(),
+            'app_offer_snapshot' => $this->app_offer_snapshot ?: null,
         ];
     }
 

@@ -30,6 +30,53 @@ class RewardValueCalculator
         };
     }
 
+    /**
+     * Id of the cart line whose one unit the gift covers (the card cup must
+     * be a different unit), or null when the gift is not tied to a line.
+     */
+    public function coveredItemId(CustomerRedeemWallet $entry, Cart $cart): ?int
+    {
+        if (! $entry->isUsable()) {
+            return null;
+        }
+
+        $config = $entry->reward_config ?? [];
+        $type = $entry->reward_type ?? CustomerRedeemWallet::TYPE_PRODUCT;
+
+        if ($type === CustomerRedeemWallet::TYPE_PRODUCT) {
+            $productId = (int) ($entry->redeemItem?->product_id ?? ($config['product_id'] ?? 0));
+
+            return $productId
+                ? ($cart->items->first(fn ($i) => (int) $i->product_id === $productId && (int) $i->quantity >= 1)?->id)
+                : null;
+        }
+        if ($type !== CustomerRedeemWallet::TYPE_FREE_ITEM) {
+            return null;
+        }
+
+        $categoryIds = array_map('intval', (array) ($config['category_ids'] ?? []));
+        $productIds = array_map('intval', (array) ($config['product_ids'] ?? []));
+        $bestId = null;
+        $best = 0.0;
+        foreach ($cart->items as $item) {
+            $product = $item->product;
+            if (! $product || (int) $item->quantity < 1) {
+                continue;
+            }
+            if (! in_array((int) $product->category_id, $categoryIds, true)
+                && ! in_array((int) $product->id, $productIds, true)) {
+                continue;
+            }
+            $unit = (float) $item->price ?: (float) $product->base_price;
+            if ($unit > $best) {
+                $best = $unit;
+                $bestId = (int) $item->id;
+            }
+        }
+
+        return $bestId;
+    }
+
     private function productValue(CustomerRedeemWallet $entry): float
     {
         $product = $entry->redeemItem?->product;

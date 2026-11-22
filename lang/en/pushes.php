@@ -23,6 +23,15 @@ return [
         'title' => 'Happy birthday!',
         'body' => 'Happy birthday! Your drink is on us this week.',
     ],
+    'cup_card_stamped' => [
+        'title' => 'Cup card',
+        'body' => 'Your next coffee is :percent% off',
+        'body_free' => 'Your next coffee is free!',
+    ],
+    'cup_card_completed' => [
+        'title' => 'Cup card',
+        'body' => 'Card complete! A new card starts with your next coffee.',
+    ],
     'streak_almost' => [
         'title' => 'Keep your streak going',
         'body' => ':n days in a row! Order tomorrow for a free coffee.',

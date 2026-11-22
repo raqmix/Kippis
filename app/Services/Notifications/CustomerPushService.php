@@ -36,6 +36,8 @@ class CustomerPushService
         'enough_points_for_gift' => [self::MARKETING, 'loyalty'],
         'close_to_gift' => [self::MARKETING, 'loyalty'],
         'big_win_entry' => [self::MARKETING, 'loyalty'],
+        'cup_card_stamped' => [self::TRANSACTIONAL, 'loyalty'],
+        'cup_card_completed' => [self::TRANSACTIONAL, 'loyalty'],
         'streak_almost' => [self::MARKETING, 'streak'],
         'scheduled_push' => [self::MARKETING, null],
     ];

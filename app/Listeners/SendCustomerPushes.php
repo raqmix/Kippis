@@ -3,11 +3,14 @@
 namespace App\Listeners;
 
 use App\Events\BirthdayTreatIssued;
+use App\Events\CupCardCompleted;
+use App\Events\CupCardStamped;
 use App\Events\MonthlyDrawEntered;
 use App\Events\OrderStreakAlmostComplete;
 use App\Events\OrderStreakRewardIssued;
 use App\Events\ReferralRewardIssued;
 use App\Services\Notifications\CustomerPushService;
+use App\Services\Notifications\PushText;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
@@ -20,6 +23,38 @@ class SendCustomerPushes implements ShouldQueue
 {
     public function __construct(private readonly CustomerPushService $pushes)
     {
+    }
+
+    /** One push per order (dedup key). A 0% next step is just a stamp: nothing worth a push. */
+    public function handleCupCardStamped(CupCardStamped $event): void
+    {
+        $percent = (int) round($event->nextPercent);
+        if ($percent <= 0) {
+            return;
+        }
+
+        $this->pushes->sendText(
+            $event->customer,
+            'cup_card_stamped',
+            PushText::title('pushes.cup_card_stamped.title'),
+            $percent >= 100
+                ? PushText::body('pushes.cup_card_stamped.body_free')
+                : PushText::body('pushes.cup_card_stamped.body', ['percent' => $percent]),
+            ['stamps' => $event->stamps, 'next_percent' => $percent],
+            null,
+            'cup_card_stamped:' . ($event->orderId ?? $event->stamps . ':' . now()->timestamp),
+        );
+    }
+
+    public function handleCupCardCompleted(CupCardCompleted $event): void
+    {
+        $this->pushes->send(
+            $event->customer,
+            'cup_card_completed',
+            [],
+            [],
+            'cup_card_completed:' . ($event->orderId ?? now()->timestamp),
+        );
     }
 
     public function handleStreakAlmost(OrderStreakAlmostComplete $event): void
