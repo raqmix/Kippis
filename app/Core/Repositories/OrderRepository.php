@@ -62,13 +62,14 @@ class OrderRepository
             // promo / wallet rows so a dead code isn't counted and a
             // wallet item can't be spent twice.
             //
-            // cart.discount = wallet + app + promo + points. (Before the
+            // cart.discount = wallet + app + cup card + promo + points. (Before the
             // app brief, the order summed cart.discount + wallet + points,
             // double-counting wallet/points.)
             $promoCode = null;
             $promoCodeId = null;
             $promoDiscount = (float) $cart->promo_discount;
             $appDiscount = (float) $cart->app_discount;
+            $cupCardDiscount = (float) $cart->cup_card_discount;
             $discountSource = $cart->discount_source;
 
             if ($cart->promo_code_id && $discountSource === \App\Core\Models\Cart::DISCOUNT_SOURCE_PROMOTION) {
@@ -118,7 +119,7 @@ class OrderRepository
                 $pointsDiscount = 0.0;
             }
 
-            $allDiscounts = round($walletDiscount + $appDiscount + $promoDiscount + $pointsDiscount, 2);
+            $allDiscounts = round($walletDiscount + $appDiscount + $cupCardDiscount + $promoDiscount + $pointsDiscount, 2);
             $finalTotal = round(max(0, ((float) $cart->subtotal) - $allDiscounts), 2);
 
             $order = Order::create([
@@ -161,6 +162,7 @@ class OrderRepository
                 'applied_promotions_snapshot' => $cart->applied_promotions_snapshot ?? [],
                 'platform' => $cart->platform,
                 'app_discount' => $appDiscount,
+                'cup_card_discount' => $cupCardDiscount,
                 'discount_source' => $discountSource,
                 'app_offer_snapshot' => $cart->app_offer_snapshot,
             ]);

@@ -35,6 +35,7 @@ class Cart extends Model
         'applied_promotions_snapshot',
         'platform',
         'app_discount',
+        'cup_card_discount',
         'promo_discount',
         'discount_source',
         'app_offer_snapshot',
@@ -55,6 +56,7 @@ class Cart extends Model
             'total'           => 'decimal:2',
             'applied_promotions_snapshot' => 'array',
             'app_discount'    => 'decimal:2',
+            'cup_card_discount' => 'decimal:2',
             'promo_discount'  => 'decimal:2',
             'app_offer_snapshot' => 'array',
             'abandoned_at'    => 'datetime',
@@ -107,6 +109,8 @@ class Cart extends Model
      *      qualifying line, capped). Capped at the subtotal.
      *   2) app discount = app_offer.percent x (subtotal - gift), only for
      *      carts on an app platform (app_offer.platforms).
+     *      The cup card (KIP-36) adds a discount on ONE cup inside this
+     *      candidate (cup_card_discount, not part of app_discount).
      *   3) promotions (engine: auto-apply + explicit code), capped at
      *      subtotal - gift. Promotions do NOT combine with the app
      *      discount: the larger of the two wins (tie -> app discount) and
@@ -166,10 +170,18 @@ class Cart extends Model
         }
         $base = max(0.0, round($subtotal - $walletDiscount, 2));
 
-        // 2) App discount candidate.
+        // 2) App discount candidate = cup card on one cup + flat % on the
+        // rest. The card cup gets the higher of the card and the flat %
+        // (plan() only applies the card when it beats the flat %), so the
+        // flat % never stacks on it. See CupCardService.
         $appOffer = app(\App\Services\AppOffer\AppOffer::class);
         $appEligible = $appOffer->appliesTo($this->platform);
-        $appCandidate = $appEligible ? $appOffer->discountFor($base) : 0.0;
+        $cupPlan = app(\App\Services\CupCard\CupCardService::class)
+            ->plan($this, $base, $appEligible ? $appOffer->percent() : 0.0);
+        $cardCandidate = $cupPlan['discount'];
+        $flatBase = $cupPlan['applied'] ? max(0.0, round($base - $cupPlan['unit_price'], 2)) : $base;
+        $flatCandidate = $appEligible ? $appOffer->discountFor($flatBase) : 0.0;
+        $appCandidate = round($cardCandidate + $flatCandidate, 2);
 
         // 3) Promotions candidate. The engine reads cart.promo_code_id
         // internally for the explicit code, so we don't pass it twice.
@@ -182,13 +194,15 @@ class Cart extends Model
         $promoCandidate = round((float) min($evaluation->totalDiscount, $base), 2);
 
         $appDiscount = 0.0;
+        $cupCardDiscount = 0.0;
         $promoDiscount = 0.0;
         $source = null;
         $appliedSnapshot = [];
         $suppressed = [];
-        if ($appEligible && $appCandidate > 0 && $appCandidate >= $promoCandidate) {
+        if (($appEligible || $cupPlan['applied']) && $appCandidate > 0 && $appCandidate >= $promoCandidate) {
             $source = self::DISCOUNT_SOURCE_APP_OFFER;
-            $appDiscount = $appCandidate;
+            $appDiscount = $flatCandidate;
+            $cupCardDiscount = $cardCandidate;
             $suppressed = $evaluation->snapshot();
         } elseif ($promoCandidate > 0) {
             $source = self::DISCOUNT_SOURCE_PROMOTION;
@@ -196,7 +210,11 @@ class Cart extends Model
             $appliedSnapshot = $evaluation->snapshot();
         }
 
-        $remaining = max(0.0, $base - $appDiscount - $promoDiscount);
+        // The card is only used when the app offer won (a winning promotion drops it).
+        $cupPlan['applied'] = $cupCardDiscount > 0;
+        $cupPlan['discount'] = $cupCardDiscount;
+
+        $remaining = max(0.0, $base - $appDiscount - $cupCardDiscount - $promoDiscount);
 
         // 4) Raw points.
         $pointsDiscount = 0;
@@ -217,7 +235,7 @@ class Cart extends Model
             }
         }
 
-        $totalDiscount = round($walletDiscount + $appDiscount + $promoDiscount + $pointsDiscount, 2);
+        $totalDiscount = round($walletDiscount + $appDiscount + $cupCardDiscount + $promoDiscount + $pointsDiscount, 2);
 
         $this->update([
             'platform'        => $this->platform,
@@ -225,6 +243,7 @@ class Cart extends Model
             'discount'        => $totalDiscount,
             'wallet_discount' => $walletDiscount,
             'app_discount'    => $appDiscount,
+            'cup_card_discount' => $cupCardDiscount,
             'promo_discount'  => $promoDiscount,
             'discount_source' => $source,
             'points_discount' => $pointsDiscount,
@@ -233,10 +252,11 @@ class Cart extends Model
                 'eligible'       => $appEligible,
                 'percent'        => $appEligible ? $appOffer->percent() : 0,
                 'base'           => $base,
-                'app_discount'   => $appCandidate,
+                'app_discount'   => $flatCandidate,
                 'promo_discount' => $promoCandidate,
                 'winner'         => $source,
                 'suppressed_promotions' => $suppressed,
+                'cup_card'       => $cupPlan,
             ],
             // points_used is what the customer is actually charged: the
             // requested points, reduced when the discount was capped.

@@ -78,6 +78,8 @@ class Customer extends Authenticatable implements JWTSubject
             'lifetime_spent_piasters' => 'integer',
             'order_streak_count' => 'integer',
             'order_streak_last_date' => 'date',
+            'cup_card_stamps' => 'integer',
+            'cup_card_last_stamp_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

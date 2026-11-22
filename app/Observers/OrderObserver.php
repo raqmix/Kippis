@@ -33,6 +33,16 @@ class OrderObserver
             OrderStatusUpdated::dispatch($order, $oldStatus);
         }
 
+        // Completed -> cancelled: a stamped order takes its cup card step back.
+        if ($order->status === 'cancelled' && $oldStatus === 'completed') {
+            try {
+                app(\App\Services\CupCard\CupCardService::class)->reverseOrder($order);
+            } catch (\Throwable $e) {
+                Log::error('Failed to reverse cup card on cancelled order', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
+            return;
+        }
+
         // Cancelled before completion: give the gift back (single use
         // means "used on an order that went through").
         if ($order->status === 'cancelled' && $oldStatus !== 'cancelled' && $oldStatus !== 'completed') {
@@ -126,6 +136,12 @@ class OrderObserver
             app(OrderStreakService::class)->recordCompletedOrder($order);
         } catch (\Throwable $e) {
             Log::error('Failed to update order streak', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+
+        try {
+            app(\App\Services\CupCard\CupCardService::class)->recordCompletedOrder($order);
+        } catch (\Throwable $e) {
+            Log::error('Failed to update cup card', ['order_id' => $order->id, 'error' => $e->getMessage()]);
         }
 
         try {

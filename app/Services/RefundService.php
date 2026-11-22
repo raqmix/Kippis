@@ -176,6 +176,19 @@ class RefundService
                 'refunded_amount' => $newRefunded,
             ]);
 
+            if ($newStatus === 'full') {
+                // Fully refunded (one refund or partials adding up): the
+                // order no longer counts as a cup card stamp.
+                try {
+                    app(\App\Services\CupCard\CupCardService::class)->reverseOrder($order);
+                } catch (\Throwable $e) {
+                    Log::error('Failed to reverse cup card for refunded order', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             if ($type === 'full') {
                 $this->deductLoyaltyPoints($order);
                 // Reverse the completed-order spend from the customer's
